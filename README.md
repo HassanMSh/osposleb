@@ -20,6 +20,10 @@ Open Source Point of Sale is a web-based point of sale system. The application i
 
 The latest `3.4` version is a complete overhaul of the original software. It uses CodeIgniter 4 as a framework and is based on Bootstrap 3 using Bootswatch themes. Along with improved functionality and security.
 
+### Fork development
+
+This fork uses `develop` for project work and is based on the stable OSPOS `3.4.1` release. Phase branches are reviewed through pull requests into `develop`, and required checks must pass before merging. GitHub Actions currently validates Composer configuration and PHP coding standards on PHP 8.1 and 8.2. Application container builds remain disabled until application code changes need them. Automated code scanning is deferred until the production-hardening phase.
+
 The features include:
 
 - Stock management (items and kits with an extensible list of attributes)

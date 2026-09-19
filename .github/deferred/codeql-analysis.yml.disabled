@@ -1,0 +1,5 @@
+# Deferred until Phase 6 production hardening.
+#
+# The upstream workflow was removed from .github/workflows because it used
+# retired CodeQL actions and scanned JavaScript only. Create and validate a
+# current workflow for this fork when ADR 0009 defines the security checks.

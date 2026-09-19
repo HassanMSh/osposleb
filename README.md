@@ -22,7 +22,7 @@ The latest `3.4` version is a complete overhaul of the original software. It use
 
 ### Fork development
 
-This fork uses `develop` for project work and is based on the stable OSPOS `3.4.1` release. Phase branches are reviewed through pull requests into `develop`, and required checks must pass before merging. GitHub Actions currently validates Composer configuration and PHP coding standards on PHP 8.1 and 8.2. Application container builds remain disabled until application code changes need them. Automated code scanning is deferred until the production-hardening phase.
+This fork uses `develop` for project work and is based on the stable OSPOS `3.4.1` release. Phase branches are reviewed through pull requests into `develop`, and required checks must pass before merging. GitHub Actions currently checks PHP syntax on PHP 8.1 and 8.2, then validates Composer configuration and coding standards on PHP 8.2. Application container builds remain disabled until application code changes need them. Automated code scanning is deferred until the production-hardening phase.
 
 The features include:
 

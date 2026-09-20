@@ -1,5 +1,7 @@
 node_modules
 tmp
+.env
+docker/.env
 app/Config/Email.php
 *.patch
 patches/

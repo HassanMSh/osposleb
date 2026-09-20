@@ -54,7 +54,7 @@ return [
     "manager"                        => "",
     "migration_needed"               => "سيبدأ ترحيل قاعدة البيانات إلى {0} بعد تسجيل الدخول.",
     "new"                            => "جديد",
-    "no"                             => "",
+    "no"                             => "لا",
     "no_persons_to_display"          => "لا يوجد اناس لعرضهم.",
     "none_selected_text"             => "[إختيار]",
     "or"                             => "أو",
@@ -83,7 +83,7 @@ return [
     "website"                        => "الموقع الإلكترونى",
     "welcome"                        => "مرحباً",
     "welcome_message"                => "مرحباً فى OSPOS برجاء إختيار أى قسم للبدء.",
-    "yes"                            => "",
+    "yes"                            => "نعم",
     "you_are_using_ospos"            => "أنت تستخدم إصدار Open Source Point Of Sale",
     "zip"                            => "الرقم البريدى",
 ];

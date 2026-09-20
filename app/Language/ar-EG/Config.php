@@ -302,7 +302,7 @@ return [
     "suggestions_second_column"                 => "العامود 2",
     "suggestions_third_column"                  => "العامود 3",
     "system_conf"                               => "اعدادات اخرى",
-    "system_info"                               => "System Info",
+    "system_info"                               => "معلومات النظام",
     "table"                                     => "جدول",
     "table_configuration"                       => "اعدادات الجدول",
     "takings_printer"                           => "طابعة الإيراد",

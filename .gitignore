@@ -85,3 +85,8 @@ auth.json
 /app/Database/database.sql
 /writable/cache/settings
 /.env.bak
+
+# For me
+
+build/*
+docs/adr/*

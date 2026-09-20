@@ -32,12 +32,12 @@ final class FormatterSafetyTest extends CIUnitTestCase
 
         $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
         $ospos->settings = [
-            'currency_decimals' => '2',
-            'currency_symbol'   => '$',
-            'lbp_exchange_rate' => '89500',
-            'number_locale'     => 'en_US',
-            'tax_decimals'      => '2',
-            'tax_included'      => true,
+            'currency_decimals'   => '2',
+            'currency_symbol'     => '$',
+            'lbp_exchange_rate'   => '89500',
+            'number_locale'       => 'en_US',
+            'tax_decimals'        => '2',
+            'tax_included'        => true,
             'thousands_separator' => '1',
         ];
         Factories::injectMock('config', OSPOS::class, $ospos);
@@ -91,26 +91,26 @@ final class FormatterSafetyTest extends CIUnitTestCase
     public function testEmptyCompanyLogoDoesNotEmitAnImageTag(): void
     {
         $config = [
-            'company_logo'               => '',
-            'receipt_font_size'          => 12,
-            'receipt_show_company_name'  => false,
-            'receipt_show_description'   => true,
-            'receipt_show_serialnumber'  => true,
+            'company_logo'                => '',
+            'receipt_font_size'           => 12,
+            'receipt_show_company_name'   => false,
+            'receipt_show_description'    => true,
+            'receipt_show_serialnumber'   => true,
             'receipt_show_total_discount' => false,
             'receipt_show_taxes'          => false,
             'company'                     => 'Test shop',
             'address'                     => '',
             'phone'                       => '',
             'return_policy'               => '',
-            'lbp_exchange_rate'            => '89500',
+            'lbp_exchange_rate'           => '89500',
         ];
         $data = [
-            'transaction_time' => '2026-09-20 12:00:00',
-            'sale_id'          => 1,
-            'invoice_number'   => '',
-            'employee'         => 'Test employee',
-            'cart'             => [],
-            'discount'         => 0.0,
+            'transaction_time'     => '2026-09-20 12:00:00',
+            'sale_id'              => 1,
+            'invoice_number'       => '',
+            'employee'             => 'Test employee',
+            'cart'                 => [],
+            'discount'             => 0.0,
             'prediscount_subtotal' => 0.0,
             'subtotal'             => 0.0,
             'taxes'                => [],
@@ -133,8 +133,8 @@ final class FormatterSafetyTest extends CIUnitTestCase
      */
     public function testZeroPriceOverrideKeepsTheZeroDiscountRule(): void
     {
-        $saleLib = $this->makeSaleLibrary();
-        $itemId  = '1';
+        $saleLib  = $this->makeSaleLibrary();
+        $itemId   = '1';
         $discount = '5.00';
 
         $this->assertTrue($saleLib->add_item(
@@ -163,19 +163,19 @@ final class FormatterSafetyTest extends CIUnitTestCase
         $saleLib = (new ReflectionClass(Sale_lib::class))->newInstanceWithoutConstructor();
         $item    = $this->createMock(Item::class);
         $item->method('get_info_by_id_or_number')->willReturn((object) [
-            'item_id'            => 1,
-            'item_type'          => ITEM,
-            'stock_type'         => HAS_STOCK,
-            'unit_price'         => '0.00',
-            'cost_price'         => '0.00',
-            'is_serialized'      => false,
-            'name'               => 'Free item',
-            'item_number'        => 'FREE-1',
-            'description'        => null,
+            'item_id'               => 1,
+            'item_type'             => ITEM,
+            'stock_type'            => HAS_STOCK,
+            'unit_price'            => '0.00',
+            'cost_price'            => '0.00',
+            'is_serialized'         => false,
+            'name'                  => 'Free item',
+            'item_number'           => 'FREE-1',
+            'description'           => null,
             'allow_alt_description' => false,
-            'hsn_code'           => '',
-            'tax_category_id'   => null,
-            'pack_name'          => '',
+            'hsn_code'              => '',
+            'tax_category_id'       => null,
+            'pack_name'             => '',
         ]);
 
         $attributeLinks = $this->createMock(\CodeIgniter\Database\ResultInterface::class);

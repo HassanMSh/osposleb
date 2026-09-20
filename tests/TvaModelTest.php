@@ -331,7 +331,7 @@ final class TvaModelTest extends CIUnitTestCase
             }
         }
 
-        self::fail("Tax group {$taxGroup} was not found.");
+        $this->fail("Tax group {$taxGroup} was not found.");
     }
 
     /**

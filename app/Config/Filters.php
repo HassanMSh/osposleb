@@ -3,6 +3,7 @@
 namespace Config;
 
 use App\Filters\EnglishLoginFilter;
+use App\Filters\ShopLockdownFilter;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
 use CodeIgniter\Filters\CSRF;
@@ -36,6 +37,7 @@ class Filters extends BaseFilters
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
         'englishlogin'  => EnglishLoginFilter::class,
+        'shoplockdown'  => ShopLockdownFilter::class,
     ];
 
     /**
@@ -74,6 +76,7 @@ class Filters extends BaseFilters
             'honeypot',
             // 'csrf' => ['except' => 'login'],    // TODO: Temporarily disable CSRF until we get everything sorted
             'invalidchars',
+            'shoplockdown',
         ],
         'after' => [
             'toolbar',

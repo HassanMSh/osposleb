@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Employee;
+use Config\App;
 use Config\OSPOS;
 
 /**
@@ -261,45 +262,45 @@ function get_timeformats(): array
 }
 
 /**
- * Gets the payment options
+ * Returns the only payment option supported by the shop till.
  */
 function get_payment_options(): array
 {
-    $payments = [];
-    $config   = config(OSPOS::class)->settings;
+    return [lang('Sales.cash') => lang('Sales.cash')];
+}
 
-    // TODO: This needs to be switched to a switch statement
-    if ($config['payment_options_order'] === 'debitcreditcash') {    // TODO: ===
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-    } elseif ($config['payment_options_order'] === 'debitcashcredit') {    // TODO: ===
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
-    } elseif ($config['payment_options_order'] === 'creditdebitcash') {    // TODO: ===
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-    } elseif ($config['payment_options_order'] === 'creditcashdebit') {    // TODO: ===
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-    } else { // Default: if ($config['payment_options_order == 'cashdebitcredit')
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
+/**
+ * Returns every stored label that means cash, in all installed languages.
+ *
+ * Payment types are stored as translated labels, so a sale taken by an Arabic
+ * cashier is stored as the Arabic word. An English-speaking owner editing that
+ * sale posts the stored label back, which would not match the current locale.
+ *
+ * @param string $line Language line to resolve, 'Sales.cash' or 'Sales.cash_adjustment'.
+ *
+ * @return list<string> The distinct labels for that line across installed languages.
+ */
+function get_translated_payment_labels(string $line): array
+{
+    static $cache = [];
+
+    if (isset($cache[$line])) {
+        return $cache[$line];
     }
 
-    $payments[lang('Sales.due')]   = lang('Sales.due');
-    $payments[lang('Sales.check')] = lang('Sales.check');
+    $labels = [lang($line)];
 
-    // If India (list of country codes include India) then include Unified Payment Interface
-    if (stripos($config['country_codes'], 'IN') !== false) {
-        $payments[lang('Sales.upi')] = lang('Sales.upi');
+    foreach (config(App::class)->supportedLocales as $locale) {
+        $translated = lang($line, [], $locale);
+
+        if (is_string($translated) && $translated !== '' && $translated !== $line) {
+            $labels[] = $translated;
+        }
     }
 
-    return $payments;
+    $cache[$line] = array_values(array_unique($labels));
+
+    return $cache[$line];
 }
 
 /**

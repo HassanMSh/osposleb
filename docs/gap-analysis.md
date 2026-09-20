@@ -35,7 +35,7 @@ printer, scanner, or cash drawer.
 | Requirement | Disposition | Code and file evidence | Gap, risk, and phase routing | Acceptance checks |
 | --- | --- | --- | --- | --- |
 | Arabic locale can be selected system-wide and per employee | `native/configuration` | `app/Helpers/locale_helper.php` (`get_languages`, `current_language_code`); `app/Config/App.php` (`supportedLocales`); `app/Controllers/Employees.php` saves `language_code` and `language`; `app/Views/configs/locale_config.php` exposes the system selector | `ar-EG` and `ar-LB` are present. Selecting a locale is safe, but the deployment default and terminology remain a product choice. Phase 2 can use this without a schema change. | Change an operator and an employee between English and Arabic; log in again; confirm the selected language follows the employee and system fallback. |
-| Arabic coverage for operational screens | `small extension` | `app/Language/ar-EG/` and `app/Language/ar-LB/` contain the same main files as English, including `Login.php`, `Sales.php`, `Items.php`, `Receivings.php`, `Reports.php`, and `Config.php` | Measured against the 1543 English keys, `ar-LB` is 92.9 percent translated: 101 empty values, 7 values identical to English, and 1 missing key, so 109 keys need work. `ar-EG` is 90.0 percent translated with 155 keys needing work. Empty values fall back to English through `app/Libraries/MY_Language.php::getLine`. The remaining work concentrates in `Config.php` (26), `Sales.php` (25), `Common.php` (13), and `Cashups.php` (10). Phase 2, ADR 0003, must translate and review those keys and confirm Lebanese terminology across login, sales, items, inventory, customers, payments, returns, reports, errors, and printer-facing labels. | Compare English and Arabic keys; fail on missing or empty operational translations; manually review the listed screens and error/validation messages. |
+| Arabic coverage for operational screens | `small extension` | `app/Language/ar-EG/` and `app/Language/ar-LB/` contain the same main files as English, including `Login.php`, `Sales.php`, `Items.php`, `Receivings.php`, `Reports.php`, and `Config.php` | Of the 1543 English keys, only 1418 carry translatable English text; the rest hold an empty English value or are symbols, numbers, and placeholders. Measured against those 1418, `ar-LB` is 99.58 percent translated with 6 real gaps, and `ar-EG` is 96.33 percent with 52 gaps, 45 of which are the `Calendar.php` file that locale does not ship. Empty values fall back to English through `app/Libraries/MY_Language.php::getLine`. Phase 2, ADR 0003, is therefore a terminology review plus six strings, not a bulk translation project. | Compare English and Arabic keys; fail on missing or empty operational translations; manually review the listed screens and error/validation messages. |
 | Arabic and English remain available together | `native/configuration` | `app/Config/App.php` lists `en`, `en-GB`, `ar-EG`, and `ar-LB`; `app/Helpers/locale_helper.php::get_languages` lists both language choices | Locale switching is already designed as a setting. Do not remove English or change the default until the shop chooses its operating language. Phase 2. | Run the same sale, return, item edit, and report scenario in both locales. |
 | Global RTL layout | `custom feature` | `app/Views/partial/header.php` and `app/Views/login.php` set `lang` and UTF-8 but do not set `dir`; `public/css/ospos.css` contains fixed left/right alignment rules and no RTL layer | UTF-8 and locale selection do not provide layout direction. Navigation, Bootstrap forms, tables, dialogs, and print views need a deliberate RTL strategy. Phase 2, ADR 0004. | Visual checks at desktop and touch widths for login, register, item forms, tables, reports, dialogs, and receipts in both LTR and RTL. |
 | Mixed Arabic/Latin direction for identifiers and free text | `custom feature` | Sales and receipt views render item names, descriptions, item numbers, serial numbers, phone/email values, and totals in ordinary table cells; e.g. `app/Views/sales/register.php` and `app/Views/sales/receipt_default.php` | Barcodes, SKUs, decimals, currency, timestamps, URLs, and Latin product names can reorder or become hard to copy inside Arabic text. Phase 2 must add direction isolation and test data rules. | Copy and visually inspect Arabic names containing `ABC-123`, EAN values, phone numbers, email addresses, URLs, dates, percentages, and currency values. |
@@ -69,23 +69,29 @@ already selectable in `get_languages()`, and the employee record can override
 the system language. `MY_Language::getLine()` intentionally falls back to the
 base language and then English when a value is missing or empty.
 
-Arabic coverage was measured rather than estimated. Against the 1543 keys in
-`app/Language/en/`, `ar-LB` supplies a real Arabic translation for 1434 keys,
-or 92.9 percent. The 109 keys that need work are 101 empty values, 7 values
-still identical to the English string, and 1 key that is absent. No Arabic file
-contains a value that is Latin-only by mistake. `ar-EG` supplies 1388
-translations, or 90.0 percent, and additionally lacks 46 keys that English has.
-For reference, the English files themselves contain 116 empty values, so a
-subset of the Arabic gaps mirror keys that are unused upstream.
+Arabic coverage was measured, not estimated, and the first measurement was
+wrong in a way worth recording. Counting every key in `app/Language/en/` made
+`ar-LB` look 92.9 percent complete with 109 gaps. Most of those keys hold an
+empty English value, so there is nothing to translate and the locale is not
+behind at all.
 
-The remaining `ar-LB` work is concentrated: `Config.php` 26 keys, `Sales.php`
-25, `Common.php` 13, `Cashups.php` 10, `Items.php` 7, `Module.php` 6,
-`Employees.php` 5, `Reports.php` 5, `Expenses.php` 3, `Item_kits.php` 3,
-`Receivings.php` 3, and `Customers.php` 1.
+Counting only keys whose English value contains real words gives 1418 keys.
+Against that set, `ar-LB` is 99.58 percent translated, with 6 genuine gaps:
+`Common.no`, `Common.yes`, `Config.system_info`, `Sales.key_function`,
+`Sales.selected_customer`, and `Common.software_short`. The last of those is
+the product name and should stay in Latin script.
 
-Phase 2 is therefore a review-and-finish task rather than a full translation
-project. It should translate those keys, confirm Lebanese terminology for the
-rest, and add an automated empty-value and missing-key check. It should not
+`Sales.selected_customer` is absent from `ar-LB`, `ar-EG`, and 35 other
+locales. Upstream added it to English only.
+
+`ar-EG` is 96.33 percent translated. 45 of its 52 gaps are the `Calendar.php`
+file, which that locale does not ship at all, plus one login validation
+message. `ar-EG` is not the deployment target and English fallback covers it.
+
+Phase 2 is therefore a terminology review plus six strings, not a translation
+project. It should close those gaps, confirm Lebanese terminology across the
+operational screens, and add an automated check that compares against keys with
+real English content rather than against every key. It should not
 remove the fallback, because the fallback protects other locales and keeps
 upstream upgrades safe when new keys arrive.
 

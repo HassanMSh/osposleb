@@ -1,4 +1,4 @@
-name: Coding Standards
+name: Checks
 
 on:
   push:
@@ -96,3 +96,43 @@ jobs:
       # Enable this step after application code changes require image validation.
       # - name: Build application container
       #   run: docker build . --target ospos -t ospos
+
+  tests:
+    name: PHP ${{ matrix.php-version }} Tests
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version:
+          - '8.1'
+          - '8.2'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: intl, mbstring, gd, zip
+          coverage: none
+
+      - name: Get composer cache directory
+        run: echo "COMPOSER_CACHE_FILES_DIR=$(composer config cache-files-dir)" >> $GITHUB_ENV
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.COMPOSER_CACHE_FILES_DIR }}
+          key: ${{ runner.os }}-php-${{ matrix.php-version }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-${{ matrix.php-version }}-
+            ${{ runner.os }}-
+
+      - name: Install dependencies
+        run: composer install --ansi --no-interaction --no-progress
+
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit --no-coverage --colors=always

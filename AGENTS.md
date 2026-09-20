@@ -10,8 +10,9 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 
 - Approved baseline: `develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`, application version 3.4.1, approved 2026-09-20.
 - Phase 1 is complete on branch `chore/ospos-baseline`: ADRs 0001 and 0002 are accepted and `docs/gap-analysis.md` is complete.
+- Phase 2 is complete on branch `feat/arabic-localization`: ADRs 0003 and 0004 are accepted, both Arabic locales are fully translated, and the right-to-left layer is in place. Visual screenshot evidence is still outstanding.
 - Fork documentation lives in `docs/`. Track task status in `docs/progress-checklist.md` and update it at the end of every phase.
-- Next phase: Phase 2 — Arabic localization and right-to-left support.
+- Next phase: Phase 3 — TVA model.
 
 ## Code-style gate
 

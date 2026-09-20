@@ -8,9 +8,17 @@ This document provides guidance for AI agents working on this OSPOS fork.
 - Approved baseline: `develop`/`origin/develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350` (application version 3.4.1).
 - Repository path: `/home/dev-hassanshd/hassan/pos/osposleb`.
 - Project documentation: `/home/dev-hassanshd/hassan/pos/osposleb/docs`; implementation plan: `docs/OSPOS_IMPLEMENTATION_PLAN.md`.
-- Phase 1 is in progress on branch `chore/ospos-baseline`: ADRs 0001 and 0002 are accepted and `docs/gap-analysis.md` is complete.
+- Phase 1 is complete on branch `chore/ospos-baseline`: ADRs 0001 and 0002 are accepted and `docs/gap-analysis.md` is complete.
+- Phase 2 is complete on branch `feat/arabic-localization`: ADRs 0003 and 0004 are accepted, both Arabic locales are fully translated, and the right-to-left layer is in place. Visual screenshot evidence is still outstanding.
 - Track task status in `docs/progress-checklist.md` and update it at the end of every phase.
-- Next phase: Phase 2 — Arabic localization and RTL support.
+- Next phase: Phase 3 — TVA model. It is blocked until the project owner answers the tax questions listed in `docs/progress-checklist.md`.
+
+## Code-style gate
+
+- Continuous integration runs PHP-CS-Fixer over every PHP file changed in a pull request, and the configuration disagrees with most of the upstream tree.
+- Touching one line of an upstream PHP file therefore requires reformatting that whole file, and the formatter rewrites loose comparisons into strict ones.
+- Check every strict-comparison rewrite the formatter introduces against the real value types before accepting it. Several upstream files carry `// TODO: ===` markers for exactly this reason.
+- Prefer solving a problem with a CSS selector or a new file over editing an upstream view for one attribute.
 
 ## Phase workflow
 

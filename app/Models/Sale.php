@@ -693,10 +693,11 @@ class Sale extends Model
     private function hasOnlyCashPayments(?array $payments): bool
     {
         foreach ($payments ?? [] as $payment) {
-            $payment_type  = $payment['payment_type'] ?? null;
-            $is_cash       = is_string($payment_type) && $payment_type === lang('Sales.cash');
+            $payment_type = $payment['payment_type'] ?? null;
+            $is_cash      = is_string($payment_type)
+                && in_array($payment_type, get_translated_payment_labels('Sales.cash'), true);
             $is_adjustment = is_string($payment_type)
-                && $payment_type === lang('Sales.cash_adjustment')
+                && in_array($payment_type, get_translated_payment_labels('Sales.cash_adjustment'), true)
                 && (int) ($payment['cash_adjustment'] ?? CASH_ADJUSTMENT_FALSE) === CASH_ADJUSTMENT_TRUE;
 
             if (! $is_cash && ! $is_adjustment) {

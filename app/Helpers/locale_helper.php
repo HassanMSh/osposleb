@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Employee;
+use Config\App;
 use Config\OSPOS;
 
 /**
@@ -266,6 +267,40 @@ function get_timeformats(): array
 function get_payment_options(): array
 {
     return [lang('Sales.cash') => lang('Sales.cash')];
+}
+
+/**
+ * Returns every stored label that means cash, in all installed languages.
+ *
+ * Payment types are stored as translated labels, so a sale taken by an Arabic
+ * cashier is stored as the Arabic word. An English-speaking owner editing that
+ * sale posts the stored label back, which would not match the current locale.
+ *
+ * @param string $line Language line to resolve, 'Sales.cash' or 'Sales.cash_adjustment'.
+ *
+ * @return list<string> The distinct labels for that line across installed languages.
+ */
+function get_translated_payment_labels(string $line): array
+{
+    static $cache = [];
+
+    if (isset($cache[$line])) {
+        return $cache[$line];
+    }
+
+    $labels = [lang($line)];
+
+    foreach (config(App::class)->supportedLocales as $locale) {
+        $translated = lang($line, [], $locale);
+
+        if (is_string($translated) && $translated !== '' && $translated !== $line) {
+            $labels[] = $translated;
+        }
+    }
+
+    $cache[$line] = array_values(array_unique($labels));
+
+    return $cache[$line];
 }
 
 /**

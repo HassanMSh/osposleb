@@ -146,6 +146,39 @@ final class ShopLockdownTest extends CIUnitTestCase
     }
 
     /**
+     * Accepts a cash payment recorded in another language.
+     *
+     * The shop runs in Arabic and the owner account runs in English, so an
+     * owner editing a cashier's sale posts back the Arabic label.
+     */
+    public function testCashLabelsCoverEveryInstalledLanguage(): void
+    {
+        $labels = get_translated_payment_labels('Sales.cash');
+
+        $this->assertContains('Cash', $labels);
+        $this->assertContains(lang('Sales.cash', [], 'ar-LB'), $labels);
+        $this->assertContains(lang('Sales.cash', [], 'ar-EG'), $labels);
+        $this->assertNotContains(lang('Sales.credit'), $labels);
+        $this->assertNotContains('', $labels);
+    }
+
+    /**
+     * Accepts an Arabic cash sale through the model guard and rejects a card.
+     */
+    public function testModelAcceptsCashRecordedInArabicAndRejectsCard(): void
+    {
+        $sale   = new Sale();
+        $method = (new ReflectionClass(Sale::class))->getMethod('hasOnlyCashPayments');
+        $method->setAccessible(true);
+
+        $arabic = lang('Sales.cash', [], 'ar-LB');
+
+        $this->assertTrue($method->invoke($sale, [['payment_type' => 'Cash']]));
+        $this->assertTrue($method->invoke($sale, [['payment_type' => $arabic]]));
+        $this->assertFalse($method->invoke($sale, [['payment_type' => lang('Sales.credit')]]));
+    }
+
+    /**
      * Exposes exactly receipt, invoice, and return register modes.
      */
     public function testRegisterModesAreExactlyTheAllowedThree(): void

@@ -1372,7 +1372,7 @@ class Sales extends Secure_Controller
             return;
         }
 
-        if (! is_string($payment_type) || $payment_type !== lang('Sales.cash')) {
+        if (! is_string($payment_type) || ! in_array($payment_type, get_translated_payment_labels('Sales.cash'), true)) {
             throw PageNotFoundException::forPageNotFound();
         }
     }

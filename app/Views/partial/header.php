@@ -51,7 +51,7 @@ $language_code = current_language_code();
         <link rel="stylesheet" href="resources/css/receipt-0606f1c54e.css">
         <link rel="stylesheet" href="resources/css/register-a6a6cc948d.css">
         <link rel="stylesheet" href="resources/css/reports-ace7faf688.css">
-        <link rel="stylesheet" href="resources/css/ospos_rtl-52ae8b8fad.css">
+        <link rel="stylesheet" href="resources/css/ospos_rtl-1a576fa08e.css">
         <!-- endinject -->
         <!-- inject:debug:js -->
         <script src="resources/js/jquery-12e87d2f3a.js"></script>
@@ -91,7 +91,7 @@ $language_code = current_language_code();
         <!-- endinject -->
     <?php else : ?>
         <!--inject:prod:css -->
-        <link rel="stylesheet" href="resources/opensourcepos-28025bcaab.min.css">
+        <link rel="stylesheet" href="resources/opensourcepos-d68d923d5f.min.css">
         <!-- endinject -->
 
         <!-- Tweaks to the UI for a particular theme should drop here  -->

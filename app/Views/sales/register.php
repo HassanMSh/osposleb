@@ -10,11 +10,6 @@
  * @var array     $cart
  * @var bool      $items_module_allowed
  * @var bool      $change_price
- * @var int       $customer_id
- * @var int       $customer_discount_type
- * @var float     $customer_discount
- * @var float     $customer_total
- * @var string    $customer_required
  * @var float|int $item_count
  * @var float|int $total_units
  * @var float     $subtotal
@@ -23,15 +18,11 @@
  * @var float     $payments_total
  * @var float     $amount_due
  * @var bool      $payments_cover_total
- * @var array     $payment_options
- * @var array     $selected_payment_type
  * @var bool      $pos_mode
  * @var array     $payments
  * @var string    $mode_label
  * @var string    $comment
  * @var bool      $print_after_sale
- * @var bool      $email_receipt
- * @var bool      $price_work_orders
  * @var string    $invoice_number
  * @var int       $cash_mode
  * @var float     $non_cash_total
@@ -143,7 +134,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 <th style="width: 30%;"><?= lang(ucfirst($controller_name) . '.item_name') ?></th>
                 <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.price') ?></th>
                 <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.quantity') ?></th>
-                <th style="width: 15%;"><?= lang(ucfirst($controller_name) . '.discount') ?></th>
                 <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.total') ?></th>
                 <th style="width: 5%;"><?= lang(ucfirst($controller_name) . '.update') ?></th>
             </tr>
@@ -152,7 +142,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         <tbody id="cart_contents">
             <?php if (count($cart) === 0) { ?>
                 <tr>
-                    <td colspan="8">
+                    <td colspan="7">
                         <div class="alert alert-dismissible alert-info"><?= lang(ucfirst($controller_name) . '.no_items_in_cart') ?></div>
                     </td>
                 </tr>
@@ -206,15 +196,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                             </td>
 
                             <td>
-                                <div class="input-group">
-                                    <?= form_input(['name' => 'discount', 'class' => 'form-control input-sm', 'value' => $item['discount_type'] ? to_currency_no_money($item['discount']) : to_decimals($item['discount']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']) ?>
-                                    <span class="input-group-btn">
-                                <?= form_checkbox(['id' => 'discount_toggle', 'name' => 'discount_toggle', 'value' => 1, 'data-toggle' => 'toggle', 'data-size' => 'small', 'data-onstyle' => 'success', 'data-on' => '<b>' . $config['currency_symbol'] . '</b>', 'data-off' => '<b>%</b>', 'data-line' => $line, 'checked' => (int) $item['discount_type'] === 1]) ?>
-                                    </span>
-                                </div>
-                            </td>
-
-                            <td>
                                 <?php
                     if ((int) $item['item_type'] === ITEM_AMOUNT_ENTRY) {
                         echo form_input(['name' => 'discounted_total', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($item['discounted_total']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']);
@@ -233,7 +214,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                         <tr>
                             <?php if ((int) $item['item_type'] === ITEM_TEMP) { ?>
                                 <td><?= form_input(['type' => 'hidden', 'name' => 'item_id', 'value' => $item['item_id']]) ?></td>
-                                <td style="align: center;" colspan="6">
+                                <td style="align: center;" colspan="5">
                                     <?= form_input(['name' => 'item_description', 'id' => 'item_description', 'class' => 'form-control input-sm', 'value' => $item['description'], 'tabindex' => ++$tabindex]) ?>
                                 </td>
                                 <td> </td>
@@ -290,82 +271,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
 
 <div id="overall_sale" class="panel panel-default">
     <div class="panel-body">
-        <?= form_open("{$controller_name}/selectCustomer", ['id' => 'select_customer_form', 'class' => 'form-horizontal']) ?>
-            <?php if (isset($customer)) { ?>
-                <table class="sales_table_100">
-                    <tr>
-                        <th style="width: 55%;"><?= lang(ucfirst($controller_name) . '.customer') ?></th>
-                        <th style="width: 45%; text-align: right;"><?= anchor("customers/view/{$customer_id}", $customer, ['class' => 'modal-dlg', 'data-btn-submit' => lang('Common.submit'), 'title' => lang('Customers.update')]) ?></th>
-                    </tr>
-                    <?php if (! empty($customer_email)) { ?>
-                        <tr>
-                            <th style="width: 55%;"><?= lang(ucfirst($controller_name) . '.customer_email') ?></th>
-                            <th style="width: 45%; text-align: right;"><?= esc($customer_email) ?></th>
-                        </tr>
-                    <?php } ?>
-                    <?php if (! empty($customer_address)) { ?>
-                        <tr>
-                            <th style="width: 55%;"><?= lang(ucfirst($controller_name) . '.customer_address') ?></th>
-                            <th style="width: 45%; text-align: right;"><?= esc($customer_address) ?></th>
-                        </tr>
-                    <?php } ?>
-                    <?php if (! empty($customer_location)) { ?>
-                        <tr>
-                            <th style="width: 55%;"><?= lang(ucfirst($controller_name) . '.customer_location') ?></th>
-                            <th style="width: 45%; text-align: right;"><?= esc($customer_location) ?></th>
-                        </tr>
-                    <?php } ?>
-                    <tr>
-                        <th style="width: 55%;"><?= lang(ucfirst($controller_name) . '.customer_discount') ?></th>
-                        <th style="width: 45%; text-align: right;"><?= ((int) $customer_discount_type === FIXED) ? to_currency($customer_discount) : $customer_discount . '%' ?></th>
-                    </tr>
-                    <?php if ($config['customer_reward_enable']): ?>
-                        <?php if (! empty($customer_rewards)) { ?>
-                            <tr>
-                                <th style="width: 55%;"><?= lang(ucfirst($controller_name) . '.rewards_package') ?></th>
-                                <th style="width: 45%; text-align: right;"><?= esc($customer_rewards['package_name']) ?></th>
-                            </tr>
-                            <tr>
-                                <th style="width: 55%;"><?= lang('Customers.available_points') ?></th>
-                                <th style="width: 45%; text-align: right;"><?= esc($customer_rewards['points']) ?></th>
-                            </tr>
-                        <?php } ?>
-                    <?php endif; ?>
-                    <tr>
-                        <th style="width: 55%;"><?= lang(ucfirst($controller_name) . '.customer_total') ?></th>
-                        <th style="width: 45%; text-align: right;"><?= to_currency($customer_total) ?></th>
-                    </tr>
-                    <?php if (! empty($mailchimp_info)) { ?>
-                        <tr>
-                            <th style="width: 55%;"><?= lang(ucfirst($controller_name) . '.customer_mailchimp_status') ?></th>
-                            <th style="width: 45%; text-align: right;"><?= esc($mailchimp_info['status']) ?></th>
-                        </tr>
-                    <?php } ?>
-                </table>
-
-                <?= anchor(
-                    "{$controller_name}/removeCustomer",
-                    '<span class="glyphicon glyphicon-remove">&nbsp;</span>' . lang('Common.remove') . ' ' . lang('Customers.customer'),
-                    ['class' => 'btn btn-danger btn-sm', 'id' => 'remove_customer_button', 'title' => lang('Common.remove') . ' ' . lang('Customers.customer')],
-                )
-                ?>
-            <?php } else { ?>
-                <div class="form-group" id="select_customer">
-                    <label id="customer_label" for="customer" class="control-label" style="margin-bottom: 1em; margin-top: -1em;">
-                        <?= lang(ucfirst($controller_name) . '.select_customer') . esc(" {$customer_required}") ?>
-                    </label>
-                    <?= form_input(['name' => 'customer', 'id' => 'customer', 'class' => 'form-control input-sm', 'value' => lang(ucfirst($controller_name) . '.start_typing_customer_name')]) ?>
-
-                    <button class="btn btn-info btn-sm modal-dlg" data-btn-submit="<?= lang('Common.submit') ?>" data-href="<?= 'customers/view' ?>" title="<?= lang(ucfirst($controller_name) . '.new_customer') ?>">
-                        <span class="glyphicon glyphicon-user">&nbsp;</span><?= lang(ucfirst($controller_name) . '.new_customer') ?>
-                    </button>
-                    <button class="btn btn-default btn-sm modal-dlg" id="show_keyboard_help" data-href="<?= esc("{$controller_name}/salesKeyboardHelp") ?>" title="<?= lang(ucfirst($controller_name) . '.key_title') ?>">
-                        <span class="glyphicon glyphicon-share-alt">&nbsp;</span><?= lang(ucfirst($controller_name) . '.key_help') ?>
-                    </button>
-                </div>
-            <?php } ?>
-        <?= form_close() ?>
-
         <table class="sales_table_100" id="sale_totals">
             <tr>
                 <th style="width: 55%;"><?= lang(ucfirst($controller_name) . '.quantity_of_items', [$item_count]) ?></th>
@@ -437,12 +342,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     <?= form_open("{$controller_name}/addPayment", ['id' => 'add_payment_form', 'class' => 'form-horizontal']) ?>
                         <table class="sales_table_100">
                             <tr>
-                                <td><?= lang(ucfirst($controller_name) . '.payment') ?></td>
-                                <td>
-                                    <?= form_dropdown('payment_type', $payment_options, $selected_payment_type, ['id' => 'payment_types', 'class' => 'selectpicker show-menu-arrow', 'data-style' => 'btn-default btn-sm', 'data-width' => 'fit', 'disabled' => 'disabled']) ?>
-                                </td>
-                            </tr>
-                            <tr>
                                 <td><span id="amount_tendered_label"><?= lang(ucfirst($controller_name) . '.amount_tendered') ?></span></td>
                                 <td>
                                     <?= form_input(['name' => 'amount_tendered', 'id' => 'amount_tendered', 'class' => 'form-control input-sm disabled', 'disabled' => 'disabled', 'value' => '0', 'size' => '5', 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']) ?>
@@ -454,39 +353,20 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     <?php
                     // Only show this part if in sale or return mode
                     if ($pos_mode) {
-                        $due_payment = false;
-
-                        if (count($payments) > 0) {
-                            foreach ($payments as $payment_id => $payment) {
-                                if ($payment['payment_type'] === lang(ucfirst($controller_name) . '.due')) {
-                                    $due_payment = true;
-                                }
-                            }
-                        }
-
-                        if (! $due_payment || ($due_payment && isset($customer))) {    // TODO: $due_payment is not needed because the first clause insures that it will always be true if it gets to this point.  Can be shortened to if (!$due_payment || isset($customer))
-                            ?>
+                        ?>
                             <div class="btn btn-sm btn-success pull-right" id="finish_sale_button" tabindex="<?= ++$tabindex ?>">
                                 <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?>
                             </div>
                     <?php
-                        }
                     }
                     ?>
                 <?php } else { ?>
                     <?= form_open("{$controller_name}/addPayment", ['id' => 'add_payment_form', 'class' => 'form-horizontal']) ?>
                         <table class="sales_table_100">
                             <tr>
-                                <td><?= lang(ucfirst($controller_name) . '.payment') ?></td>
-                                <td>
-                                    <?= form_dropdown('payment_type', $payment_options, $selected_payment_type, ['id' => 'payment_types', 'class' => 'selectpicker show-menu-arrow', 'data-style' => 'btn-default btn-sm', 'data-width' => 'fit']) ?>
-                                </td>
-                            </tr>
-                            <tr>
                                 <td><span id="amount_tendered_label"><?= lang(ucfirst($controller_name) . '.amount_tendered') ?></span></td>
                                 <td>
-                                    <?= form_input(['name' => 'amount_tendered', 'id' => 'amount_tendered', 'class' => 'form-control input-sm non-giftcard-input', 'value' => to_currency_no_money($amount_due), 'size' => '5', 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']) ?>
-                                    <?= form_input(['name' => 'amount_tendered', 'id' => 'amount_tendered', 'class' => 'form-control input-sm giftcard-input', 'disabled' => true, 'value' => to_currency_no_money($amount_due), 'size' => '5', 'tabindex' => ++$tabindex]) ?>
+                                    <?= form_input(['name' => 'amount_tendered', 'id' => 'amount_tendered', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($amount_due), 'size' => '5', 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']) ?>
                                 </td>
                             </tr>
                         </table>
@@ -523,8 +403,8 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             <?= form_open("{$controller_name}/cancel", ['id' => 'buttons_form']) ?>
             <div class="form-group" id="buttons_sale">
                 <div class="btn btn-sm btn-default pull-left" id="suspend_sale_button"><span class="glyphicon glyphicon-align-justify">&nbsp;</span><?= lang(ucfirst($controller_name) . '.suspend_sale') ?></div>
-                <?php if (! $pos_mode && isset($customer)) { // Only show this part if the payment covers the total?>
-                    <div class="btn btn-sm btn-success" id="finish_invoice_quote_button"><span class="glyphicon glyphicon-ok">&nbsp;</span><?= esc($mode_label) ?></div>
+                <?php if (! $pos_mode) { // Invoice mode does not require buyer details.?>
+                    <div class="btn btn-sm btn-success" id="finish_invoice_button"><span class="glyphicon glyphicon-ok">&nbsp;</span><?= esc($mode_label) ?></div>
                 <?php } ?>
 
                 <div class="btn btn-sm btn-danger pull-right" id="cancel_sale_button"><span class="glyphicon glyphicon-remove">&nbsp;</span><?= lang(ucfirst($controller_name) . '.cancel_sale') ?></div>
@@ -550,22 +430,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                                 </label>
                             </div>
 
-                            <?php if (! empty($customer_email)) { ?>
-                                <div class="col-xs-6">
-                                    <label for="email_receipt" class="control-label checkbox">
-                                        <?= form_checkbox(['name' => 'email_receipt', 'id' => 'email_receipt', 'value' => 1, 'checked' => $email_receipt]) ?>
-                                        <?= lang(ucfirst($controller_name) . '.email_receipt') ?>
-                                    </label>
-                                </div>
-                            <?php } ?>
-                            <?php if ($mode === 'sale_work_order') { ?>
-                                <div class="col-xs-6">
-                                    <label for="price_work_orders" class="control-label checkbox">
-                                        <?= form_checkbox(['name' => 'price_work_orders', 'id' => 'price_work_orders', 'value' => 1, 'checked' => $price_work_orders]) ?>
-                                        <?= lang(ucfirst($controller_name) . '.include_prices') ?>
-                                    </label>
-                                </div>
-                            <?php } ?>
                         </div>
                     </div>
                     <?php if (($mode === 'sale_invoice') && $config['invoice_enable']) { ?>
@@ -599,10 +463,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         const redirect = function() {
             window.location.href = "<?= site_url('sales'); ?>";
         };
-
-        $("#remove_customer_button").click(function() {
-            $.post("<?= site_url('sales/removeCustomer'); ?>", redirect);
-        });
 
         $(".delete_item_button").click(function() {
             const item_id = $(this).data('item-id');
@@ -682,46 +542,13 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         });
 
         var clear_fields = function() {
-            if ($(this).val().match("<?= lang(ucfirst($controller_name) . '.start_typing_item_name') . '|' . lang(ucfirst($controller_name) . '.start_typing_customer_name') ?>")) {
+            if ($(this).val().match("<?= lang(ucfirst($controller_name) . '.start_typing_item_name') ?>")) {
                 $(this).val('');
             }
         };
 
-        $('#item, #customer').click(clear_fields).dblclick(function(event) {
+        $('#item').click(clear_fields).dblclick(function(event) {
             $(this).autocomplete('search');
-        });
-
-        $('#customer').blur(function() {
-            $(this).val("<?= lang(ucfirst($controller_name) . '.start_typing_customer_name') ?>");
-        });
-
-        $('#customer').autocomplete({
-            source: "<?= site_url('customers/suggest') ?>",
-            minChars: 0,
-            delay: 10,
-            select: function(a, ui) {
-                $(this).val(ui.item.value);
-                $('#select_customer_form').submit();
-                return false;
-            }
-        });
-
-        $('#customer').keypress(function(e) {
-            if (e.which == 13) {
-                $('#select_customer_form').submit();
-                return false;
-            }
-        });
-
-        $('.giftcard-input').autocomplete({
-            source: "<?= site_url('giftcards/suggest') ?>",
-            minChars: 0,
-            delay: 10,
-            select: function(a, ui) {
-                $(this).val(ui.item.value);
-                $('#add_payment_form').submit();
-                return false;
-            }
         });
 
         $('#comment').keyup(function() {
@@ -745,24 +572,12 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             });
         });
 
-        $('#price_work_orders').change(function() {
-            $.post("<?= esc(site_url("{$controller_name}/setPriceWorkOrders")) ?>", {
-                price_work_orders: $(this).is(':checked')
-            });
-        });
-
-        $('#email_receipt').change(function() {
-            $.post("<?= esc(site_url("{$controller_name}/setEmailReceipt")) ?>", {
-                email_receipt: $(this).is(':checked')
-            });
-        });
-
         $('#finish_sale_button').click(function() {
             $('#buttons_form').attr('action', "<?= "{$controller_name}/complete" ?>");
             $('#buttons_form').submit();
         });
 
-        $('#finish_invoice_quote_button').click(function() {
+        $('#finish_invoice_button').click(function() {
             $('#buttons_form').attr('action', "<?= "{$controller_name}/complete" ?>");
             $('#buttons_form').submit();
         });
@@ -782,8 +597,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         $('#add_payment_button').click(function() {
             $('#add_payment_form').submit();
         });
-
-        $('#payment_types').change(check_payment_type).ready(check_payment_type);
 
         $('#cart_contents input').keypress(function(event) {
             if (event.which == 13) {
@@ -813,30 +626,19 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             })
 
             if (response.success) {
-                if (resource.match(/customers$/)) {
-                    $('#customer').val(response.id);
-                    $('#select_customer_form').submit();
+                var $stock_location = $("select[name='stock_location']").val();
+                $('#item_location').val($stock_location);
+                $('#item').val(response.id);
+                if (stay_open) {
+                    $('#add_item_form').ajaxSubmit();
                 } else {
-                    var $stock_location = $("select[name='stock_location']").val();
-                    $('#item_location').val($stock_location);
-                    $('#item').val(response.id);
-                    if (stay_open) {
-                        $('#add_item_form').ajaxSubmit();
-                    } else {
-                        $('#add_item_form').submit();
-                    }
+                    $('#add_item_form').submit();
                 }
             }
         }
 
-        $('[name="price"],[name="quantity"],[name="discount"],[name="description"],[name="serialnumber"],[name="discounted_total"]').change(function() {
+        $('[name="price"],[name="quantity"],[name="description"],[name="serialnumber"],[name="discounted_total"]').change(function() {
             $(this).parents('tr').prevAll('form:first').submit()
-        });
-
-        $('[name="discount_toggle"]').change(function() {
-            var input = $('<input>').attr('type', 'hidden').attr('name', 'discount_type').val(($(this).prop('checked')) ? 1 : 0);
-            $('#cart_' + $(this).attr('data-line')).append($(input));
-            $('#cart_' + $(this).attr('data-line')).submit();
         });
 
         $('#change_helper_amount, #change_helper_currency').on('input change', updateChangeHelper);
@@ -844,45 +646,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
     });
 
     let changeHelperTotal = <?= json_encode((float) $total) ?>;
-
-    /**
-     * Updates the displayed dollar, pound, and due totals for the selected payment type.
-     */
-    function check_payment_type() {
-        var cash_mode = <?= json_encode($cash_mode) ?>;
-
-        if ($("#payment_types").val() == "<?= lang(ucfirst($controller_name) . '.giftcard') ?>") {
-            $("#sale_total").html("<?= to_currency($total) ?>");
-            $("#sale_total_lbp").html("<?= esc(format_lbp(to_lbp($total))) ?>");
-            changeHelperTotal = <?= json_encode((float) $total) ?>;
-            $("#sale_amount_due").html("<?= to_currency($amount_due) ?>");
-            $("#amount_tendered_label").html("<?= lang(ucfirst($controller_name) . '.giftcard_number') ?>");
-            $("#amount_tendered:enabled").val('').focus();
-            $(".giftcard-input").attr('disabled', false);
-            $(".non-giftcard-input").attr('disabled', true);
-            $(".giftcard-input:enabled").val('').focus();
-        } else if (($("#payment_types").val() == "<?= lang(ucfirst($controller_name) . '.cash') ?>" && cash_mode == '1')) {
-            $("#sale_total").html("<?= to_currency($non_cash_total) ?>");
-            $("#sale_total_lbp").html("<?= esc(format_lbp(to_lbp($non_cash_total))) ?>");
-            changeHelperTotal = <?= json_encode((float) $non_cash_total) ?>;
-            $("#sale_amount_due").html("<?= to_currency($cash_amount_due) ?>");
-            $("#amount_tendered_label").html("<?= lang(ucfirst($controller_name) . '.amount_tendered') ?>");
-            $("#amount_tendered:enabled").val("<?= to_currency_no_money($cash_amount_due) ?>");
-            $(".giftcard-input").attr('disabled', true);
-            $(".non-giftcard-input").attr('disabled', false);
-        } else {
-            $("#sale_total").html("<?= to_currency($non_cash_total) ?>");
-            $("#sale_total_lbp").html("<?= esc(format_lbp(to_lbp($non_cash_total))) ?>");
-            changeHelperTotal = <?= json_encode((float) $non_cash_total) ?>;
-            $("#sale_amount_due").html("<?= to_currency($amount_due) ?>");
-            $("#amount_tendered_label").html("<?= lang(ucfirst($controller_name) . '.amount_tendered') ?>");
-            $("#amount_tendered:enabled").val("<?= to_currency_no_money($amount_due) ?>");
-            $(".giftcard-input").attr('disabled', true);
-            $(".non-giftcard-input").attr('disabled', false);
-        }
-
-        updateChangeHelper();
-    }
 
     /**
      * Updates both change figures from one dollar change calculation.
@@ -947,10 +710,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 $("#item").focus();
                 $("#item").select();
                 break;
-            case 50: // Alt + 2 Customers Search
-                $("#customer").focus();
-                $("#customer").select();
-                break;
             case 51: // Alt + 3 Suspend Current Sale
                 $("#suspend_sale_button").click();
                 break;
@@ -968,11 +727,8 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 $("#add_payment_button").click();
                 window.location.href = "<?= 'sales/complete' ?>";
                 break;
-            case 56: // Alt + 8 Finish Quote/Invoice without payment
-                $("#finish_invoice_quote_button").click();
-                break;
-            case 57: // Alt + 9 Open Shortcuts Help Modal
-                $("#show_keyboard_help").click();
+            case 56: // Alt + 8 Finish Invoice without payment
+                $("#finish_invoice_button").click();
                 break;
         }
 

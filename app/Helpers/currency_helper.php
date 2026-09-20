@@ -47,3 +47,22 @@ function format_receipt_tax_marker(?string $taxed_flag): string
 {
     return trim((string) $taxed_flag) === '' ? '' : '*';
 }
+
+/**
+ * Returns the label to display for a tax group.
+ *
+ * Translates the internal exemption reasons recorded on a sale and passes a
+ * shop-defined tax name through unchanged.
+ *
+ * @param string|null $tax_group Tax group name held on the sale.
+ *
+ * @return string Label to display.
+ */
+function format_tax_group_label(?string $tax_group): string
+{
+    return match ($tax_group) {
+        'exempt'     => lang('Items.tax_reason_exempt'),
+        'zero-rated' => lang('Items.tax_reason_zero_rated'),
+        default      => (string) $tax_group,
+    };
+}

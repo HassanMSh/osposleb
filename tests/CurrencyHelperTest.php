@@ -72,6 +72,40 @@ final class CurrencyHelperTest extends CIUnitTestCase
     }
 
     /**
+     * Translates the internal exemption reasons and leaves a shop tax name alone.
+     */
+    public function testTaxGroupLabelTranslatesExemptionReasonsOnly(): void
+    {
+        $this->assertSame(lang('Items.tax_reason_exempt'), format_tax_group_label('exempt'));
+        $this->assertSame(lang('Items.tax_reason_zero_rated'), format_tax_group_label('zero-rated'));
+        $this->assertSame('VAT', format_tax_group_label('VAT'));
+        $this->assertSame('', format_tax_group_label(null));
+    }
+
+    /**
+     * Keeps every tax-group label in the register and both receipts translated.
+     */
+    public function testEveryTaxGroupLabelGoesThroughTheHelper(): void
+    {
+        $views = [
+            'Views/sales/register.php',
+            'Views/sales/receipt_default.php',
+            'Views/sales/receipt_short.php',
+        ];
+
+        foreach ($views as $view) {
+            $source = file_get_contents(APPPATH . $view);
+
+            $this->assertIsString($source);
+
+            $raw     = substr_count($source, '$tax[\'tax_group\']');
+            $wrapped = substr_count($source, 'format_tax_group_label($tax[\'tax_group\'])');
+
+            $this->assertSame($raw, $wrapped, $view . ' uses a tax group name without the translating helper.');
+        }
+    }
+
+    /**
      * Uses the cart marker for both taxed and untaxed receipt lines.
      */
     public function testReceiptTaxMarkerUsesExistingCartFlag(): void

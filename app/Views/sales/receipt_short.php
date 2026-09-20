@@ -100,11 +100,7 @@
             </tr>
             <?php foreach ($taxes as $tax_group_index => $tax) { ?>
                 <tr>
-                    <?php $tax_label = match ($tax['tax_group']) {
-                        'exempt'     => lang('Items.tax_reason_exempt'),
-                        'zero-rated' => lang('Items.tax_reason_zero_rated'),
-                        default      => $tax['tax_group'],
-                    }; ?>
+                    <?php $tax_label = format_tax_group_label($tax['tax_group']); ?>
                     <td colspan="2" class="total-value"><?= (float) $tax['tax_rate'] . '% ' . esc($tax_label) ?>:</td>
                     <td class="total-value"><?= to_currency_tax($tax['sale_tax_amount']) ?></td>
                 </tr>

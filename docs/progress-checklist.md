@@ -111,7 +111,8 @@ Last updated: 2026-09-20.
 
 ### Phase 3 items still open
 
-- [ ] Look at the new screens in a browser in both languages, as Phase 2 ended up needing. Nothing here has been seen rendered.
+- [x] Look at the new screens in a browser in both languages. Done 2026-09-20 in Google Chrome against the disposable stack, with the ADR basket rung up for real: Water twice, Chips, Bread and a case of oil. The register showed `TOTAL TO PAY $45.70` with `4,090,000 LL` beneath it, `11% VAT $4.43`, and the exempt bread on its own `0%` line. Both receipt templates printed the asterisks, the footnote, the pound total and the rate line. The change helper returned `$4.30` and `385,000 LL` for fifty dollars tendered, and `$10.17` and `910,000 LL` for five million pounds tendered. No console errors, no horizontal overflow, in either language.
+- [x] Fix the exemption reason showing as raw English on the register totals. Found only by looking at the rendered Arabic page: the totals printed `0% exempt` because the register read the stored tax group name directly, while the receipts translated it. All three now share one helper.
 - [ ] Confirm the three new receipt lines do not wrap on a 58 mm roll. Real printing is Phase 4.
 - [ ] Have a native Lebanese Arabic speaker review the new tax and currency wording.
 

@@ -4,8 +4,8 @@
 - Date: 2026-09-20
 - Decision owners: Project owner and implementation team
 - Scope: Shop lockdown and cash-only till for the approved OSPOS 3.4.1 baseline
-- Baseline: \`develop\` snapshot \`bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350\`
-- Branch: \`feat/shop-lockdown\`
+- Baseline: `develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`
+- Branch: `feat/shop-lockdown`
 - Related: ADR 0004 (RTL layer), ADR 0005 (TVA model)
 
 ## Context and current upstream behavior
@@ -17,7 +17,7 @@ areas. They add menu entries, permissions, support work, and routes that a
 cashier can reach by typing an address.
 
 OSPOS stores modules, permissions, and employee grants in
-\`ospos_modules\`, \`ospos_permissions\`, and \`ospos_grants\`. The register
+`ospos_modules`, `ospos_permissions`, and `ospos_grants`. The register
 normally offers receipt, quote, invoice, work order, and return modes depending
 on settings. Its payment list can contain cash, debit, credit, due, check,
 gift card, and reward points. The register also shows a per-line discount
@@ -46,7 +46,7 @@ The project owner settled the following scope on 2026-09-20:
 6. Make the register cash-only and prevent a crafted payment-type request from
    adding another payment type.
 7. Remove the per-line discount controls and the customer block.
-8. Allow exactly \`sale\`, \`sale_invoice\`, and \`return\` register modes.
+8. Allow exactly `sale`, `sale_invoice`, and `return` register modes.
 9. Let an invoice complete without a customer and print without buyer details.
 10. Keep existing sales and historical customer or supplier references valid.
 
@@ -64,15 +64,15 @@ The project owner settled the following scope on 2026-09-20:
 
 ### Removal means unreachable, not deleted
 
-The migration removes these module IDs from \`ospos_modules\`:
+The migration removes these module IDs from `ospos_modules`:
 
-\`customers\`, \`item_kits\`, \`suppliers\`, \`receivings\`, \`giftcards\`,
-\`messages\`, \`expenses\`, \`expenses_categories\`, \`cashups\`, and
-\`office\`.
+`customers`, `item_kits`, `suppliers`, `receivings`, `giftcards`,
+`messages`, `expenses`, `expenses_categories`, `cashups`, and
+`office`.
 
 It removes their matching permission rows, including the
-\`receivings_stock\` subpermission, and their grants. It does not drop any
-application data table. A global \`ShopLockdownFilter\` checks the first URI
+`receivings_stock` subpermission, and their grants. It does not drop any
+application data table. A global `ShopLockdownFilter` checks the first URI
 segment and returns HTTP 404 for each removed module. The filter is registered
 globally before routing, so hiding a menu entry is not the security boundary.
 
@@ -92,23 +92,23 @@ exactly these grants:
 
 | Permission | Granted | Reason |
 | --- | --- | --- |
-| \`items\` | yes | Add, change, and read items. |
-| \`items_stock\` | no | Stock adjustment is an owner job. |
-| \`reports\` | yes | Report module access. |
-| \`reports_items\`, \`reports_inventory\`, \`reports_sales\`, \`reports_sales_taxes\`, \`reports_taxes\`, \`reports_payments\`, \`reports_categories\` | yes | Reports needed by the shop. |
-| \`reports_customers\`, \`reports_suppliers\`, \`reports_receivings\`, \`reports_discounts\`, \`reports_expenses_categories\`, \`reports_employees\` | no | Removed areas or other employees' data. |
-| \`sales\` | yes | Work the till. |
-| \`sales_change_price\`, \`sales_delete\`, \`sales_stock\` | no | Prevent price overrides, deletion, and stock changes. |
-| \`home\` | yes | Landing page. |
-| \`employees\`, \`config\`, \`taxes\`, \`attributes\` | no | Owner-only administration. |
+| `items` | yes | Add, change, and read items. |
+| `items_stock` | no | Stock adjustment is an owner job. |
+| `reports` | yes | Report module access. |
+| `reports_items`, `reports_inventory`, `reports_sales`, `reports_sales_taxes`, `reports_taxes`, `reports_payments`, `reports_categories` | yes | Reports needed by the shop. |
+| `reports_customers`, `reports_suppliers`, `reports_receivings`, `reports_discounts`, `reports_expenses_categories`, `reports_employees` | no | Removed areas or other employees' data. |
+| `sales` | yes | Work the till. |
+| `sales_change_price`, `sales_delete`, `sales_stock` | no | Prevent price overrides, deletion, and stock changes. |
+| `home` | yes | Landing page. |
+| `employees`, `config`, `taxes`, `attributes` | no | Owner-only administration. |
 
-**Accepted limitation:** OSPOS has one \`items\` permission for add, change,
+**Accepted limitation:** OSPOS has one `items` permission for add, change,
 and delete. Granting item editing therefore also grants item deletion. A
 separate guard would diverge from upstream and is not justified for this shop.
 
 ### Simplified till
 
-\`get_payment_options()\` returns cash alone. The payment-type dropdown and
+`get_payment_options()` returns cash alone. The payment-type dropdown and
 gift-card inputs are removed from the register. The payment box contains only
 the amount tendered. The controller also ignores a posted payment type and
 records cash, so the UI is not the only protection.
@@ -118,11 +118,11 @@ toggle, and the customer discount row. Existing server-side discount code stays
 in place because this ADR removes the till controls and does not change the
 upstream sales model.
 
-\`Sale_lib::get_register_mode_options()\` returns exactly:
+`Sale_lib::get_register_mode_options()` returns exactly:
 
-- \`sale\` — Sales Receipt
-- \`sale_invoice\` — Invoice
-- \`return\` — Return
+- `sale` — Sales Receipt
+- `sale_invoice` — Invoice
+- `return` — Return
 
 The mode endpoint rejects every other value with 404. Old quote and work-order
 sale types loaded from suspended data map to the normal receipt mode instead of
@@ -172,11 +172,11 @@ Risks and accepted limitations:
 
 ## Data-model, migration, compatibility, and rollback impact
 
-- The migration is \`20260920000002_shop_lockdown.php\`.
+- The migration is `20260920000002_shop_lockdown.php`.
 - It deletes rows only from the module, permission, and grant tables.
 - It does not drop customer, supplier, sales, item, or other historical tables.
 - The down migration restores the exact upstream module and permission values,
-  including sort order and the \`receivings_stock\` location row.
+  including sort order and the `receivings_stock` location row.
 - The down migration restores every grant captured before the policy change,
   including grants that were removed only because they were outside the
   non-admin set.
@@ -220,7 +220,7 @@ tests remain in Phase 4 after the project owner names the devices.
 - [ADR 0004](0004-rtl-and-mixed-direction-rules.md), language and direction
   behavior.
 - [ADR 0005](0005-tva-model.md), the unchanged TVA and currency model.
-- \`docs/adr/adr-0010-draft.md\), the accepted decision source.
-- \`app/Config/ShopLockdown.php\`, the removed-module and non-admin policy lists.
-- \`app/Filters/ShopLockdownFilter.php\`, the route boundary.
-- \`app/Database/Migrations/20260920000002_shop_lockdown.php\`, data changes.
+- `docs/adr/adr-0010-draft.md\), the accepted decision source.
+- `app/Config/ShopLockdown.php`, the removed-module and non-admin policy lists.
+- `app/Filters/ShopLockdownFilter.php`, the route boundary.
+- `app/Database/Migrations/20260920000002_shop_lockdown.php`, data changes.

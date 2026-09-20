@@ -29,7 +29,7 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 
 ## Agent roles
 
-- Hand implementation work to the Codex agent. Decided by the project owner on 2026-09-20, after `gpt-5.6-luna` turned out not to be reachable from the session actually running this work.
+- Hand implementation work to `gpt-5.6-luna`, run through the Codex command line: `codex exec -m gpt-5.6-luna`. Confirmed reachable on 2026-09-20 after an earlier attempt through the subagent interface failed. The Codex default model is `gpt-5.6-sol`, so the `-m` flag is required every time.
 - The coordinating agent keeps audit, decision records, review, Git and GitHub operations, and is responsible for checking whatever the implementation agent returns before it is committed.
 - Name the model that actually ran the work in the phase completion report. Do not record an intended model as if it had been used.
 
@@ -149,6 +149,9 @@ When hardware is unavailable, implement the software-side integration and clearl
 
 ## Git
 
+- `develop` is the integration branch and the target of every pull request. `master` is not used as a target.
+- One branch per phase, branched from `develop`. Implement the phase on it, open a pull request against `develop`, and leave the review and the merge to the project owner.
+- Never merge a pull request. Never push to `develop` directly.
 - Check the working tree before editing.
 - Preserve user changes and unrelated modifications.
 - Use small, focused commits.

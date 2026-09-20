@@ -2,6 +2,16 @@
 
 This document provides guidance for AI agents working on this OSPOS fork.
 
+## Current project status
+
+- Phase 0 was completed and user-approved on 2026-09-20.
+- Approved baseline: `develop`/`origin/develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350` (application version 3.4.1).
+- Repository path: `/home/dev-hassanshd/hassan/pos/osposleb`.
+- Project documentation: `/home/dev-hassanshd/hassan/pos/osposleb/docs`; implementation plan: `docs/OSPOS_IMPLEMENTATION_PLAN.md`.
+- Phase 1 is in progress on branch `chore/ospos-baseline`: ADRs 0001 and 0002 are accepted and `docs/gap-analysis.md` is complete.
+- Track task status in `docs/progress-checklist.md` and update it at the end of every phase.
+- Next phase: Phase 2 — Arabic localization and RTL support.
+
 ## Phase workflow
 
 - Before starting a new implementation phase, ask the user for approval to create the phase branch, commit, push, and open its pull request.

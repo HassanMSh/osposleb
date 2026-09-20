@@ -127,7 +127,7 @@ This ADR proposes treating the off switch as **exempt**, and recording it as suc
 
 ### Rounding
 
-**Proposed:** compute each line at full precision, sum the lines per tax rate, and round once, half up, to the currency's decimal places.
+**Accepted by the project owner on 2026-09-20.** Compute each line at full precision, sum the lines per tax rate, and round once, half up, to the currency's decimal places.
 
 This is what the tax-inclusive path already does, so it is the smallest change. Half up is the ordinary commercial convention and the one a Lebanese accountant will expect. Rounding once rather than per line keeps the printed TVA consistent with the printed total, which is what an auditor checks first.
 
@@ -205,8 +205,7 @@ To be written with the implementation. The suite must cover:
 
 ## Open questions for the project owner
 
-1. **Per-item tax inclusion.** Does an item genuinely need to be sold tax-exclusive while others are tax-inclusive in the same basket, or is "no TVA on this item" enough?
-2. **Rounding.** Confirm round-once-per-invoice, half up. The alternative is round-per-line, which would make the fourteen-item example print 14.81.
+1. **Per-item tax inclusion.** Under review by the owner; both options were costed on 2026-09-20. Does an item genuinely need to be sold tax-exclusive while others are tax-inclusive in the same basket, or is "no TVA on this item" enough?
 3. **Exempt or zero-rated.** Is the off switch "outside TVA" (exempt), or "inside TVA at 0 percent" (zero-rated)?
 4. **Currency.** Are prices held in dollars or Lebanese pounds, and how many decimal places?
 

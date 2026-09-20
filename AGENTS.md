@@ -29,8 +29,9 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 
 ## Agent roles
 
-- Always use `gpt-5.6-luna` with `xhigh` reasoning as the implementation agent.
-- Always use `gpt-5.6-luna` with `low` reasoning for Git and GitHub operations.
+- Hand implementation work to the Codex agent. Decided by the project owner on 2026-09-20, after `gpt-5.6-luna` turned out not to be reachable from the session actually running this work.
+- The coordinating agent keeps audit, decision records, review, Git and GitHub operations, and is responsible for checking whatever the implementation agent returns before it is committed.
+- Name the model that actually ran the work in the phase completion report. Do not record an intended model as if it had been used.
 
 ## Working directory
 

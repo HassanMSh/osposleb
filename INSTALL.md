@@ -15,6 +15,7 @@ First of all, if you're seeing the message `system folder missing` after launchi
 3. Execute the file `app/Database/database.sql` to create the tables needed.
 4. Unzip and upload Open Source Point of Sale files to the web-server.
 5. Open `.env` file and modify credentials to connect to your database if needed.
+6. The shop language defaults to Arabic (Lebanon). Change it under Settings, in the Localization tab.
 7. Go to your install `public` dir via the browser.
 8. Log in using
    - Username: admin

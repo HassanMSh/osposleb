@@ -34,10 +34,10 @@ printer, scanner, or cash drawer.
 
 | Requirement | Disposition | Code and file evidence | Gap, risk, and phase routing | Acceptance checks |
 | --- | --- | --- | --- | --- |
-| Arabic locale can be selected system-wide and per employee | `native/configuration` | `app/Helpers/locale_helper.php` (`get_languages`, `current_language_code`); `app/Config/App.php` (`supportedLocales`); `app/Controllers/Employees.php` saves `language_code` and `language`; `app/Views/configs/locale_config.php` exposes the system selector | `ar-EG` and `ar-LB` are present. Selecting a locale is safe, but the deployment default and terminology remain a product choice. Phase 2 found that the per-employee selection had no effect: `app/Events/Load_config.php` applied the system language only. That is now fixed; see ADR 0003. No schema change was needed. | Change an operator and an employee between English and Arabic; log in again; confirm the selected language follows the employee and system fallback. |
+| Arabic locale can be selected system-wide and per employee | `native/configuration` | `app/Helpers/locale_helper.php` (`get_languages`, `current_language_code`); `app/Config/App.php` (`supportedLocales`); `app/Controllers/Employees.php` saves `language_code` and `language`; `app/Views/configs/locale_config.php` exposes the system selector | `ar-EG` and `ar-LB` are present. The shop default is Arabic (Lebanon), while the `admin` account is English. Phase 2 found that the per-employee selection had no effect: `app/Events/Load_config.php` applied the system language only. That is now fixed; see ADR 0003. No schema change was needed. | Change an operator and an employee between English and Arabic; log in again; confirm the selected language follows the employee and system fallback. |
 | Arabic coverage for operational screens | `small extension` — **closed in Phase 2** | `app/Language/ar-EG/` and `app/Language/ar-LB/` contain the same main files as English, including `Login.php`, `Sales.php`, `Items.php`, `Receivings.php`, `Reports.php`, and `Config.php` | Of the 1543 English keys, only 1418 carry translatable English text; the rest hold an empty English value or are symbols, numbers, and placeholders. At audit time `ar-LB` was 99.58 percent against those 1418 with 6 real gaps, and `ar-EG` was 96.33 percent with 52 gaps. Phase 2 closed both: each locale now covers 1417 of 1418, the single remaining difference being `Common.software_short`, which is the product name. Empty values still fall back to English through `app/Libraries/MY_Language.php::getLine`, which protects future upstream keys. See ADR 0003. | `tests/LanguageCoverageTest.php` compares both Arabic locales against every English key that contains real words and fails on a missing, empty, or English-identical value. |
-| Arabic and English remain available together | `native/configuration` | `app/Config/App.php` lists `en`, `en-GB`, `ar-EG`, and `ar-LB`; `app/Helpers/locale_helper.php::get_languages` lists both language choices | Locale switching is already designed as a setting. Do not remove English or change the default until the shop chooses its operating language. Phase 2. | Run the same sale, return, item edit, and report scenario in both locales. |
-| Global RTL layout | `custom feature` — **implemented in Phase 2, receipts deferred** | `app/Views/partial/header.php` and `app/Views/login.php` set `lang` and UTF-8 but do not set `dir`; `public/css/ospos.css` contains fixed left/right alignment rules and no RTL layer | UTF-8 and locale selection do not provide layout direction. Phase 2 added `text_direction()` in `app/Helpers/locale_helper.php`, a `dir` attribute on the shell and login layouts, and `public/css/ospos_rtl.css`, a layer whose every rule is scoped to `[dir="rtl"]` so the English layout cannot change. Receipts and barcode sheets are not covered and stay with Phase 4 and ADR 0007. See ADR 0004. | `tests/LocaleHelperTest.php` covers the direction helper. Markup, language, and direction were verified live in both languages. Visual layout is still unverified: the browser automation server did not connect. |
+| Arabic and English remain available together | `native/configuration` | `app/Config/App.php` lists `en`, `en-GB`, `ar-EG`, and `ar-LB`; `app/Helpers/locale_helper.php::get_languages` lists both language choices | Locale switching remains available as a setting. The shop runs in Arabic (Lebanon) by default, the `admin` account runs in English, and the login page is deliberately English and left to right. | Run the same sale, return, item edit, and report scenario in both locales. |
+| Global RTL layout | `custom feature` — **implemented in Phase 2, receipts deferred** | `app/Views/partial/header.php` and `app/Views/login.php` render `lang` and `dir`; `public/css/ospos.css` contains fixed left/right alignment rules and no RTL layer | UTF-8 and locale selection do not provide layout direction. Phase 2 added `text_direction()` in `app/Helpers/locale_helper.php`, a `dir` attribute on the shell and login layouts, and `public/css/ospos_rtl.css`, a layer whose every rule is scoped to `[dir="rtl"]` so the English layout cannot change. The login route now deliberately overrides the shop language to English/LTR for that request. Receipts and barcode sheets are not covered and stay with Phase 4 and ADR 0007. See ADR 0004. | `tests/LocaleHelperTest.php` covers the direction helper. Markup, language, and direction were verified live in both languages. Visual layout is still unverified: the browser automation server did not connect. |
 | Mixed Arabic/Latin direction for identifiers and free text | `custom feature` — **implemented in Phase 2 for the shell** | Sales and receipt views render item names, descriptions, item numbers, serial numbers, phone/email values, and totals in ordinary table cells; e.g. `app/Views/sales/register.php` and `app/Views/sales/receipt_default.php` | Phase 2 added `.ltr-value` and `.numeric-value` in `public/css/ospos_rtl.css`, both using `unicode-bidi: isolate`, and applied them by selector to identifier and numeric inputs and to the sales cart's item-number column. Selectors rather than view edits were used because the code-style gate would force unsafe strict-comparison rewrites in `register.php`; see ADR 0004. Receipt views remain uncovered. | Copy and visually inspect Arabic names containing `ABC-123`, EAN values, phone numbers, email addresses, URLs, dates, percentages, and currency values. Not yet done: needs a browser. |
 | Existing tax and TVA tables | `native/configuration` | `app/Models/Tax.php` reads `tax_rates`; `app/Controllers/Taxes.php` manages tax codes, categories, jurisdictions, rates, and rounding; `app/Views/taxes/tax_rates_form.php` exposes rate and rounding | The destination-based tax model is already substantial. It must be configured only after the business rules below are accepted. Phase 3, ADR 0005. | Create a test tax code/category/rate in an isolated database; sell, return, discount, and report on an item using it. |
 | Per-item TVA assignment | `native/configuration` | `app/Models/Item.php` allows `tax_category_id`; `app/Controllers/Items.php` loads and saves the item tax category; `app/Views/items/form.php` shows either item tax percentages or a tax category | OSPOS has two paths: legacy `items_taxes` percentages when destination-based tax is off, and tax-category assignment when it is on. This is not yet a single agreed TVA model. Phase 3 must choose one path and preserve historical sales. | Test an item with a tax category and an item with no category; compare cart, stored sale taxes, receipt, return, and reports. |
@@ -202,10 +202,11 @@ baseline:
 
 ## Configuration recommendation
 
-No configuration change is safe to commit during this audit because each
-candidate changes an operational or tax decision:
+The shop language decision is settled: the application defaults to Arabic
+(Lebanon), the `admin` account is English, and the login route is English/LTR.
+The remaining configuration candidates change other operational or tax
+decisions:
 
-- `language_code=ar-LB` changes the default operator language;
 - `number_locale`, currency, decimals, and timezone change printed and entered
   values;
 - `use_destination_based_tax`, tax rates, and `tax_included` change tax
@@ -214,8 +215,8 @@ candidate changes an operational or tax decision:
 - silent printing and printer selection depend on the actual host and device.
 
 The safe native action is procedural: use the existing configuration screen to
-select `ar-LB` for a test employee and create test tax codes in an isolated
-database. Do not apply those values to the shared baseline or production data
+change the shop language when needed and create test tax codes in an isolated
+database. Do not apply tax values to the shared baseline or production data
 until the relevant ADR and business decisions are accepted.
 
 ## Verification record
@@ -243,7 +244,6 @@ until the relevant ADR and business decisions are accepted.
 
 ## Required decisions before later phases
 
-- Confirm the operator language default and Lebanese Arabic terminology.
 - Accept the RTL and mixed-direction rules in ADR 0004.
 - Accept TVA inclusion, precedence, opt-out, exemption, and rounding rules in
   ADR 0005 before changing tax configuration or schema.

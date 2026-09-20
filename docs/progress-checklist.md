@@ -58,7 +58,7 @@ Last updated: 2026-09-20.
 - [x] Add a translation completeness check, measured against keys with real English content rather than against every key.
 - [x] Create ADR 0004 for RTL and mixed-direction rules.
 - [x] Implement RTL layout without breaking English and left-to-right locales. Every rule is scoped to `[dir="rtl"]`; English was verified unchanged across twelve pages.
-- [x] Take the page language and direction from the configured language rather than from browser content negotiation.
+- [x] Take the page language and direction from the configured language rather than from browser content negotiation, with the login page deliberately English and left to right by decision on 2026-09-20.
 - [x] Handle mixed Arabic and Latin content for numbers, currency, barcodes, identifiers, dates, and URLs in the application shell.
 - [x] Capture visual evidence for the critical workflows in both directions. Done on 2026-09-20 by driving Google Chrome 151 directly instead of the browser automation server that failed earlier. Six pages captured in English and in `ar-LB`. Three right-to-left layout defects were found that the earlier markup-only checks could not see, and all three are fixed:
   - The top strip used Bootstrap's `navbar-left` and `navbar-right`, which the direction layer did not mirror, so the clock and the operator block collided on the left.
@@ -71,7 +71,7 @@ Last updated: 2026-09-20.
 ### Phase 2 items deferred on purpose
 
 - [ ] Receipt and barcode-sheet direction. Their templates use inline alignment that class-based rules cannot override. Phase 4, ADR 0007.
-- [ ] The login page does not load the application bundle, so it gets the browser's native right-to-left handling and not the direction layer. Decide later whether it needs its own small layer.
+- [x] Keep the login page deliberately in English and left to right with a request filter, decided 2026-09-20.
 - [ ] The sales cart's item-number column is selected by column position rather than by a class, because adding a class would force a reformat of a file whose reformatting is unsafe. Revisit if the code-style gate is ever settled for the upstream tree.
 - [ ] Charts, report graphs, and icons are not mirrored. Confirm with an Arabic-reading reviewer that this is wanted.
 
@@ -147,9 +147,12 @@ Last updated: 2026-09-20.
 - [ ] Run a clean installation and upgrade rehearsal.
 - [ ] List remaining risks and deferred items with owners.
 
+## Settled decisions
+
+- The shop default is Arabic (Lebanon), and the `admin` account runs in English; decided 2026-09-20.
+
 ## Decisions still needed from the project owner
 
-- [ ] The default operator language for production. The terminology itself is settled in ADR 0003 and needs a native-speaker review rather than a decision.
 - [ ] The exact POS hardware models and their host environment.
 - [ ] Whether fast-food sizes and combos can be represented with existing items and kits, or need the Phase 5 modifier feature.
 - [ ] The backup target, retention period, recovery objective, and update rollback process.

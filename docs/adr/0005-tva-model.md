@@ -1,6 +1,6 @@
 # ADR 0005: TVA model and business semantics
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-20
 - Decision owners: Project owner and implementation team
 - Scope: Phase 3 TVA model for the approved OSPOS 3.4.1 baseline
@@ -70,6 +70,10 @@ So on the path this project will use, OSPOS already rounds once at the end, whic
 5. An item can be switched to no TVA.
 6. Changing the global rate must not alter the TVA recorded on sales that already happened.
 7. Receipts, reports and returns must agree with the register to the cent.
+8. Prices are held in dollars at two decimal places.
+9. The receipt and the register screen show the total in Lebanese pounds, converted from a single global rate and rounded to the nearest 5,000.
+10. The register screen offers a change calculation in either currency that is not recorded anywhere.
+11. Taxed lines are visibly marked on the receipt and the TVA amount is explained by a footnote.
 
 ### Non-goals
 
@@ -79,6 +83,12 @@ So on the path this project will use, OSPOS already rounds once at the end, whic
 - No change to how discounts are applied, only to how tax is computed on the discounted amount.
 - No retroactive recalculation of historical sales.
 - No per-item or mixed tax inclusion. Inclusion is one setting for the whole shop.
+- No Lebanese pound amount in the accounts, the reports, the drawer totals or any stored row.
+- No pound payment, pound tender or pound change recorded against a sale.
+- No exchange rate stored per sale.
+- No permission restriction on changing the exchange rate.
+- No pound figure on the TVA report.
+- No cash rounding of the dollar total.
 
 ## Options considered
 
@@ -104,7 +114,7 @@ Model the rate as a tax category and assign categories to items. This is the pat
 
 ## Decision
 
-**Proposed: Option 2**, with the specifics below. This section is a proposal and needs the project owner's confirmation before any code is written, because it changes stored data and tax calculation.
+**Accepted: Option 2**, with the specifics below. Every open point was settled with the project owner on 2026-09-20.
 
 ### Rate resolution
 
@@ -133,7 +143,9 @@ If VAT-exclusive pricing is ever needed, it will be for a wholesale or business 
 
 Both mean the customer pays no TVA, but they are reported differently. An exempt item is outside TVA. A zero-rated item is inside TVA at 0 percent, which matters for reclaiming input TVA and typically applies to exports.
 
-This ADR proposes treating the off switch as **exempt**, and recording it as such on the sale so the TVA report can separate exempt turnover from taxed turnover. Zero-rating can be added later as a second switch state if the shop starts exporting.
+**Accepted by the project owner on 2026-09-20.** The off switch carries a reason that is one of exempt or zero-rated, and defaults to exempt. The reason is recorded on the sale so the TVA report can separate exempt turnover from taxed turnover.
+
+Both reasons are built now rather than exempt alone. The cost today is one stored value and one report column. The cost of adding zero-rating later is revisiting every item whose switch was turned off, with no record of which kind it was.
 
 ### Rounding
 
@@ -146,6 +158,47 @@ The rounding mode stays fixed rather than becoming a setting. A configurable rou
 ### Historical safety
 
 Sales already store their own tax rows in `sales_taxes` and `sales_items_taxes`, including the rate and the rounding code that was used. Nothing in this proposal reads the item's current rate when displaying or reporting a past sale, so requirement 6 holds without extra work. This will be proven with a test, not assumed.
+
+### Currency and the Lebanese pound total
+
+**Accepted by the project owner on 2026-09-20.** Prices, calculations, payments, reporting and every stored figure are in United States dollars at two decimal places. The dollar is the only currency of record.
+
+A single global setting holds the pounds-per-dollar rate, currently 89,500. It is an ordinary setting on the tax configuration screen with no special permission, because the owner asked for the fastest thing that ships.
+
+The pound figure is displayed, never stored. It appears in exactly three places: the receipt total, the register screen total, and an on-screen change helper. It is computed from the dollar total and rounded to the nearest 5,000 pounds, because the smallest useful Lebanese note makes anything finer unpayable.
+
+**The rate is deliberately not frozen onto each sale.** The owner accepted this after the consequence was put to them: reprinting an old receipt after a rate change recalculates the pound line at the new rate, so the reprint will not match the pound figure the customer was originally handed. This is acceptable here because the pound line is a convenience conversion and no pound amount enters the books, the drawer totals, the reports or a refund calculation. The receipt prints the rate it used, so an old receipt explains its own figure. If the shop later starts taking pound cash, this decision must be revisited before that work starts, because the pound amount would then be real money.
+
+### Receipt and register presentation
+
+**Accepted by the project owner on 2026-09-20.** The receipt layout is:
+
+```
+Water            2 x 1.10        2.20*
+Chips            1 x 2.50        2.50*
+Bread            1 x 1.00        1.00
+Oil, case        1 x 40.00      40.00*
+------------------------------------------
+TOTAL TO PAY                    45.70 $
+                          4,090,000 LL
+* VAT 11% included               4.43 $
+
+LBP Rate 89,500 LL
+```
+
+Rules:
+
+- A trailing asterisk marks every line that carried TVA. Lines with the switch off carry no marker.
+- The TVA footnote line opens with the asterisk that explains the marker, and states the amount already contained in the total.
+- Dollar totals carry a trailing ` $`. This is a suffix. `to_currency()` formats through `NumberFormatter::CURRENCY` against `number_locale`, which prefixes the symbol for English and varies by locale, so the receipt totals need their own formatting rather than the shared helper. The other 177 call sites of `to_currency()` are left alone.
+- The pound total sits directly beneath the dollar total with no currency symbol beyond `LL`.
+- The rate prints on its own line at the foot of the receipt, separated from the totals block.
+- Both receipt templates, `receipt_default` and `receipt_short`, get the same treatment. `receipt_config.php` selects between them.
+- The register screen shows the same dollar and pound totals in the same order.
+
+The change helper on the register screen accepts an amount tendered in either currency, converts once through the dollar total, and displays the change owed in both. It writes nothing. Payments continue to be recorded in dollars exactly as they are today.
+
+Arabic and right-to-left rendering of these lines follows ADR 0004: the amount and its currency marker are a single left-to-right run and must be isolated so the marker does not migrate to the far side of the line. Receipt direction work itself stays in Phase 4.
 
 ## Data-model, migration, compatibility, and rollback impact
 
@@ -173,11 +226,13 @@ The item form gains one label and one help string, which must be added to every 
 
 ### Hardware
 
-None directly. Receipt layout for exempt lines is Phase 4 and ADR 0007.
+The receipt gains three lines: the pound total, the footnote and the rate. On a narrow thermal roll this must not wrap. Real-device printing stays unverified until Phase 4, which owns printer support.
 
 ### Operations
 
 The global rate becomes operationally meaningful: changing it changes every inheriting item's tax from that moment. That is the point of the change, and it must be documented so nobody edits it casually mid-period.
+
+The exchange rate is equally exposed and has no permission gate, by the owner's decision. Changing it changes what the register and the receipt display from that moment, including on reprints of old sales. Nothing in the books moves.
 
 ## Test and acceptance criteria
 
@@ -191,6 +246,11 @@ To be written with the implementation. The suite must cover:
 - A sale recorded before a rate change still reports its original TVA afterwards.
 - Returns, voids and discounts produce the TVA the original sale did.
 - Receipt totals equal the register totals equal the report totals, to the cent.
+- The pound total equals the dollar total times the rate, rounded to the nearest 5,000. Check a value that rounds up and one that rounds down: 45.70 gives 4,090,000 and 12.34 gives 1,105,000.
+- The change helper's two figures agree with each other, because both are derived from one dollar calculation.
+- The change helper writes nothing: a sale completed after using it is byte-identical to one completed without it.
+- Changing the exchange rate does not alter any stored row, any report figure or any drawer total.
+- Taxed lines carry the asterisk and untaxed lines do not, in both receipt templates.
 
 ## Consequences, risks, and follow-up work
 
@@ -203,8 +263,8 @@ To be written with the implementation. The suite must cover:
 ### Risks
 
 - The migration must correctly identify today's deliberately untaxed items. Getting this wrong silently starts charging TVA on them. This is the highest risk in the phase and needs a rehearsal against a copy of real data.
-- Per-item tax inclusion, if it is really required, touches eleven call sites including reports, and is where this phase could grow well beyond its estimate.
-- Exempt versus zero-rated affects what the TVA report can prove. Choosing exempt now and needing zero-rated later means a second migration.
+- Reprinting an old receipt after an exchange-rate change prints a different pound figure than the customer was given. Accepted by the owner. It becomes a real problem only if the shop starts taking pound cash, at which point the rate must be frozen per sale.
+- The receipt totals stop using the shared money formatter so the currency symbol can trail the amount. The receipt and the rest of the application can therefore drift apart in how money looks. This is confined to the two receipt templates.
 - Removing the per-line rounding on the tax-exclusive path changes totals by a cent or two compared with today. This matters only if the shop has already been running tax-exclusive, which it has not.
 
 ### Follow-up work
@@ -213,10 +273,16 @@ To be written with the implementation. The suite must cover:
 - Whether prices are held in dollars or pounds, and what `currency_decimals` should be.
 - ADR 0007 for how an exempt line prints on an Arabic receipt.
 
-## Open questions for the project owner
+## Questions raised and how they were settled
 
-1. **Exempt or zero-rated.** Is the off switch "outside TVA" (exempt), or "inside TVA at 0 percent" (zero-rated)? The recommendation is to build both and default to exempt, because the cost of carrying the distinction now is one label and one report column, while adding it later means revisiting every item whose switch was turned off without recording which kind it was.
-2. **Currency.** Are prices held in dollars or Lebanese pounds, and how many decimal places? Dollars need two. Lebanese pounds need none and raise a separate cash-rounding question, because the smallest practical note is far larger than one pound.
+All were settled with the project owner on 2026-09-20.
+
+1. **Per-item tax inclusion.** Dropped. Shelf prices include TVA and the customer never sees TVA added at the till, so a mixed basket has no use here and would print a TVA figure that does not match what was added to the total.
+2. **Rounding.** Sum at full precision per rate, then round once, half up.
+3. **Exempt or zero-rated.** Both are built; exempt is the default.
+4. **Currency.** Dollars at two decimal places, with a displayed-only pound total at a fixed global rate.
+5. **Pound cash.** Not taken. The change helper is a screen aid only.
+6. **Freezing the rate per sale.** Not done, with the reprint consequence accepted in writing above.
 
 ## Links and evidence
 

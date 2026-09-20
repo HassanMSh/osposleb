@@ -136,10 +136,13 @@ Last updated: 2026-09-20.
 
 - [x] Add focused tests for modules, route filtering, cash payments, modes, and
   non-admin grants.
-- [ ] Run the full PHPUnit suite and record the final test and assertion count.
-- [ ] Run the PHP-CS-Fixer dry-run check on every changed PHP file.
-- [ ] Rehearse migration up and down against the verification database and
-  confirm the database is unchanged afterward.
+- [x] Run the full PHPUnit suite: 56 tests and 238 assertions passed. The only
+  warning is that the container has no code coverage driver.
+- [x] Run the PHP-CS-Fixer dry-run check on every changed PHP file. All ten
+  changed PHP files pass.
+- [x] Rehearse migration up and down against the verification database. Module,
+  permission, grant, migration, and configuration hashes matched before and
+  after rollback, and the temporary backup table was removed.
 - [ ] Verify the register and invoice manually in English and Arabic Chrome.
 - [ ] Confirm hardware behavior after the project owner names the devices.
 

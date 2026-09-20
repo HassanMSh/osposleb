@@ -97,16 +97,13 @@ jobs:
       # - name: Build application container
       #   run: docker build . --target ospos -t ospos
 
+  # Runs on 8.2 only. composer.lock pins dev tooling (PHPUnit 11 and its
+  # sebastian/* dependencies) that requires PHP 8.2 or later, so the dev
+  # dependencies cannot be installed on 8.1 at all. The application itself still
+  # supports 8.1, which the syntax job above checks.
   tests:
-    name: PHP ${{ matrix.php-version }} Tests
+    name: PHP 8.2 Tests
     runs-on: ubuntu-22.04
-
-    strategy:
-      fail-fast: false
-      matrix:
-        php-version:
-          - '8.1'
-          - '8.2'
 
     steps:
       - name: Checkout
@@ -115,7 +112,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php-version }}
+          php-version: '8.2'
           extensions: intl, mbstring, gd, zip
           coverage: none
 
@@ -126,9 +123,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.COMPOSER_CACHE_FILES_DIR }}
-          key: ${{ runner.os }}-php-${{ matrix.php-version }}-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-php-8.2-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-php-${{ matrix.php-version }}-
+            ${{ runner.os }}-php-8.2-
             ${{ runner.os }}-
 
       - name: Install dependencies

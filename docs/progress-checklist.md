@@ -116,6 +116,33 @@ Last updated: 2026-09-20.
 - [ ] Confirm the three new receipt lines do not wrap on a 58 mm roll. Real printing is Phase 4.
 - [ ] Have a native Lebanese Arabic speaker review the new tax and currency wording.
 
+## Phase 3b — Shop lockdown and simplified till (ADR 0010)
+
+### Decisions and implementation
+
+- [x] Accept the ten module removals as unreachable, not deleted, and keep the
+  upstream controllers, models, views, and data tables on disk.
+- [x] Add the lockdown migration with exact upstream module and permission
+  values, grant backup, and rollback.
+- [x] Add the global 404 route filter for every removed module.
+- [x] Apply the exact non-admin grant set and record the accepted single items
+  permission limitation.
+- [x] Simplify the till to cash only, with no discount or customer block.
+- [x] Restrict the register to Sales Receipt, Invoice, and Return.
+- [x] Remove the unused reward settings tab.
+- [x] Record ADR 0010 with status Accepted.
+
+### Verification
+
+- [x] Add focused tests for modules, route filtering, cash payments, modes, and
+  non-admin grants.
+- [ ] Run the full PHPUnit suite and record the final test and assertion count.
+- [ ] Run the PHP-CS-Fixer dry-run check on every changed PHP file.
+- [ ] Rehearse migration up and down against the verification database and
+  confirm the database is unchanged afterward.
+- [ ] Verify the register and invoice manually in English and Arabic Chrome.
+- [ ] Confirm hardware behavior after the project owner names the devices.
+
 ## Phase 4 — POS hardware and Arabic receipts
 
 - [ ] Collect exact scanner, receipt printer, and cash-drawer models, interfaces, operating system, browser, drivers, paper width, and Arabic support.

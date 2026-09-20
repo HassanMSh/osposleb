@@ -60,9 +60,13 @@ Last updated: 2026-09-20.
 - [x] Implement RTL layout without breaking English and left-to-right locales. Every rule is scoped to `[dir="rtl"]`; English was verified unchanged across twelve pages.
 - [x] Take the page language and direction from the configured language rather than from browser content negotiation.
 - [x] Handle mixed Arabic and Latin content for numbers, currency, barcodes, identifiers, dates, and URLs in the application shell.
-- [!] Capture visual evidence for the critical workflows in both directions. Blocked: the browser automation server failed to connect, so no screenshots exist. Markup, language, direction, and stylesheet delivery were verified instead.
+- [x] Capture visual evidence for the critical workflows in both directions. Done on 2026-09-20 by driving Google Chrome 151 directly instead of the browser automation server that failed earlier. Six pages captured in English and in `ar-LB`. Three right-to-left layout defects were found that the earlier markup-only checks could not see, and all three are fixed:
+  - The top strip used Bootstrap's `navbar-left` and `navbar-right`, which the direction layer did not mirror, so the clock and the operator block collided on the left.
+  - Free-text fields were forced right to left, so a Latin value was reordered on screen. A company address stored as `123 Nowhere street` displayed as `Nowhere street 123`.
+  - The register's totals used inline `text-align: right` on every value cell, which an ordinary rule cannot override, so the label and the amount met in the middle of the panel instead of sitting at opposite edges.
+- [x] Confirm English is unchanged by the fixes. The six English pages are pixel-identical below the clock strip, before and after.
 - [ ] Have a native Lebanese Arabic speaker review register and configuration terminology before go-live.
-- [x] Commit, push, and open the Phase 2 pull request. It is stacked on the Phase 1 pull request and will retarget to `develop` when that merges. All checks pass; awaiting the owner's merge decision.
+- [x] Commit, push, and open the Phase 2 pull request against `develop`. Merged 2026-09-20.
 
 ### Phase 2 items deferred on purpose
 

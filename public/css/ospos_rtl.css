@@ -26,6 +26,22 @@
     float: left !important;
 }
 
+/*
+ * Bootstrap 3 ships .navbar-left and .navbar-right as separate helpers from
+ * .pull-left and .pull-right, and the application's top strip uses them for the
+ * clock and for the operator name and logout link. Without these two rules both
+ * blocks land on the same side and collide.
+ */
+[dir="rtl"] .navbar-left {
+    float: right !important;
+}
+
+[dir="rtl"] .navbar-right {
+    float: left !important;
+    margin-left: 0;
+    margin-right: -15px;
+}
+
 [dir="rtl"] .col-xs-1, [dir="rtl"] .col-sm-1, [dir="rtl"] .col-md-1, [dir="rtl"] .col-lg-1,
 [dir="rtl"] .col-xs-2, [dir="rtl"] .col-sm-2, [dir="rtl"] .col-md-2, [dir="rtl"] .col-lg-2,
 [dir="rtl"] .col-xs-3, [dir="rtl"] .col-sm-3, [dir="rtl"] .col-md-3, [dir="rtl"] .col-lg-3,
@@ -139,6 +155,26 @@
     text-align: right;
 }
 
+/*
+ * Free-text fields hold whatever the operator typed, which may be Arabic or
+ * Latin. Forcing them right to left reorders a Latin value on screen: a company
+ * address stored as "123 Nowhere street" renders as "Nowhere street 123", and
+ * the same reordering reaches the printed receipt.
+ *
+ * "plaintext" makes each field take its direction from its own first strong
+ * character, so Arabic reads right to left and Latin reads left to right, while
+ * "start" aligns the text to whichever edge that resolves to.
+ *
+ * These selectors are deliberately kept at the same specificity as the explicit
+ * left-to-right rules further down, so those rules still win on source order for
+ * the fields that must always be left to right.
+ */
+[dir="rtl"] textarea,
+[dir="rtl"] input[type="text"] {
+    unicode-bidi: plaintext;
+    text-align: start;
+}
+
 /* --------------------------------------------------------------- table --- */
 
 [dir="rtl"] .table > thead > tr > th,
@@ -245,6 +281,28 @@
 [dir="rtl"] .no-gutter [class*="-1"] {
     padding-right: 0;
     padding-left: 0;
+}
+
+/* ------------------------------------------------------ register totals --- */
+
+/*
+ * The register's summary tables are two-column: a label and a value. Upstream
+ * puts an inline "text-align: right" on every value cell, which an ordinary
+ * rule cannot override, so in Arabic the label and the value both drift to the
+ * middle of the panel and touch. These rules send the label to the right edge
+ * and the value to the left edge, which is the mirror of the English layout.
+ *
+ * The cart itself carries the same class but is excluded, because its cells are
+ * centred by an upstream rule and should stay that way.
+ */
+[dir="rtl"] #overall_sale .sales_table_100:not(#register) th,
+[dir="rtl"] #overall_sale .sales_table_100:not(#register) td {
+    text-align: right;
+}
+
+[dir="rtl"] #overall_sale .sales_table_100:not(#register) th:last-child,
+[dir="rtl"] #overall_sale .sales_table_100:not(#register) td:last-child {
+    text-align: left !important;
 }
 
 /* ----------------------------------------------- mixed-direction content --- */

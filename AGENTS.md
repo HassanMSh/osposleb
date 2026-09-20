@@ -1,61 +1,177 @@
-# Agent Instructions
+# AGENTS.md
 
-This document provides guidance for AI agents working on this OSPOS fork.
+## Project
 
-## Phase workflow
+This repository customizes OSPOS for small supermarket and fast-food deployments in Lebanon.
 
-- Before starting a new implementation phase, ask the user for approval to create the phase branch, commit, push, and open its pull request.
-- After approval, start the phase from the latest `origin/develop` and use a focused branch.
-- Keep phase commits small and push the phase branch to `origin`.
-- Open the phase pull request against `develop`.
-- Do not merge until every required pull-request check passes and the user explicitly approves the merge.
-- Do not push, open a pull request, or merge without the required user approval.
+The priority is a working, maintainable solution delivered quickly. This is not an enterprise-grade rewrite.
 
-## Code style
+## Source of truth
 
-- Follow PSR-12 and CodeIgniter 4 conventions.
-- Run PHP-CS-Fixer with `.php-cs-fixer.no-header.php` before committing PHP changes.
-- Use `camelCase` for variables and methods, `PascalCase` for classes, and `UPPER_CASE` for constants.
-- Write code compatible with PHP 8.1 and later unless an accepted ADR changes the supported runtime.
-- Import classes, functions, and constants with `use` statements instead of inline fully qualified names.
-- Add comments only when they explain non-obvious behavior or constraints.
-- Use `const` for JavaScript variables that are not reassigned and `let` for variables that are. Do not use `var`.
+Read `OSPOS_IMPLEMENTATION_PLAN.md` before making changes.
 
-## Testing
+Follow its phases, ADR numbering, scope, and acceptance criteria. If this file conflicts with the implementation plan, the implementation plan wins.
 
-- Run PHPUnit with `composer test` when PHP tests exist for the changed behavior.
-- Add focused tests for changed business logic.
-- All required pull-request checks must pass before merging into `develop`.
-- Use one test file per class under test. Add new cases to the class's existing test file when it exists.
+## Agent roles
 
-## Continuous integration
+- Always use `gpt-5.6-luna` with `xhigh` reasoning as the implementation agent.
+- Always use `gpt-5.6-luna` with `low` reasoning for Git and GitHub operations.
 
-- Do not build application container images during the baseline and configuration stage.
-- Keep the application container-build step commented out until application code changes require it and the user approves enabling it.
-- Do not publish images, packages, or releases from pull-request workflows.
+## Working directory
 
-## Build
+All repositories, documentation, ADRs, scripts, and project artifacts must remain under:
 
-- Install dependencies with `composer install` and `npm install`.
-- Build assets with `npm run build` or `gulp`.
+`/home/dev-hassanshd/hassan/pos`
 
-## Conventions
+Do not modify files outside this directory.
 
-- Put controllers in `app/Controllers/`.
-- Put models in `app/Models/`.
-- Put views in `app/Views/`.
-- Put database migrations in `app/Database/Migrations/`.
-- Sanitize input and escape output with the `esc()` helper.
+## Implementation principles
 
-## Localization
+- Inspect existing OSPOS behavior before implementing anything.
+- Prefer native configuration over custom code.
+- Prefer small extensions over rewriting existing components.
+- Keep customizations isolated to reduce future upgrade difficulty.
+- Deliver the simplest implementation that satisfies the actual shop workflow.
+- Do not introduce abstractions, services, queues, frameworks, or infrastructure without a current requirement.
+- Do not optimize for hypothetical scale.
+- Preserve English/LTR behavior while adding Arabic/RTL support.
+- Preserve existing sales and historical transaction data.
+- Never silently change tax, pricing, inventory, refund, or reporting behavior.
 
-- Add new language keys to all `app/Language/*/` variants in alphabetical order.
-- Use an empty string in a non-English language only when no translation is available, so CodeIgniter can use its fallback.
-- When explicitly asked to translate text, provide the real translation rather than an empty or English value.
-- Preserve English/LTR behavior when changing localization or layout.
+## Scope boundaries
 
-## Security
+Included:
 
-- Never commit secrets, credentials, `.env` files, databases, backups, or customer data.
-- Use parameterized queries.
-- Validate and sanitize user input.
+- Arabic translations for operational screens.
+- RTL and mixed Arabic/Latin content.
+- Per-item TVA with an optional global default.
+- Barcode scanner, receipt printer, and cash drawer support.
+- Arabic receipt formatting.
+- Touch-friendly fast-food ordering.
+- Sizes, toppings, extras, removals, and combos.
+- Kitchen ticket printing and routing.
+- Backups, restore documentation, and basic production hardening.
+
+Not included unless explicitly requested:
+
+- Kitchen order-status tracking.
+- Kitchen display systems.
+- Dine-in/table management.
+- Delivery management.
+- Multi-branch architecture.
+- Microservices.
+- Mobile applications.
+- PostgreSQL or SQLite migration away from the upstream-supported database.
+- Large UI redesigns unrelated to the required workflows.
+
+## ADRs
+
+Create the ADR required by the implementation plan before implementing each numbered workstream.
+
+Keep ADRs concise. They should document:
+
+- Context.
+- Existing OSPOS behavior.
+- Decision.
+- Alternatives considered.
+- Consequences and risks.
+- Test and rollback approach.
+
+Use `Proposed` when user input is required and `Accepted` after approval.
+
+Do not create additional ADRs for minor implementation details.
+
+## User approval gates
+
+Stop and ask the user before:
+
+- Selecting or changing the upstream baseline release.
+- Using a repository path not supplied by the user.
+- Changing the database schema when native behavior may already satisfy the requirement.
+- Choosing ambiguous TVA, rounding, exemption, or price-inclusion rules.
+- Performing destructive database operations.
+- Removing existing functionality.
+- Pushing, merging, rebasing shared branches, or opening pull requests.
+- Claiming hardware compatibility without real-device testing.
+
+For ordinary implementation details inside an accepted ADR, proceed autonomously.
+
+## Testing standard
+
+The quality target is practical shop reliability, not exhaustive coverage.
+
+Always test critical paths:
+
+- Application startup and login.
+- Creating and completing a sale.
+- TVA calculations and rounding.
+- Returns, voids, and discounts affected by changed code.
+- Arabic and English interfaces.
+- RTL and mixed-direction content.
+- Receipt totals.
+- Barcode input.
+- Modifier and combo pricing.
+- Kitchen ticket generation.
+- Database migration and rollback when applicable.
+- Backup restoration before production handoff.
+
+Add focused automated tests for business logic. Use manual testing for UI layout, printers, scanners, and cash drawers.
+
+Do not spend time increasing unrelated test coverage.
+
+## Hardware
+
+Do not assume a printer, scanner, or cash drawer works because it uses a common protocol.
+
+Record hardware support as:
+
+- `verified`: tested on the actual device.
+- `expected`: technically compatible but not tested.
+- `unsupported`: known not to work.
+
+When hardware is unavailable, implement the software-side integration and clearly mark real-device validation as pending.
+
+## Git
+
+- Check the working tree before editing.
+- Preserve user changes and unrelated modifications.
+- Use small, focused commits.
+- Follow existing repository conventions.
+- Never commit secrets, databases, backups, customer data, generated dependencies, or environment-specific credentials.
+- Never add AI attribution or `Co-Authored-By` trailers.
+- Do not push unless explicitly requested.
+
+Suggested branch prefixes:
+
+- `feat/`
+- `fix/`
+- `docs/`
+- `chore/`
+
+## Dependencies
+
+- Reuse existing dependencies whenever practical.
+- Avoid adding a dependency for functionality that can be implemented simply with the current stack.
+- Pin dependencies according to existing project conventions.
+- Document any new runtime or system dependency.
+- Do not upgrade unrelated dependencies during feature work.
+
+## Documentation
+
+Update documentation only when it helps installation, operation, testing, backup, restoration, hardware setup, or future maintenance.
+
+Do not create speculative or duplicate documentation.
+
+## Completion report
+
+At the end of each phase, report:
+
+1. What changed.
+2. ADRs created or updated.
+3. Tests executed and their results.
+4. Hardware behavior that remains unverified.
+5. Migrations and rollback instructions.
+6. Known limitations.
+7. The recommended next phase.
+
+Keep reports concise and factual.

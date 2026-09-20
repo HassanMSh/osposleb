@@ -175,8 +175,8 @@ resolve_uploads_directory() {
 
 # Refuse uploads content that would make the archive contain secrets or unsafe links.
 check_uploads_content() {
-    if find "$uploads_dir" -mindepth 1 \( -iname '.env' -o -iname 'app.env' -o -iname 'db.env' \) -print -quit | grep -q .; then
-        fail 'Uploads directory contains a .env, app.env, or db.env basename; refusing to archive it.'
+    if find "$uploads_dir" -mindepth 1 \( -iname '.env' -o -iname 'app.env' -o -iname 'mysql.env' -o -iname 'db.env' \) -print -quit | grep -q .; then
+        fail 'Uploads directory contains a .env, app.env, mysql.env, or db.env basename; refusing to archive it.'
     fi
     if find "$uploads_dir" -type l -print -quit | grep -q .; then
         fail 'Uploads directory contains a symlink; refusing to archive it.'

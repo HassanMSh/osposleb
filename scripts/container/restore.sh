@@ -179,8 +179,8 @@ validate_archive_members() {
 
         normalized=${member%/}
         case ${normalized,,} in
-            .env|*/.env|app.env|*/app.env|db.env|*/db.env)
-                fail 'The backup archive must not contain a .env, app.env, or db.env basename.'
+            .env|*/.env|app.env|*/app.env|mysql.env|*/mysql.env|db.env|*/db.env)
+                fail 'The backup archive must not contain a .env, app.env, mysql.env, or db.env basename.'
                 ;;
         esac
         case $normalized in

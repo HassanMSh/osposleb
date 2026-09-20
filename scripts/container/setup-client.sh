@@ -86,11 +86,12 @@ print_layout() {
     printf 'Created client configuration directory: %s\n' "$host_data_dir"
     printf 'Created: %s\n' "$host_data_dir/ospos.conf"
     printf 'Created: %s\n' "$host_data_dir/secrets/app.env"
+    printf 'Created: %s\n' "$host_data_dir/secrets/mysql.env"
     printf 'Created: %s\n' "$host_data_dir/secrets/db.env"
     printf 'Created: %s\n' "$host_data_dir/uploads"
     printf 'Created: %s\n' "$host_data_dir/backups"
     if [[ $platform == linux ]]; then
-        printf 'Protected secrets: secrets directory mode 700 (app.env mode 644, db.env mode 600)\n'
+        printf 'Protected secrets: secrets directory mode 700 (app.env mode 644, mysql.env mode 600, db.env mode 600)\n'
     else
         printf 'Windows secret protection: the host launcher prepared the secrets directory before writing.\n'
     fi
@@ -103,6 +104,7 @@ if (( prepared_directory == 1 )); then
     [[ -d $data_dir && ! -L $data_dir ]] || fail "Prepared client directory is not available: $host_data_dir"
     [[ -d $data_dir/secrets && ! -L $data_dir/secrets ]] || fail "Prepared secrets directory is not available: $host_data_dir/secrets"
     [[ ! -e $data_dir/secrets/app.env && ! -L $data_dir/secrets/app.env ]] || fail "Prepared secrets directory already contains app.env: $host_data_dir/secrets"
+    [[ ! -e $data_dir/secrets/mysql.env && ! -L $data_dir/secrets/mysql.env ]] || fail "Prepared secrets directory already contains mysql.env: $host_data_dir/secrets"
     [[ ! -e $data_dir/secrets/db.env && ! -L $data_dir/secrets/db.env ]] || fail "Prepared secrets directory already contains db.env: $host_data_dir/secrets"
 else
     [[ ! -e $data_dir && ! -L $data_dir ]] || fail "Refusing to run against an existing installation: $host_data_dir"
@@ -126,6 +128,12 @@ cat > "$data_dir/secrets/db.env" <<EOF
 MYSQL_ROOT_PASSWORD=$root_password
 EOF
 
+cat > "$data_dir/secrets/mysql.env" <<EOF
+MYSQL_DATABASE=ospos
+MYSQL_USER=admin
+MYSQL_PASSWORD=$app_password
+EOF
+
 cat > "$data_dir/secrets/app.env" <<EOF
 CI_ENVIRONMENT=production
 CI_DEBUG=false
@@ -140,13 +148,6 @@ database.default.DBDriver=MySQLi
 database.default.DBPrefix=ospos_
 database.default.port=3306
 
-MYSQL_DATABASE=ospos
-MYSQL_USER=admin
-MYSQL_USERNAME=admin
-MYSQL_PASSWORD=$app_password
-MYSQL_DB_NAME=ospos
-MYSQL_HOST_NAME=mysql
-
 encryption.key=$encryption_key
 EOF
 
@@ -158,6 +159,7 @@ EOF
 if [[ $platform == linux ]]; then
     chmod 700 "$data_dir/secrets"
     chmod 644 "$data_dir/secrets/app.env"
+    chmod 600 "$data_dir/secrets/mysql.env"
     chmod 600 "$data_dir/secrets/db.env"
     chmod 777 "$data_dir/uploads"
 fi

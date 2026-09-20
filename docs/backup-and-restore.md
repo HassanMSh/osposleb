@@ -12,7 +12,7 @@ The Linux procedure comes second for development and Linux-operated deployments.
 
 The client layout keeps non-secret settings, secrets, uploads, and backups together while the database stays in a Docker named volume.
 
-The owner must keep a separate copy of the `secrets` directory somewhere other than the backup drive. `app.env` contains the application database credentials; `db.env` contains the separate MariaDB root password.
+The owner must keep a separate copy of the `secrets` directory somewhere other than the backup drive. `app.env` contains the application's own database connection settings and its encryption key; `mysql.env` contains the application database credentials for the database container; `db.env` contains the separate MariaDB root password.
 
 An archive must not carry both the backups and the secrets, because one stolen drive would then give up everything.
 
@@ -67,7 +67,7 @@ Run the setup command into a new directory.
 ./scripts/setup-client.sh --data-directory "$PWD/client-data"
 ```
 
-The Linux setup command protects the secrets with the `secrets` directory at mode 700, not with the mode of the files inside it, keeps `app.env` at mode 644 because the application container's web server must read it there, keeps `db.env` at mode 600 because only Compose `env_file` ever reads it, and keeps the database in a named Docker volume.
+The Linux setup command protects the secrets with the `secrets` directory at mode 700, not with the mode of the files inside it, keeps `app.env` at mode 644 because the application container's web server must read it there, keeps `mysql.env` and `db.env` at mode 600 because only Compose `env_file` ever reads them, and keeps the database in a named Docker volume.
 
 Set `OSPOS_DATA_DIR` and start the stack with the same client override.
 
@@ -94,7 +94,7 @@ An explicit `--destination` still wins over the configured destination.
 
 The default destination is the client `backups\` or `backups/` directory.
 
-The backup does not contain `.env`, `app.env`, or `db.env` at any archive depth.
+The backup does not contain `.env`, `app.env`, `mysql.env`, or `db.env` at any archive depth.
 
 When the client-config destination is used, the launcher mounts the config file and writable backup destination separately. It does not mount the whole client directory into the backup container.
 
@@ -138,7 +138,7 @@ Anyone holding an exFAT or FAT32 drive can therefore read the archive.
 
 The mode-600 setting is not protection for an archive stored on those drives.
 
-This is another reason that `secrets\app.env` and `secrets\db.env` stay out of the archive.
+This is another reason that `secrets\app.env`, `secrets\mysql.env`, and `secrets\db.env` stay out of the archive.
 
 The client `secrets\` directory contains the database passwords and the application encryption key.
 
@@ -209,7 +209,7 @@ if ($null -eq $backup -or $backup.Length -eq 0) { throw "No non-empty backup was
 
 The archive must contain `database.sql`, `manifest.txt`, and `uploads/`.
 
-The archive must not contain a member whose basename is `.env`, `app.env`, or `db.env`, at any depth.
+The archive must not contain a member whose basename is `.env`, `app.env`, `mysql.env`, or `db.env`, at any depth.
 
 Copy an important archive to a second safe location.
 
@@ -323,7 +323,7 @@ tar -tzf "$backup"
 
 The listing must include `database.sql`, `manifest.txt`, and `uploads/`.
 
-The listing must not include a member whose basename is `.env`, `app.env`, or `db.env`, at any depth.
+The listing must not include a member whose basename is `.env`, `app.env`, `mysql.env`, or `db.env`, at any depth.
 
 ### Restore the live Linux shop
 
@@ -401,7 +401,7 @@ The file contains `public/uploads/` by default, including item pictures and the 
 
 The file contains a small manifest with the backup date, application version, database name, migration version, and a database checksum.
 
-The file does not contain a member whose basename is `.env`, `app.env`, or `db.env`, at any depth.
+The file does not contain a member whose basename is `.env`, `app.env`, `mysql.env`, or `db.env`, at any depth.
 
 The backup does not contain the application code, operating system, Docker images, logs, sessions, or cache files.
 

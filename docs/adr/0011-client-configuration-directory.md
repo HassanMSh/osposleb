@@ -65,6 +65,7 @@ One client installation uses this layout.
   ospos.conf
   secrets/
     app.env
+    mysql.env
     db.env
   uploads/
   backups/
@@ -80,7 +81,7 @@ The client Compose override uses the one `OSPOS_DATA_DIR` variable.
 
 The operator passes `ospos.conf` to Compose with `--env-file` and exports `OSPOS_DATA_DIR` for the launchers.
 
-The setup entry point creates the layout, generates both secrets, writes `app.env`, writes `db.env`, writes `ospos.conf`, and prints the paths it created without printing secret values.
+The setup entry point creates the layout, generates both secrets, writes `app.env`, writes `mysql.env`, writes `db.env`, writes `ospos.conf`, and prints the paths it created without printing secret values.
 
 The Linux launcher runs the entry point as the current UID and GID so the generated files belong to the operator.
 
@@ -92,7 +93,9 @@ The Windows launcher refuses exFAT and FAT32 because those filesystems do not st
 
 The setup command refuses to run if the target directory already exists, including an empty directory or a symlink.
 
-The generated `app.env` contains the CodeIgniter database settings, the application database username and password, the application database environment values, and the application encryption key.
+The generated `app.env` contains the CodeIgniter environment, timezone, and HTTPS settings, the CodeIgniter database connection settings, and the application encryption key.
+
+The generated `mysql.env` contains the application database name, username, and password, for the database container only.
 
 The generated `db.env` contains only the MariaDB root password.
 
@@ -100,7 +103,7 @@ The application Compose service binds `secrets/app.env` read-only at `/app/.env`
 
 The application reads the generated settings from the bind-mounted `/app/.env`. Compose `env_file` silently drops any key containing a dot, such as `database.default.*` and `encryption.key`, so that route never delivered those keys; it only duplicated values the bind mount already supplies, plus the `MYSQL_*` keys `app/Config/Database.php` reads as a fallback. The secret file is still not copied into the image. It is readable by the web-server account inside the container, because the directory, not the file mode, is the real protection: `app.env` is mode 644 so `www-data` can read it, while the `secrets` directory stays mode 700 so no other account on the host can traverse into it.
 
-The MariaDB service reads both `secrets/app.env` and `secrets/db.env` with Compose `env_file`. This supplies the application account values from `app.env` and the separate root password from `db.env`.
+The MariaDB service reads `secrets/mysql.env` and `secrets/db.env` with Compose `env_file`, and no longer reads `app.env`, so it never holds the application encryption key. This supplies the application account values from `mysql.env` and the separate root password from `db.env`.
 
 The override resets the upstream hard-coded environment values so the generated password is used.
 
@@ -118,9 +121,9 @@ An explicit `--destination` bypasses that setting and still wins.
 
 The restore launchers accept the client application environment through `OSPOS_DATA_DIR` or `--env` so a restored installation uses its own credentials.
 
-The application secret file is mounted read-only into the backup and restore tool containers. The backup tool gets no mount for `db.env` or the rest of the client directory.
+The application secret file is mounted read-only into the backup and restore tool containers. The backup tool gets no mount for `mysql.env`, `db.env`, or the rest of the client directory.
 
-The secret files are never copied into the application image and are never included in a backup archive. Backup and restore reject `.env`, `app.env`, and `db.env` by basename at every archive depth.
+The secret files are never copied into the application image and are never included in a backup archive. Backup and restore reject `.env`, `app.env`, `mysql.env`, and `db.env` by basename at every archive depth.
 
 The passphrase-encrypted secrets archive proposed in the first draft is deferred.
 
@@ -176,7 +179,7 @@ The owner, recovery process, and lost-passphrase policy belong in ADR 0009.
 
 ## Security and operational consequences
 
-The Linux secrets directory is mode 700, which is the real protection: no other account on the host can traverse into it. Inside that closed directory, `app.env` is mode 644 because the application container's web server, running as `www-data`, must read it, and `db.env` stays mode 600 because it is only ever read through Compose `env_file`, run by the invoking user. The root and application database passwords are different values.
+The Linux secrets directory is mode 700, which is the real protection: no other account on the host can traverse into it. Inside that closed directory, `app.env` is mode 644 because the application container's web server, running as `www-data`, must read it, and `mysql.env` and `db.env` stay mode 600 because they are only ever read through Compose `env_file`, run by the invoking user. `mysql.env` carries the application database credentials for the database container; `db.env` carries only the separate root password, and neither file gives the database container the application encryption key. The root and application database passwords are different values.
 
 NTFS protection is applied to the `secrets` directory for the current Windows account.
 

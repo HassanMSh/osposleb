@@ -593,7 +593,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Complete and finalize a sale. Used in app/Views/sales/register.php
+     * Completes a cash-only sale without buyer data. Used in app/Views/sales/register.php.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -633,13 +633,16 @@ class Sales extends Secure_Controller
         $data['price_work_orders']      = $this->sale_lib->is_price_work_orders();
         $data['email_receipt']          = $this->sale_lib->is_email_receipt();
         $customer_id                    = $this->sale_lib->get_customer();
-        $invoice_number                 = $this->sale_lib->get_invoice_number();
-        $data['invoice_number']         = $invoice_number;
-        $work_order_number              = $this->sale_lib->get_work_order_number();
-        $data['work_order_number']      = $work_order_number;
-        $quote_number                   = $this->sale_lib->get_quote_number();
-        $data['quote_number']           = $quote_number;
-        $customer_info                  = $this->_load_customer_data($customer_id, $data);
+        if ($this->sale_lib->is_invoice_mode()) {
+            $customer_id = NEW_ENTRY;
+        }
+        $invoice_number            = $this->sale_lib->get_invoice_number();
+        $data['invoice_number']    = $invoice_number;
+        $work_order_number         = $this->sale_lib->get_work_order_number();
+        $data['work_order_number'] = $work_order_number;
+        $quote_number              = $this->sale_lib->get_quote_number();
+        $data['quote_number']      = $quote_number;
+        $customer_info             = $this->_load_customer_data($customer_id, $data);
 
         if ($customer_info != null) {
             $data['customer_comments'] = $customer_info->comments;

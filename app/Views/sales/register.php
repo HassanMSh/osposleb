@@ -23,8 +23,6 @@
  * @var string    $mode_label
  * @var string    $comment
  * @var bool      $print_after_sale
- * @var bool      $email_receipt
- * @var bool      $price_work_orders
  * @var string    $invoice_number
  * @var int       $cash_mode
  * @var float     $non_cash_total
@@ -355,23 +353,11 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     <?php
                     // Only show this part if in sale or return mode
                     if ($pos_mode) {
-                        $due_payment = false;
-
-                        if (count($payments) > 0) {
-                            foreach ($payments as $payment_id => $payment) {
-                                if ($payment['payment_type'] === lang(ucfirst($controller_name) . '.due')) {
-                                    $due_payment = true;
-                                }
-                            }
-                        }
-
-                        if (! $due_payment) {
-                            ?>
+                        ?>
                             <div class="btn btn-sm btn-success pull-right" id="finish_sale_button" tabindex="<?= ++$tabindex ?>">
                                 <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?>
                             </div>
                     <?php
-                        }
                     }
                     ?>
                 <?php } else { ?>
@@ -417,7 +403,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             <?= form_open("{$controller_name}/cancel", ['id' => 'buttons_form']) ?>
             <div class="form-group" id="buttons_sale">
                 <div class="btn btn-sm btn-default pull-left" id="suspend_sale_button"><span class="glyphicon glyphicon-align-justify">&nbsp;</span><?= lang(ucfirst($controller_name) . '.suspend_sale') ?></div>
-                <?php if (! $pos_mode) { // Invoice mode does not require a customer.?>
+                <?php if (! $pos_mode) { // Invoice mode does not require buyer details.?>
                     <div class="btn btn-sm btn-success" id="finish_invoice_button"><span class="glyphicon glyphicon-ok">&nbsp;</span><?= esc($mode_label) ?></div>
                 <?php } ?>
 
@@ -444,22 +430,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                                 </label>
                             </div>
 
-                            <?php if (! empty($customer_email)) { ?>
-                                <div class="col-xs-6">
-                                    <label for="email_receipt" class="control-label checkbox">
-                                        <?= form_checkbox(['name' => 'email_receipt', 'id' => 'email_receipt', 'value' => 1, 'checked' => $email_receipt]) ?>
-                                        <?= lang(ucfirst($controller_name) . '.email_receipt') ?>
-                                    </label>
-                                </div>
-                            <?php } ?>
-                            <?php if ($mode === 'sale_work_order') { ?>
-                                <div class="col-xs-6">
-                                    <label for="price_work_orders" class="control-label checkbox">
-                                        <?= form_checkbox(['name' => 'price_work_orders', 'id' => 'price_work_orders', 'value' => 1, 'checked' => $price_work_orders]) ?>
-                                        <?= lang(ucfirst($controller_name) . '.include_prices') ?>
-                                    </label>
-                                </div>
-                            <?php } ?>
                         </div>
                     </div>
                     <?php if (($mode === 'sale_invoice') && $config['invoice_enable']) { ?>
@@ -599,18 +569,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         $('#sales_print_after_sale').change(function() {
             $.post("<?= esc(site_url("{$controller_name}/setPrintAfterSale")) ?>", {
                 sales_print_after_sale: $(this).is(':checked')
-            });
-        });
-
-        $('#price_work_orders').change(function() {
-            $.post("<?= esc(site_url("{$controller_name}/setPriceWorkOrders")) ?>", {
-                price_work_orders: $(this).is(':checked')
-            });
-        });
-
-        $('#email_receipt').change(function() {
-            $.post("<?= esc(site_url("{$controller_name}/setEmailReceipt")) ?>", {
-                email_receipt: $(this).is(':checked')
             });
         });
 
@@ -771,9 +729,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 break;
             case 56: // Alt + 8 Finish Invoice without payment
                 $("#finish_invoice_button").click();
-                break;
-            case 57: // Alt + 9 Open Shortcuts Help Modal
-                $("#show_keyboard_help").click();
                 break;
         }
 

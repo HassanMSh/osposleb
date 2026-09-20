@@ -13,6 +13,13 @@ Upstream files outside this directory are left as the original developers wrote 
 - `gap-analysis.md` — the Phase 1 audit of native OSPOS behavior and the disposition of every project requirement.
 - `adr/` — architecture decision records, numbered `0001` through `0009`, one per workstream defined in the implementation plan.
 
+Accepted records so far:
+
+- `adr/0001-upstream-release-and-baseline.md` — the approved upstream release and how the fork is pinned to it.
+- `adr/0002-native-feature-configuration-and-gap-analysis.md` — the audit method and how every requirement was routed to a phase.
+- `adr/0003-arabic-translation-ownership-and-terminology.md` — who owns each Arabic locale, the terminology rules, and how completeness is enforced.
+- `adr/0004-rtl-and-mixed-direction.md` — how right-to-left layout is applied without changing English, and how identifiers and numbers stay readable inside Arabic text.
+
 Later phases add `test-plan.md`, `backup-and-restore.md`, and `operations-runbook.md` to this directory.
 
 ## Conventions

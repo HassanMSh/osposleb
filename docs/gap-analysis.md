@@ -34,11 +34,11 @@ printer, scanner, or cash drawer.
 
 | Requirement | Disposition | Code and file evidence | Gap, risk, and phase routing | Acceptance checks |
 | --- | --- | --- | --- | --- |
-| Arabic locale can be selected system-wide and per employee | `native/configuration` | `app/Helpers/locale_helper.php` (`get_languages`, `current_language_code`); `app/Config/App.php` (`supportedLocales`); `app/Controllers/Employees.php` saves `language_code` and `language`; `app/Views/configs/locale_config.php` exposes the system selector | `ar-EG` and `ar-LB` are present. Selecting a locale is safe, but the deployment default and terminology remain a product choice. Phase 2 can use this without a schema change. | Change an operator and an employee between English and Arabic; log in again; confirm the selected language follows the employee and system fallback. |
-| Arabic coverage for operational screens | `small extension` | `app/Language/ar-EG/` and `app/Language/ar-LB/` contain the same main files as English, including `Login.php`, `Sales.php`, `Items.php`, `Receivings.php`, `Reports.php`, and `Config.php` | Of the 1543 English keys, only 1418 carry translatable English text; the rest hold an empty English value or are symbols, numbers, and placeholders. Measured against those 1418, `ar-LB` is 99.58 percent translated with 6 real gaps, and `ar-EG` is 96.33 percent with 52 gaps, 45 of which are the `Calendar.php` file that locale does not ship. Empty values fall back to English through `app/Libraries/MY_Language.php::getLine`. Phase 2, ADR 0003, is therefore a terminology review plus six strings, not a bulk translation project. | Compare English and Arabic keys; fail on missing or empty operational translations; manually review the listed screens and error/validation messages. |
+| Arabic locale can be selected system-wide and per employee | `native/configuration` | `app/Helpers/locale_helper.php` (`get_languages`, `current_language_code`); `app/Config/App.php` (`supportedLocales`); `app/Controllers/Employees.php` saves `language_code` and `language`; `app/Views/configs/locale_config.php` exposes the system selector | `ar-EG` and `ar-LB` are present. Selecting a locale is safe, but the deployment default and terminology remain a product choice. Phase 2 found that the per-employee selection had no effect: `app/Events/Load_config.php` applied the system language only. That is now fixed; see ADR 0003. No schema change was needed. | Change an operator and an employee between English and Arabic; log in again; confirm the selected language follows the employee and system fallback. |
+| Arabic coverage for operational screens | `small extension` — **closed in Phase 2** | `app/Language/ar-EG/` and `app/Language/ar-LB/` contain the same main files as English, including `Login.php`, `Sales.php`, `Items.php`, `Receivings.php`, `Reports.php`, and `Config.php` | Of the 1543 English keys, only 1418 carry translatable English text; the rest hold an empty English value or are symbols, numbers, and placeholders. At audit time `ar-LB` was 99.58 percent against those 1418 with 6 real gaps, and `ar-EG` was 96.33 percent with 52 gaps. Phase 2 closed both: each locale now covers 1417 of 1418, the single remaining difference being `Common.software_short`, which is the product name. Empty values still fall back to English through `app/Libraries/MY_Language.php::getLine`, which protects future upstream keys. See ADR 0003. | `tests/LanguageCoverageTest.php` compares both Arabic locales against every English key that contains real words and fails on a missing, empty, or English-identical value. |
 | Arabic and English remain available together | `native/configuration` | `app/Config/App.php` lists `en`, `en-GB`, `ar-EG`, and `ar-LB`; `app/Helpers/locale_helper.php::get_languages` lists both language choices | Locale switching is already designed as a setting. Do not remove English or change the default until the shop chooses its operating language. Phase 2. | Run the same sale, return, item edit, and report scenario in both locales. |
-| Global RTL layout | `custom feature` | `app/Views/partial/header.php` and `app/Views/login.php` set `lang` and UTF-8 but do not set `dir`; `public/css/ospos.css` contains fixed left/right alignment rules and no RTL layer | UTF-8 and locale selection do not provide layout direction. Navigation, Bootstrap forms, tables, dialogs, and print views need a deliberate RTL strategy. Phase 2, ADR 0004. | Visual checks at desktop and touch widths for login, register, item forms, tables, reports, dialogs, and receipts in both LTR and RTL. |
-| Mixed Arabic/Latin direction for identifiers and free text | `custom feature` | Sales and receipt views render item names, descriptions, item numbers, serial numbers, phone/email values, and totals in ordinary table cells; e.g. `app/Views/sales/register.php` and `app/Views/sales/receipt_default.php` | Barcodes, SKUs, decimals, currency, timestamps, URLs, and Latin product names can reorder or become hard to copy inside Arabic text. Phase 2 must add direction isolation and test data rules. | Copy and visually inspect Arabic names containing `ABC-123`, EAN values, phone numbers, email addresses, URLs, dates, percentages, and currency values. |
+| Global RTL layout | `custom feature` — **implemented in Phase 2, receipts deferred** | `app/Views/partial/header.php` and `app/Views/login.php` set `lang` and UTF-8 but do not set `dir`; `public/css/ospos.css` contains fixed left/right alignment rules and no RTL layer | UTF-8 and locale selection do not provide layout direction. Phase 2 added `text_direction()` in `app/Helpers/locale_helper.php`, a `dir` attribute on the shell and login layouts, and `public/css/ospos_rtl.css`, a layer whose every rule is scoped to `[dir="rtl"]` so the English layout cannot change. Receipts and barcode sheets are not covered and stay with Phase 4 and ADR 0007. See ADR 0004. | `tests/LocaleHelperTest.php` covers the direction helper. Markup, language, and direction were verified live in both languages. Visual layout is still unverified: the browser automation server did not connect. |
+| Mixed Arabic/Latin direction for identifiers and free text | `custom feature` — **implemented in Phase 2 for the shell** | Sales and receipt views render item names, descriptions, item numbers, serial numbers, phone/email values, and totals in ordinary table cells; e.g. `app/Views/sales/register.php` and `app/Views/sales/receipt_default.php` | Phase 2 added `.ltr-value` and `.numeric-value` in `public/css/ospos_rtl.css`, both using `unicode-bidi: isolate`, and applied them by selector to identifier and numeric inputs and to the sales cart's item-number column. Selectors rather than view edits were used because the code-style gate would force unsafe strict-comparison rewrites in `register.php`; see ADR 0004. Receipt views remain uncovered. | Copy and visually inspect Arabic names containing `ABC-123`, EAN values, phone numbers, email addresses, URLs, dates, percentages, and currency values. Not yet done: needs a browser. |
 | Existing tax and TVA tables | `native/configuration` | `app/Models/Tax.php` reads `tax_rates`; `app/Controllers/Taxes.php` manages tax codes, categories, jurisdictions, rates, and rounding; `app/Views/taxes/tax_rates_form.php` exposes rate and rounding | The destination-based tax model is already substantial. It must be configured only after the business rules below are accepted. Phase 3, ADR 0005. | Create a test tax code/category/rate in an isolated database; sell, return, discount, and report on an item using it. |
 | Per-item TVA assignment | `native/configuration` | `app/Models/Item.php` allows `tax_category_id`; `app/Controllers/Items.php` loads and saves the item tax category; `app/Views/items/form.php` shows either item tax percentages or a tax category | OSPOS has two paths: legacy `items_taxes` percentages when destination-based tax is off, and tax-category assignment when it is on. This is not yet a single agreed TVA model. Phase 3 must choose one path and preserve historical sales. | Test an item with a tax category and an item with no category; compare cart, stored sale taxes, receipt, return, and reports. |
 | Optional global TVA default | `native/configuration` | `app/Views/configs/tax_config.php` exposes `default_tax_1_rate`, `default_tax_2_rate`, `tax_included`, and destination defaults; `app/Controllers/Config.php::postSaveTax` saves them; new item forms load the default rates | Native defaults exist, but the project has not decided tax-inclusive versus tax-exclusive prices, explicit opt-out, zero-rated versus exempt, or whether a blank item value means inherit. Phase 3 must obtain those decisions before configuration or schema changes. | Verify new-item inheritance, explicit zero/blank behavior, tax-inclusive and tax-exclusive totals, rounding, returns, discounts, receipts, and historical transactions. |
@@ -266,3 +266,126 @@ until the relevant ADR and business decisions are accepted.
 - Phase 5: touch sales, sizes, modifiers, combos, and kitchen ticket routing.
 - Phase 6: end-to-end regression, permissions review, backup/restore drill,
   migration rehearsal, and production hardening.
+
+## Phase 2 addendum
+
+This section records what Phase 2 changed and what it deliberately left alone.
+The Phase 1 findings above are kept as written, so the audit and the work done
+against it can be compared.
+
+### Arabic coverage is closed for both locales
+
+Both `ar-LB` and `ar-EG` now translate 1417 of the 1418 English keys that carry
+real words. The one difference is `Common.software_short`, which holds the
+product name `OSPOS` and is deliberately left in Latin script.
+
+Closing `ar-LB` took the six strings the audit identified. Closing `ar-EG` took
+a new `Calendar.php`, which that locale did not ship, and one login validation
+message. `ar-EG` is not the deployment target, but leaving it incomplete means
+the base-language fallback can be reached with an English string, and the two
+additions are suitable for contribution upstream.
+
+`tests/LanguageCoverageTest.php` now enforces this. It compares against keys
+whose English value matches `/[A-Za-z]{2,}/`, which is the correct denominator
+and the thing the first measurement got wrong. It also asserts the English
+source still yields more than 1000 translatable keys, so a broken loader cannot
+make the check pass by finding nothing to compare.
+
+### Lebanese month names replaced Egyptian ones
+
+`app/Language/ar-LB/Calendar.php` shipped the international month names used in
+Egypt and the Gulf. Lebanon uses the Levantine names, so the file now reads
+`كانون الثاني`, `شباط`, `آذار`, `نيسان`, `أيار`, `حزيران`, `تموز`, `آب`,
+`أيلول`, `تشرين الأول`, `تشرين الثاني`, and `كانون الأول`. Monday is now spelled
+`الاثنين` rather than the Egyptian colloquial `الإتنين`. This is a judgement
+call, it is confined to that one file, and it is reversible on its own.
+
+### The per-employee language did not work
+
+This was not in the Phase 1 findings and was found while verifying the
+direction work. `app/Helpers/locale_helper.php::current_language_code()` prefers
+the logged-in employee's language, but `app/Events/Load_config.php` ignored the
+helper and called `setLocale()` with the system setting. An employee who chose
+Arabic still got the system language, so the employee language picker and the
+`language_code` column had no effect on translations.
+
+The audit row for locale selection said this was `native/configuration` and
+safe to use. That was right about the schema and wrong about the behavior. The
+event now calls `current_language_code()`, so the employee's language applies
+when set and the system language applies otherwise.
+
+Anyone reading the Phase 1 row should treat the fix as part of Phase 2's scope
+rather than as a separate defect.
+
+### What direction support covers
+
+`text_direction()` and `is_right_to_left()` in `app/Helpers/locale_helper.php`
+derive the direction from the base language, against the list in
+`RIGHT_TO_LEFT_LANGUAGES` in `app/Config/Constants.php`. The shell and login
+layouts now render `dir` from the same source as `lang`, which is
+`current_language_code()` rather than `$request->getLocale()`. The old source
+was browser content negotiation and could declare a language the page was not
+rendered in.
+
+`public/css/ospos_rtl.css` is the layer. Every rule is scoped to `[dir="rtl"]`
+except `.ltr-value` and `.numeric-value`, which must hold in either language.
+`gulpfile.js` appends it last to the debug and production bundles.
+
+### What direction support does not cover
+
+Receipts and barcode sheets are untouched and stay with Phase 4 and ADR 0007.
+Their templates use inline `style="text-align: right"`, which class-based rules
+cannot override, so they need their own approach.
+
+The login page loads Bootswatch 5 and its own stylesheet rather than the
+application bundle, so it gets the browser's native right-to-left handling from
+the `dir` attribute and not the layer.
+
+Charts, report graphs, and icons are not mirrored.
+
+### Files not changed on purpose
+
+`app/Views/sales/register.php`, `app/Views/sales/quote_email.php`,
+`app/Views/sales/work_order_email.php`, and `app/Views/barcodes/barcode_sheet.php`
+were reverted after an initial attempt to add classes to them.
+
+The repository's continuous integration runs PHP-CS-Fixer over every PHP file
+changed in a pull request, and the configuration disagrees with 1274 of the
+1329 files in the tree. Changing one attribute in a view therefore requires
+reformatting that whole file. On these four, the reformatting rewrites loose
+comparisons into strict ones on values that come from the database, including
+`$item['print_option'] === PRINT_YES`, `$item['discount_type'] === FIXED`, and
+`$config['company_logo'] !== ''`. Upstream has marked several with
+`// TODO: ===` because the types are not verified. A wrong strict comparison
+there makes items disappear from emailed quotes and work orders.
+
+Everything needed from `register.php` is achieved by selector instead. The
+other three are print and email documents that Phase 4 owns.
+
+For the two files that were changed and reformatted,
+`app/Views/partial/header.php` and `app/Views/login.php`, every strict
+comparison the formatter introduced was checked against the database first:
+`ospos_modules.module_id` is `varchar(255)`, and `theme`, `login_form`, and
+`company_logo` are string columns in `ospos_app_config`.
+
+### Verification performed
+
+Against a disposable MariaDB 10.5 and PHP 8.2 stack:
+
+- Employee language `ar-LB`: ten pages returned HTTP 200 with
+  `<html lang="ar-LB" dir="rtl">` and Arabic text.
+- Employee language cleared, system language `ar-EG`: the same pages and the
+  login page returned HTTP 200 with `<html lang="ar-EG" dir="rtl">` and Arabic
+  text, which confirms the fallback.
+- English configured: twelve pages returned HTTP 200 with
+  `<html lang="en" dir="ltr">`, zero Arabic characters, and no `dir="rtl"`.
+- The direction layer is present in the served production bundle, which grew
+  from about 114.6 KB to about 117.3 KB.
+- Test suite: 20 tests, 36 assertions, green on PHP 8.2.33 with PHPUnit
+  11.5.15.
+- PHP-CS-Fixer reports 0 of 15 changed PHP files needing changes.
+
+Still unverified: the rendered visual layout. The browser automation server
+available to the session failed to connect, so no screenshots exist. The
+evidence covers markup, language, direction, and stylesheet delivery, not
+pixels.

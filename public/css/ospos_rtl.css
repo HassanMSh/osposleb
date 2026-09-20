@@ -1,0 +1,332 @@
+/*
+ * Right-to-left layer.
+ *
+ * Every rule is scoped to [dir="rtl"], which is set on the <html> element by
+ * text_direction() in app/Helpers/locale_helper.php. In a left-to-right locale
+ * none of these selectors match, so the English layout is untouched.
+ *
+ * This file is concatenated last into the stylesheet bundle so it overrides
+ * Bootstrap 3 and the application styles above it.
+ */
+
+/* ---------------------------------------------------------------- base --- */
+
+[dir="rtl"] body {
+    direction: rtl;
+    text-align: right;
+}
+
+/* -------------------------------------------------------------- floats --- */
+
+[dir="rtl"] .pull-left {
+    float: right !important;
+}
+
+[dir="rtl"] .pull-right {
+    float: left !important;
+}
+
+[dir="rtl"] .col-xs-1, [dir="rtl"] .col-sm-1, [dir="rtl"] .col-md-1, [dir="rtl"] .col-lg-1,
+[dir="rtl"] .col-xs-2, [dir="rtl"] .col-sm-2, [dir="rtl"] .col-md-2, [dir="rtl"] .col-lg-2,
+[dir="rtl"] .col-xs-3, [dir="rtl"] .col-sm-3, [dir="rtl"] .col-md-3, [dir="rtl"] .col-lg-3,
+[dir="rtl"] .col-xs-4, [dir="rtl"] .col-sm-4, [dir="rtl"] .col-md-4, [dir="rtl"] .col-lg-4,
+[dir="rtl"] .col-xs-5, [dir="rtl"] .col-sm-5, [dir="rtl"] .col-md-5, [dir="rtl"] .col-lg-5,
+[dir="rtl"] .col-xs-6, [dir="rtl"] .col-sm-6, [dir="rtl"] .col-md-6, [dir="rtl"] .col-lg-6,
+[dir="rtl"] .col-xs-7, [dir="rtl"] .col-sm-7, [dir="rtl"] .col-md-7, [dir="rtl"] .col-lg-7,
+[dir="rtl"] .col-xs-8, [dir="rtl"] .col-sm-8, [dir="rtl"] .col-md-8, [dir="rtl"] .col-lg-8,
+[dir="rtl"] .col-xs-9, [dir="rtl"] .col-sm-9, [dir="rtl"] .col-md-9, [dir="rtl"] .col-lg-9,
+[dir="rtl"] .col-xs-10, [dir="rtl"] .col-sm-10, [dir="rtl"] .col-md-10, [dir="rtl"] .col-lg-10,
+[dir="rtl"] .col-xs-11, [dir="rtl"] .col-sm-11, [dir="rtl"] .col-md-11, [dir="rtl"] .col-lg-11,
+[dir="rtl"] .col-xs-12, [dir="rtl"] .col-sm-12, [dir="rtl"] .col-md-12, [dir="rtl"] .col-lg-12 {
+    float: right;
+}
+
+/* -------------------------------------------------------------- navbar --- */
+
+[dir="rtl"] .navbar-header,
+[dir="rtl"] .navbar-brand,
+[dir="rtl"] .navbar-nav,
+[dir="rtl"] .navbar-nav > li,
+[dir="rtl"] .navbar-toggle {
+    float: right;
+}
+
+[dir="rtl"] .navbar-right {
+    float: left !important;
+    margin-right: 0;
+    margin-left: -15px;
+}
+
+[dir="rtl"] .navbar-nav > li > .dropdown-menu {
+    right: 0;
+    left: auto;
+}
+
+/* ------------------------------------------------------------ dropdown --- */
+
+[dir="rtl"] .dropdown-menu {
+    right: 0;
+    left: auto;
+    float: right;
+    text-align: right;
+}
+
+[dir="rtl"] .dropdown-menu-right {
+    right: auto;
+    left: 0;
+}
+
+[dir="rtl"] .caret {
+    margin-right: 2px;
+    margin-left: 0;
+}
+
+/* --------------------------------------------------------------- lists --- */
+
+[dir="rtl"] ul,
+[dir="rtl"] ol {
+    padding-right: 40px;
+    padding-left: 0;
+}
+
+[dir="rtl"] .nav,
+[dir="rtl"] .dropdown-menu,
+[dir="rtl"] .list-group,
+[dir="rtl"] .pagination {
+    padding-right: 0;
+}
+
+/* --------------------------------------------------------------- forms --- */
+
+[dir="rtl"] .form-horizontal .control-label {
+    text-align: left;
+}
+
+[dir="rtl"] .radio input[type="radio"],
+[dir="rtl"] .radio-inline input[type="radio"],
+[dir="rtl"] .checkbox input[type="checkbox"],
+[dir="rtl"] .checkbox-inline input[type="checkbox"] {
+    margin-right: -20px;
+    margin-left: 0;
+}
+
+[dir="rtl"] .radio,
+[dir="rtl"] .checkbox {
+    padding-right: 20px;
+    padding-left: 0;
+}
+
+[dir="rtl"] .radio-inline,
+[dir="rtl"] .checkbox-inline {
+    padding-right: 20px;
+    padding-left: 0;
+    margin-left: 10px;
+    margin-right: 0;
+}
+
+[dir="rtl"] .input-group-addon:first-child {
+    border-right-width: 1px;
+    border-left-width: 0;
+}
+
+[dir="rtl"] .input-group-addon:last-child {
+    border-left-width: 1px;
+    border-right-width: 0;
+}
+
+[dir="rtl"] .help-block,
+[dir="rtl"] .form-control {
+    text-align: right;
+}
+
+/* --------------------------------------------------------------- table --- */
+
+[dir="rtl"] .table > thead > tr > th,
+[dir="rtl"] .table > tbody > tr > th,
+[dir="rtl"] .table > tfoot > tr > th,
+[dir="rtl"] .table > thead > tr > td,
+[dir="rtl"] .table > tbody > tr > td,
+[dir="rtl"] .table > tfoot > tr > td {
+    text-align: right;
+}
+
+[dir="rtl"] .fixed-table-container thead th .sortable {
+    padding-right: 0;
+    padding-left: 10px;
+}
+
+[dir="rtl"] .fixed-table-toolbar .columns,
+[dir="rtl"] .fixed-table-toolbar .bs-bars {
+    float: right;
+}
+
+[dir="rtl"] .fixed-table-pagination .pull-right {
+    float: left !important;
+}
+
+/* -------------------------------------------------------- modal, alert --- */
+
+[dir="rtl"] .modal-header .close {
+    float: left;
+}
+
+[dir="rtl"] .modal-footer {
+    text-align: left;
+}
+
+[dir="rtl"] .alert-dismissable .close,
+[dir="rtl"] .alert-dismissible .close {
+    right: auto;
+    left: -21px;
+}
+
+/* -------------------------------------------------------------- panels --- */
+
+[dir="rtl"] .list-group-item > .badge {
+    float: left;
+}
+
+[dir="rtl"] .close {
+    float: left;
+}
+
+/* ----------------------------------------------------- application css --- */
+
+[dir="rtl"] #config_info {
+    text-align: right;
+}
+
+[dir="rtl"] #register_wrapper,
+[dir="rtl"] #overall_sale,
+[dir="rtl"] #payment_details {
+    float: right;
+}
+
+[dir="rtl"] #overall_sale {
+    margin-right: 0.1em;
+    margin-left: 0;
+}
+
+[dir="rtl"] #payment_details {
+    text-align: right;
+}
+
+[dir="rtl"] #mode_form ul li,
+[dir="rtl"] #add_item_form ul li {
+    margin-right: 1em;
+    margin-left: 0;
+}
+
+[dir="rtl"] .first_li {
+    margin-right: 0.2em !important;
+    margin-left: 0 !important;
+}
+
+[dir="rtl"] #mode_form ul.dropdown-menu.inner,
+[dir="rtl"] #add_item_form ul.dropdown-menu.inner {
+    margin-right: -1em !important;
+    margin-left: 0 !important;
+}
+
+[dir="rtl"] .error_message_box {
+    margin-right: 20px;
+    margin-left: 0;
+}
+
+[dir="rtl"] #permission_list ul li {
+    padding-right: 20px;
+    padding-left: 0;
+}
+
+[dir="rtl"] .total-value {
+    text-align: left;
+}
+
+[dir="rtl"] .no-gutter [class*="-1"] {
+    padding-right: 0;
+    padding-left: 0;
+}
+
+/* ----------------------------------------------- mixed-direction content --- */
+
+/*
+ * Identifiers and machine-readable values keep left-to-right order even inside
+ * an Arabic sentence. Without this a barcode, SKU, phone number, email address
+ * or URL is reordered on screen and becomes wrong when copied.
+ *
+ * Apply .ltr-value to the element that holds the value, never to a whole row.
+ */
+.ltr-value {
+    direction: ltr;
+    unicode-bidi: isolate;
+}
+
+[dir="rtl"] .ltr-value {
+    text-align: right;
+}
+
+[dir="rtl"] .ltr-value.text-left {
+    text-align: left;
+}
+
+/*
+ * Numeric columns: keep the digits and any sign or decimal separator together
+ * and in left-to-right order, while the column itself stays where an Arabic
+ * reader expects it.
+ */
+.numeric-value {
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: right;
+}
+
+[dir="rtl"] input.numeric-value,
+[dir="rtl"] input.ltr-value {
+    direction: ltr;
+    text-align: left;
+}
+
+/* Inputs that always hold Latin data regardless of interface language. */
+[dir="rtl"] input[type="email"],
+[dir="rtl"] input[type="url"],
+[dir="rtl"] input[type="tel"],
+[dir="rtl"] input[type="number"],
+[dir="rtl"] input[name="item"],
+[dir="rtl"] input[name="item_number"],
+[dir="rtl"] input[name="product_id"],
+[dir="rtl"] input[name="barcode"] {
+    direction: ltr;
+    text-align: left;
+}
+
+/*
+ * Inputs that always hold numbers. Keeping them left to right stops the caret
+ * and any sign or decimal separator from jumping while the operator types.
+ */
+[dir="rtl"] input[name="quantity"],
+[dir="rtl"] input[name="price"],
+[dir="rtl"] input[name="discount"],
+[dir="rtl"] input[name="amount_tendered"] {
+    direction: ltr;
+    text-align: left;
+}
+
+/*
+ * The second column of the sales cart holds the item number, which is a barcode
+ * or SKU. It is selected by position because the cart rows are generated markup
+ * that carries no class of its own. The "no items in cart" row has a single
+ * spanning cell, so it never matches.
+ */
+[dir="rtl"] #cart_contents tr > td:nth-child(2) {
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: right;
+}
+
+/* ------------------------------------------------------------- receipt --- */
+
+[dir="rtl"] .receipt-wrapper,
+[dir="rtl"] #receipt_wrapper {
+    direction: rtl;
+    text-align: right;
+}

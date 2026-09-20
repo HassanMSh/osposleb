@@ -38,10 +38,10 @@ That approach does not work honestly on a Windows Docker Desktop bind mount.
 
 - Keep one client directory for non-secret settings, secrets, uploads, and backups.
 - Keep database files in a Docker named volume on both Linux and Windows.
-- Generate the database password and application encryption key inside a throwaway container.
+- Generate separate MariaDB root and application database passwords, plus the application encryption key, inside a throwaway container.
 - Provide thin Linux and Windows setup launchers over one container entry point.
 - Protect Linux secret files with mode 600.
-- Restrict NTFS secrets to the current Windows account and warn plainly when exFAT or FAT32 cannot protect them.
+- Restrict NTFS secrets to the current Windows account and refuse setup when the filesystem cannot protect them.
 - Mount the application environment read-only and mount `public/uploads` from the client directory.
 - Let the backup command use the destination in `ospos.conf` when no destination is supplied.
 - Keep explicit backup destinations working.
@@ -84,29 +84,31 @@ The setup entry point creates the layout, generates both secrets, writes `app.en
 
 The Linux launcher runs the entry point as the current UID and GID so the generated files belong to the operator.
 
-The Windows launcher runs the same entry point and then applies the platform-specific secret protection.
+The Windows launcher creates the new target and its `secrets` directory, applies the platform-specific filesystem and ACL preparation, and then runs the shared entry point in prepared-directory mode.
 
-The Windows launcher restricts `secrets\` with `icacls`, removes inherited access, and grants full control to the current Windows account on NTFS.
+The Windows launcher restricts `secrets\` with `icacls`, removes inherited access, and grants full control to the current Windows account on NTFS before any secret file is written. If filesystem discovery or ACL preparation fails, it removes the exact new target and stops.
 
-The Windows launcher detects exFAT and FAT32 and states that the secrets are not protected because those filesystems do not store permissions.
+The Windows launcher refuses exFAT and FAT32 because those filesystems do not store permissions. It also refuses any other filesystem it cannot confirm as NTFS.
 
 The setup command refuses to run if the target directory already exists, including an empty directory or a symlink.
 
-The generated `app.env` contains the CodeIgniter database settings, the application database environment values, and the application encryption key.
+The generated `app.env` contains the CodeIgniter database settings, the application database username and password, the application database environment values, and the application encryption key.
 
-The generated `db.env` contains the MariaDB root password and application database password.
+The generated `db.env` contains only the MariaDB root password.
 
 The application Compose service injects `secrets/app.env` as its environment, binds the same file read-only at `/app/client.env`, and binds `uploads/` to `/app/public/uploads`.
 
 The application reads the generated settings from its container environment, so the secret file is not copied into the image and is not made readable by the web-server account inside the container.
 
-The MariaDB service reads `secrets/db.env` with Compose `env_file`.
+The MariaDB service reads both `secrets/app.env` and `secrets/db.env` with Compose `env_file`. This supplies the application account values from `app.env` and the separate root password from `db.env`.
 
 The override resets the upstream hard-coded environment values so the generated password is used.
 
 The override does not change the `/var/lib/mysql` named volume.
 
 The backup launcher uses the client uploads and application environment when `OSPOS_DATA_DIR` is set.
+
+When the configured client backup destination is used, the launcher mounts only the application environment, the config file, the uploads directory, and the writable backup destination. It does not mount the whole client directory.
 
 With no explicit destination, it passes `ospos.conf` to the container entry point.
 
@@ -116,9 +118,9 @@ An explicit `--destination` bypasses that setting and still wins.
 
 The restore launchers accept the client application environment through `OSPOS_DATA_DIR` or `--env` so a restored installation uses its own credentials.
 
-The secret file is mounted read-only into the backup and restore tool containers.
+The application secret file is mounted read-only into the backup and restore tool containers. The backup tool gets no mount for `db.env` or the rest of the client directory.
 
-The secret files are never copied into the application image and are never included in a backup archive.
+The secret files are never copied into the application image and are never included in a backup archive. Backup and restore reject `.env`, `app.env`, and `db.env` by basename at every archive depth.
 
 The passphrase-encrypted secrets archive proposed in the first draft is deferred.
 
@@ -174,11 +176,11 @@ The owner, recovery process, and lost-passphrase policy belong in ADR 0009.
 
 ## Security and operational consequences
 
-Linux secret files are mode 600 and the containing directory is mode 700.
+Linux secret files are mode 600 and the containing directory is mode 700. The root and application database passwords are different values.
 
 NTFS protection is applied to the `secrets` directory for the current Windows account.
 
-exFAT and FAT32 provide no secret protection, and the setup command says so plainly.
+exFAT and FAT32 provide no secret protection, and the setup command refuses to write secrets there.
 
 Anyone with administrator rights on the shop computer, or anyone holding the disk, can read the secrets.
 
@@ -224,7 +226,7 @@ A restore drill into a second client directory restored the same logo, one compl
 
 The setup command returned status 1 and refused the existing first client directory.
 
-Windows setup, NTFS ACL enforcement, and exFAT/FAT32 warning behaviour are written and reviewed but remain expected, not verified, until the project owner runs them on the shop computer.
+Windows setup, NTFS ACL enforcement, and exFAT/FAT32 refusal behaviour are written and reviewed but remain expected, not verified, until the project owner runs them on the shop computer.
 
 ## Rollback
 

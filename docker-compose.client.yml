@@ -10,4 +10,5 @@ services:
         container_name: !reset null
         environment: !reset []
         env_file:
+            - ${OSPOS_DATA_DIR}/secrets/app.env
             - ${OSPOS_DATA_DIR}/secrets/db.env

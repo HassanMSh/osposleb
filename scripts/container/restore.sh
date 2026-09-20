@@ -45,7 +45,7 @@ Options:
   --yes                      Skip the interactive confirmation.
   --help                     Show this help.
 
-Without --database, the database from .env is overwritten.
+Without --database, the database named by --env is overwritten.
 Use --database with a separate, empty database to test a restore without touching the live shop.
 This command never restores .env and never drops or recreates a database.
 HELP
@@ -178,8 +178,10 @@ validate_archive_members() {
         esac
 
         normalized=${member%/}
-        case $normalized in
-            .env|*/.env) fail 'The backup archive must not contain a .env file.' ;;
+        case ${normalized,,} in
+            .env|*/.env|app.env|*/app.env|db.env|*/db.env)
+                fail 'The backup archive must not contain a .env, app.env, or db.env basename.'
+                ;;
         esac
         case $normalized in
             database.sql)

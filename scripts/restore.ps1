@@ -83,20 +83,18 @@ $uploads = (Resolve-Path -LiteralPath $uploadsArg).Path
 $uploadsParent = Split-Path -LiteralPath $uploads -Parent
 $uploadsName = Split-Path -LiteralPath $uploads -Leaf
 $envFile = (Resolve-Path -LiteralPath $envArg).Path
-$envParent = Split-Path -LiteralPath $envFile -Parent
-$envName = Split-Path -LiteralPath $envFile -Leaf
 
 $dockerArgs = @(
     'run', '--rm', '--network', $network,
     '--mount', "type=bind,source=$repoRoot,target=/work,readonly",
     '--mount', "type=bind,source=$archiveParent,target=/archive-parent,readonly",
     '--mount', "type=bind,source=$uploadsParent,target=/uploads-parent",
-    '--mount', "type=bind,source=$envParent,target=/env-parent,readonly",
+    '--mount', "type=bind,source=$envFile,target=/client.env,readonly",
     '--entrypoint', 'bash', 'mariadb:10.5',
     '/work/scripts/container/restore.sh',
     '--archive', "/archive-parent/$archiveName",
     '--uploads', "/uploads-parent/$uploadsName",
-    '--env', "/env-parent/$envName",
+    '--env', '/client.env',
     '--db-host', $dbHost
 )
 

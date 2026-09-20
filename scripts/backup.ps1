@@ -9,9 +9,38 @@ $destinationArg = $null
 $uploadsArg = $null
 $envArg = $null
 $configArg = $null
+$configValue = $null
+$configDestination = $null
 $destinationSet = $false
 $uploadsSet = $false
 $envSet = $false
+
+# Read the client backup destination without executing the config file.
+function Read-ConfiguredDestination {
+    param([string]$Path)
+
+    $matchingLines = @(Get-Content -LiteralPath $Path | Where-Object {
+        $_ -match '^\s*OSPOS_BACKUP_DESTINATION\s*=\s*(.*)$'
+    })
+    if ($matchingLines.Count -ne 1) { throw "The config file must contain one value for OSPOS_BACKUP_DESTINATION." }
+
+    $line = [string]$matchingLines[0]
+    if ($line -match '^\s*OSPOS_BACKUP_DESTINATION\s*=\s*(.*)$') {
+        $raw = [string]$Matches[1]
+    } else {
+        throw "Invalid OSPOS_BACKUP_DESTINATION in $Path."
+    }
+    $raw = $raw.Trim()
+    if ($raw.StartsWith("'")) {
+        if (-not $raw.EndsWith("'")) { throw "Invalid OSPOS_BACKUP_DESTINATION in $Path." }
+        return $raw.Substring(1, $raw.Length - 2)
+    }
+    if ($raw.StartsWith('"')) {
+        if (-not $raw.EndsWith('"')) { throw "Invalid OSPOS_BACKUP_DESTINATION in $Path." }
+        return $raw.Substring(1, $raw.Length - 2)
+    }
+    return ($raw -split '#', 2)[0].Trim()
+}
 
 for ($index = 0; $index -lt $args.Count; $index++) {
     switch ($args[$index]) {
@@ -66,6 +95,14 @@ if (-not (Test-Path -LiteralPath $uploadsArg -PathType Container)) { throw "Uplo
 if (-not (Test-Path -LiteralPath $envArg -PathType Leaf)) { throw "Environment file does not exist: $envArg" }
 if (-not $destinationSet) {
     if (-not (Test-Path -LiteralPath $configArg -PathType Leaf)) { throw "Config file does not exist: $configArg" }
+    $configValue = Read-ConfiguredDestination -Path $configArg
+    if ([string]::IsNullOrWhiteSpace($configValue)) { throw 'OSPOS_BACKUP_DESTINATION must not be empty.' }
+    if ([System.IO.Path]::IsPathRooted($configValue) -or $configValue -match '(^|[\\/])\.\.([\\/]|$)' -or $configValue -in @('.', '..')) {
+        throw 'OSPOS_BACKUP_DESTINATION contains an unsafe path.'
+    }
+    $configDestination = Join-Path $dataDirectory $configValue
+    if (-not (Test-Path -LiteralPath $configDestination -PathType Container)) { throw "Configured backup destination does not exist: $configDestination" }
+    $configDestination = (Resolve-Path -LiteralPath $configDestination).Path
 }
 if ($destinationSet -and -not (Test-Path -LiteralPath $destinationArg -PathType Container)) { throw "Destination directory does not exist: $destinationArg" }
 
@@ -74,20 +111,23 @@ $uploads = (Resolve-Path -LiteralPath $uploadsArg).Path
 $uploadsParent = Split-Path -LiteralPath $uploads -Parent
 $uploadsName = Split-Path -LiteralPath $uploads -Leaf
 $envFile = (Resolve-Path -LiteralPath $envArg).Path
-$envParent = Split-Path -LiteralPath $envFile -Parent
-$envName = Split-Path -LiteralPath $envFile -Leaf
 
 $dockerArgs = @(
     'run', '--rm', '--network', $network,
     '--mount', "type=bind,source=$repoRoot,target=/work,readonly",
     '--mount', "type=bind,source=$uploadsParent,target=/uploads-parent,readonly",
-    '--mount', "type=bind,source=$envParent,target=/env-parent,readonly"
+    '--mount', "type=bind,source=$envFile,target=/client.env,readonly"
 )
 if ($destinationSet) { $dockerArgs += @('--mount', "type=bind,source=$destination,target=/destination") }
-if ($null -ne $dataDirectory) { $dockerArgs += @('--mount', "type=bind,source=$dataDirectory,target=/client") }
+if ($null -ne $dataDirectory -and -not $destinationSet) {
+    $dockerArgs += @(
+        '--mount', "type=bind,source=$configArg,target=/client/ospos.conf,readonly",
+        '--mount', "type=bind,source=$configDestination,target=/client/$configValue"
+    )
+}
 $dockerArgs += @('--entrypoint', 'bash', 'mariadb:10.5', '/work/scripts/container/backup.sh')
 if ($destinationSet) { $dockerArgs += @('--destination', '/destination') } else { $dockerArgs += @('--config', '/client/ospos.conf') }
-$dockerArgs += @('--uploads', "/uploads-parent/$uploadsName", '--env', "/env-parent/$envName", '--db-host', $dbHost)
+$dockerArgs += @('--uploads', "/uploads-parent/$uploadsName", '--env', '/client.env', '--db-host', $dbHost)
 
 # Rewrite the container destination in streamed success output while preserving the Docker status.
 & docker @dockerArgs | ForEach-Object {

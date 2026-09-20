@@ -142,8 +142,8 @@ Last updated: 2026-09-20.
 - [ ] Produce `test-plan.md`.
 - [x] Add the manual command-line backup and restore scripts and operator guide on 2026-09-20.
 - [x] Add the ADR 0011 client configuration directory, setup launchers, client Compose override, and default backup destination on 2026-09-20.
-- [x] Prove the client setup, restart persistence, secret exclusion, configured backup destination, restore drill, and existing-installation refusal on Linux on 2026-09-20.
-- [ ] Run the client setup, ACL, exFAT/FAT32 warning, backup, restart, and restore proofs on Windows; status remains expected until the project owner tests the shop computer.
+- [x] Prove the client setup, restart persistence, exclusion of `.env`, `app.env`, and `db.env`, configured backup destination, restore drill, and existing-installation refusal on Linux on 2026-09-20.
+- [ ] Run the client setup, ACL, exFAT/FAT32 refusal, backup, restart, and restore proofs on Windows; status remains expected until the project owner tests the shop computer.
 - [ ] Set up automated database backups with retention and off-machine copies.
 - [x] Complete an isolated restore drill. Done 2026-09-20 into a scratch database and scratch uploads directory: five items, nine sales, both employee records and the uploads directory all came back, and the live database was verified untouched.
 - [ ] Validate a restore into a live production shop.

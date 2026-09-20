@@ -6,16 +6,20 @@ umask 077
 platform=''
 data_dir=''
 host_data_dir=''
+prepared_directory=0
 
 # Print the setup command help.
 show_help() {
     cat <<'HELP'
-Usage: scripts/container/setup-client.sh --data-directory <path> --host-data-directory <path> --platform <linux|windows>
+Usage: scripts/container/setup-client.sh --data-directory <path> --host-data-directory <path> --platform <linux|windows> [--prepared-directory]
 
 Create one client configuration directory.
 
-The target directory must not already exist. Database files are not created here;
-the client Compose override keeps them in a Docker named volume.
+The target directory must not already exist in normal mode. Database files are
+not created here; the client Compose override keeps them in a Docker named volume.
+
+Windows callers must prepare the target and its secrets directory before using
+--prepared-directory, including any host filesystem and ACL protection.
 HELP
 }
 
@@ -58,6 +62,11 @@ parse_args() {
                 platform=$2
                 shift 2
                 ;;
+            --prepared-directory)
+                (( prepared_directory == 0 )) || fail '--prepared-directory was given more than once.'
+                prepared_directory=1
+                shift
+                ;;
             *)
                 fail "Unknown option: $option"
                 ;;
@@ -67,6 +76,9 @@ parse_args() {
     [[ -n $data_dir ]] || fail '--data-directory is required.'
     [[ -n $host_data_dir ]] || fail '--host-data-directory is required.'
     [[ $platform == linux || $platform == windows ]] || fail '--platform must be linux or windows.'
+    if [[ $platform == windows && $prepared_directory -eq 0 ]]; then
+        fail '--prepared-directory is required for Windows setup.'
+    fi
 }
 
 # Print the generated layout without printing any secret values.
@@ -80,27 +92,38 @@ print_layout() {
     if [[ $platform == linux ]]; then
         printf 'Protected secrets: mode 600\n'
     else
-        printf 'Windows secret protection: the host launcher will apply NTFS permissions.\n'
+        printf 'Windows secret protection: the host launcher prepared the secrets directory before writing.\n'
     fi
     printf 'Database storage: Docker named volume only\n'
 }
 
 parse_args "$@"
 
-[[ ! -e $data_dir && ! -L $data_dir ]] || fail "Refusing to run against an existing installation: $host_data_dir"
+if (( prepared_directory == 1 )); then
+    [[ -d $data_dir && ! -L $data_dir ]] || fail "Prepared client directory is not available: $host_data_dir"
+    [[ -d $data_dir/secrets && ! -L $data_dir/secrets ]] || fail "Prepared secrets directory is not available: $host_data_dir/secrets"
+    [[ ! -e $data_dir/secrets/app.env && ! -L $data_dir/secrets/app.env ]] || fail "Prepared secrets directory already contains app.env: $host_data_dir/secrets"
+    [[ ! -e $data_dir/secrets/db.env && ! -L $data_dir/secrets/db.env ]] || fail "Prepared secrets directory already contains db.env: $host_data_dir/secrets"
+else
+    [[ ! -e $data_dir && ! -L $data_dir ]] || fail "Refusing to run against an existing installation: $host_data_dir"
+fi
 
-mkdir -p "$data_dir/secrets" "$data_dir/uploads" "$data_dir/backups"
+if (( prepared_directory == 1 )); then
+    mkdir -p "$data_dir/uploads" "$data_dir/backups"
+else
+    mkdir -p "$data_dir/secrets" "$data_dir/uploads" "$data_dir/backups"
+fi
 
-db_password=$(generate_secret)
+root_password=$(generate_secret)
+app_password=$(generate_secret)
 encryption_key=$(generate_secret)
-[[ ${#db_password} -eq 64 ]] || fail 'Could not generate a database password.'
+[[ ${#root_password} -eq 64 ]] || fail 'Could not generate a database root password.'
+[[ ${#app_password} -eq 64 ]] || fail 'Could not generate an application database password.'
+[[ $root_password != "$app_password" ]] || fail 'Could not separate the database root and application passwords.'
 [[ ${#encryption_key} -eq 64 ]] || fail 'Could not generate an application encryption key.'
 
 cat > "$data_dir/secrets/db.env" <<EOF
-MYSQL_ROOT_PASSWORD=$db_password
-MYSQL_DATABASE=ospos
-MYSQL_USER=admin
-MYSQL_PASSWORD=$db_password
+MYSQL_ROOT_PASSWORD=$root_password
 EOF
 
 cat > "$data_dir/secrets/app.env" <<EOF
@@ -112,13 +135,15 @@ FORCE_HTTPS=false
 database.default.hostname=mysql
 database.default.database=ospos
 database.default.username=admin
-database.default.password=$db_password
+database.default.password=$app_password
 database.default.DBDriver=MySQLi
 database.default.DBPrefix=ospos_
 database.default.port=3306
 
+MYSQL_DATABASE=ospos
+MYSQL_USER=admin
 MYSQL_USERNAME=admin
-MYSQL_PASSWORD=$db_password
+MYSQL_PASSWORD=$app_password
 MYSQL_DB_NAME=ospos
 MYSQL_HOST_NAME=mysql
 
@@ -130,8 +155,10 @@ OSPOS_DATA_DIR='$host_data_dir'
 OSPOS_BACKUP_DESTINATION='backups'
 EOF
 
-chmod 700 "$data_dir/secrets"
-chmod 600 "$data_dir/secrets/app.env" "$data_dir/secrets/db.env"
-chmod 777 "$data_dir/uploads"
+if [[ $platform == linux ]]; then
+    chmod 700 "$data_dir/secrets"
+    chmod 600 "$data_dir/secrets/app.env" "$data_dir/secrets/db.env"
+    chmod 777 "$data_dir/uploads"
+fi
 
 print_layout

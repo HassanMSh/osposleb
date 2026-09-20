@@ -12,7 +12,7 @@ The Linux procedure comes second for development and Linux-operated deployments.
 
 The client layout keeps non-secret settings, secrets, uploads, and backups together while the database stays in a Docker named volume.
 
-The owner must keep a separate copy of the `secrets` directory somewhere other than the backup drive.
+The owner must keep a separate copy of the `secrets` directory somewhere other than the backup drive. `app.env` contains the application database credentials; `db.env` contains the separate MariaDB root password.
 
 An archive must not carry both the backups and the secrets, because one stolen drive would then give up everything.
 
@@ -34,9 +34,11 @@ Open PowerShell in the repository directory and create the layout.
 .\scripts\setup-client.ps1 --data-directory C:\OSPOS\Client
 ```
 
-On NTFS the setup command restricts `secrets\` to the current Windows account with `icacls` and removes inherited access.
+On NTFS the setup command creates the new target and `secrets\`, restricts `secrets\` to the current Windows account with `icacls`, and removes inherited access before the shared setup entry point writes any secret.
 
-On exFAT or FAT32 the command prints that the secrets are not protected and does not pretend that `icacls` secured them.
+On exFAT or FAT32 the command refuses setup because those filesystems cannot protect the secrets. It does not write passwords there.
+
+If filesystem discovery or ACL preparation fails, setup stops and removes the exact new target. It does not leave generated secrets behind.
 
 Set the one client-directory variable before using Compose or a launcher.
 
@@ -53,7 +55,7 @@ It leaves the database in the named `mysql` volume.
 
 The setup command refuses to run when the target directory already exists.
 
-The generated database password and application encryption key are made inside the setup container, so the host does not need OpenSSL or a PowerShell secret generator.
+The separate MariaDB root password, application database password, and application encryption key are made inside the setup container, so the host does not need OpenSSL or a PowerShell secret generator.
 
 ### Linux setup
 
@@ -92,7 +94,9 @@ An explicit `--destination` still wins over the configured destination.
 
 The default destination is the client `backups\` or `backups/` directory.
 
-The backup does not contain either secret file.
+The backup does not contain `.env`, `app.env`, or `db.env` at any archive depth.
+
+When the client-config destination is used, the launcher mounts the config file and writable backup destination separately. It does not mount the whole client directory into the backup container.
 
 To move a shop, install Docker, copy the client directory, set `OSPOS_DATA_DIR`, start the stack, and restore the latest archive.
 
@@ -205,7 +209,7 @@ if ($null -eq $backup -or $backup.Length -eq 0) { throw "No non-empty backup was
 
 The archive must contain `database.sql`, `manifest.txt`, and `uploads/`.
 
-The archive must not contain `.env`, `app.env`, or `db.env`.
+The archive must not contain a member whose basename is `.env`, `app.env`, or `db.env`, at any depth.
 
 Copy an important archive to a second safe location.
 
@@ -319,7 +323,7 @@ tar -tzf "$backup"
 
 The listing must include `database.sql`, `manifest.txt`, and `uploads/`.
 
-The listing must not include `.env`.
+The listing must not include a member whose basename is `.env`, `app.env`, or `db.env`, at any depth.
 
 ### Restore the live Linux shop
 
@@ -397,7 +401,7 @@ The file contains `public/uploads/` by default, including item pictures and the 
 
 The file contains a small manifest with the backup date, application version, database name, migration version, and a database checksum.
 
-The file does not contain `.env`, `app.env`, or `db.env`.
+The file does not contain a member whose basename is `.env`, `app.env`, or `db.env`, at any depth.
 
 The backup does not contain the application code, operating system, Docker images, logs, sessions, or cache files.
 
@@ -419,7 +423,7 @@ The scripts were checked with `bash -n`; `shellcheck` was not available in this 
 
 The Linux path was verified against the running MariaDB 10.5 stack on 2026-09-20.
 
-A real backup contained `database.sql` with twenty `INSERT` statements, `uploads/`, and `manifest.txt`, and did not contain `.env`.
+A real backup contained `database.sql` with twenty `INSERT` statements, `uploads/`, and `manifest.txt`, and did not contain `.env`, `app.env`, or `db.env`.
 
 Its manifest recorded application version 3.4.1, migration version `20260920000001`, and a SHA-256 checksum.
 
@@ -461,4 +465,4 @@ A restore drill into a second throwaway client directory restored the same logo,
 
 A second setup attempt against the existing first directory returned status 1 and refused to run.
 
-Windows setup, NTFS ACL enforcement, and exFAT/FAT32 warnings remain expected, not verified, because no real Windows machine was available.
+Windows setup, NTFS ACL enforcement, and exFAT/FAT32 refusal remain expected, not verified, because no real Windows machine was available.

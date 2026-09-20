@@ -101,10 +101,6 @@ uploads=$(CDPATH= cd -- "$uploads_arg" && pwd -P) \
 uploads_parent=$(CDPATH= cd -- "$(dirname -- "$uploads")" && pwd -P) \
     || fail "Cannot use uploads directory: $uploads_arg"
 uploads_name=$(basename -- "$uploads")
-env_parent=$(CDPATH= cd -- "$(dirname -- "$env_arg")" && pwd -P) \
-    || fail "Cannot use environment file: $env_arg"
-env_name=$(basename -- "$env_arg")
-
 docker_args=(
     run --rm
     --user "$(id -u):$(id -g)"
@@ -112,7 +108,7 @@ docker_args=(
     --mount "type=bind,source=$repo_root,target=/work,readonly"
     --mount "type=bind,source=$archive_parent,target=/archive-parent,readonly"
     --mount "type=bind,source=$uploads_parent,target=/uploads-parent"
-    --mount "type=bind,source=$env_parent,target=/env-parent,readonly"
+    --mount "type=bind,source=$env_arg,target=/client.env,readonly"
     --entrypoint bash
 )
 
@@ -125,7 +121,7 @@ docker_args+=(
     /work/scripts/container/restore.sh
     --archive "/archive-parent/$archive_name"
     --uploads "/uploads-parent/$uploads_name"
-    --env "/env-parent/$env_name"
+    --env /client.env
     --db-host "$db_host"
 )
 

@@ -13,6 +13,8 @@ destination_arg=''
 uploads_arg=''
 env_arg=''
 config_arg=''
+config_value=''
+config_destination=''
 destination_option_set=0
 uploads_option_set=0
 env_option_set=0
@@ -21,6 +23,38 @@ env_option_set=0
 fail() {
     printf 'Error: %s\n' "$1" >&2
     exit 1
+}
+
+# Read the client backup destination without executing the config file.
+read_configured_destination() {
+    local line raw pattern
+    local matches=0
+
+    config_value=''
+    pattern='^[[:space:]]*OSPOS_BACKUP_DESTINATION[[:space:]]*=[[:space:]]*(.*)$'
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ $line =~ $pattern ]]; then
+            matches=$((matches + 1))
+            raw=${BASH_REMATCH[1]}
+            raw="${raw#"${raw%%[![:space:]]*}"}"
+            raw="${raw%"${raw##*[![:space:]]}"}"
+
+            if [[ ${raw:0:1} == "'" ]]; then
+                [[ ${#raw} -ge 2 && ${raw: -1} == "'" ]] || fail "Invalid OSPOS_BACKUP_DESTINATION in $config_arg."
+                config_value=${raw:1:${#raw}-2}
+            elif [[ ${raw:0:1} == '"' ]]; then
+                [[ ${#raw} -ge 2 && ${raw: -1} == '"' ]] || fail "Invalid OSPOS_BACKUP_DESTINATION in $config_arg."
+                config_value=${raw:1:${#raw}-2}
+            else
+                raw=${raw%%#*}
+                raw="${raw#"${raw%%[![:space:]]*}"}"
+                raw="${raw%"${raw##*[![:space:]]}"}"
+                config_value=$raw
+            fi
+        fi
+    done < "$config_arg"
+
+    (( matches == 1 )) || fail "The config file must contain one value for OSPOS_BACKUP_DESTINATION."
 }
 
 while (( $# > 0 )); do
@@ -83,6 +117,18 @@ fi
 if [[ -z $destination_arg ]]; then
     [[ -f $config_arg ]] || fail "Config file does not exist: $config_arg"
     [[ -r $config_arg ]] || fail "Config file is not readable: $config_arg"
+    read_configured_destination
+    [[ -n $config_value ]] || fail 'OSPOS_BACKUP_DESTINATION must not be empty.'
+    [[ $config_value != /* ]] || fail 'OSPOS_BACKUP_DESTINATION must be relative to the client directory.'
+    case $config_value in
+        .|..|*../*|*/..|*'/..'*)
+            fail 'OSPOS_BACKUP_DESTINATION contains an unsafe path.'
+            ;;
+    esac
+    config_destination="$data_dir/$config_value"
+    [[ -d $config_destination ]] || fail "Configured backup destination does not exist: $config_destination"
+    config_destination=$(CDPATH= cd -- "$config_destination" && pwd -P) \
+        || fail "Cannot use configured backup destination: $config_destination"
 fi
 if [[ -n $destination_arg ]]; then
     [[ -d $destination_arg ]] || fail "Destination directory does not exist: $destination_arg"
@@ -95,24 +141,23 @@ fi
 uploads_parent=$(CDPATH= cd -- "$(dirname -- "$uploads_arg")" && pwd -P) \
     || fail "Cannot use uploads directory: $uploads_arg"
 uploads_name=$(basename -- "$uploads_arg")
-env_parent=$(CDPATH= cd -- "$(dirname -- "$env_arg")" && pwd -P) \
-    || fail "Cannot use environment file: $env_arg"
-env_name=$(basename -- "$env_arg")
-
 docker_args=(
     run --rm
     --user "$(id -u):$(id -g)"
     --network "$network"
     --mount "type=bind,source=$repo_root,target=/work,readonly"
     --mount "type=bind,source=$uploads_parent,target=/uploads-parent,readonly"
-    --mount "type=bind,source=$env_parent,target=/env-parent,readonly"
+    --mount "type=bind,source=$env_arg,target=/client.env,readonly"
 )
 
 if [[ -n $destination_arg ]]; then
     docker_args+=(--mount "type=bind,source=$destination,target=/destination")
 fi
-if [[ -n $data_dir ]]; then
-    docker_args+=(--mount "type=bind,source=$data_dir,target=/client")
+if [[ -n $data_dir && -z $destination_arg ]]; then
+    docker_args+=(
+        --mount "type=bind,source=$config_arg,target=/client/ospos.conf,readonly"
+        --mount "type=bind,source=$config_destination,target=/client/$config_value"
+    )
 fi
 
 docker_args+=(
@@ -127,7 +172,7 @@ else
 fi
 docker_args+=(
     --uploads "/uploads-parent/$uploads_name"
-    --env "/env-parent/$env_name"
+    --env /client.env
     --db-host "$db_host"
 )
 

@@ -43,7 +43,7 @@ Options:
   --env <path>               Database .env file; default is the repository .env.
   --help                     Show this help.
 
-The database password is read from .env and is never printed or archived.
+The database credentials are read from --env and are never printed or archived.
 The archive contains database.sql, uploads/, and a small manifest.txt file.
 Without --destination, OSPOS_BACKUP_DESTINATION is read from --config.
 HELP
@@ -175,8 +175,8 @@ resolve_uploads_directory() {
 
 # Refuse uploads content that would make the archive contain secrets or unsafe links.
 check_uploads_content() {
-    if find "$uploads_dir" -name '.env' -print -quit | grep -q .; then
-        fail 'Uploads directory contains a .env file; refusing to archive it.'
+    if find "$uploads_dir" -mindepth 1 \( -iname '.env' -o -iname 'app.env' -o -iname 'db.env' \) -print -quit | grep -q .; then
+        fail 'Uploads directory contains a .env, app.env, or db.env basename; refusing to archive it.'
     fi
     if find "$uploads_dir" -type l -print -quit | grep -q .; then
         fail 'Uploads directory contains a symlink; refusing to archive it.'

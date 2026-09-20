@@ -34,32 +34,58 @@ $dataName = Split-Path -LiteralPath $dataDirectory -Leaf
 if ([string]::IsNullOrWhiteSpace($dataName) -or $dataName -in @('.', '..')) { throw "Invalid data directory: $dataArg" }
 New-Item -ItemType Directory -Force -Path $dataParent | Out-Null
 
-$dockerArgs = @(
-    'run', '--rm',
-    '--mount', "type=bind,source=$repoRoot,target=/work,readonly",
-    '--mount', "type=bind,source=$dataParent,target=/client-parent",
-    '--entrypoint', 'bash', 'mariadb:10.5',
-    '/work/scripts/container/setup-client.sh',
-    '--data-directory', "/client-parent/$dataName",
-    '--host-data-directory', $dataDirectory,
-    '--platform', 'windows'
-)
-
-& docker @dockerArgs
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
 $secretsDirectory = Join-Path $dataDirectory 'secrets'
-$driveRoot = [System.IO.Path]::GetPathRoot($dataDirectory)
-$driveLetter = $driveRoot.Substring(0, 1)
-$fileSystem = (Get-Volume -DriveLetter $driveLetter).FileSystem
+$targetCreated = $false
 
-if ($fileSystem -eq 'NTFS') {
-    $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    & icacls $secretsDirectory /inheritance:r /grant:r "$account`:(OI)(CI)F" /T /C
-    if ($LASTEXITCODE -ne 0) { throw "icacls could not protect $secretsDirectory." }
-    Write-Output "Protected secrets for $account on NTFS."
-} elseif ($fileSystem -in @('exFAT', 'FAT32')) {
-    Write-Warning "The secrets directory is on $fileSystem. This file system has no file permissions, so the secrets are not protected."
-} else {
-    Write-Warning "The secrets directory is on $fileSystem. Protection was not applied because this file system was not recognized as NTFS."
+try {
+    if ($null -ne (Get-Item -LiteralPath $dataDirectory -Force -ErrorAction SilentlyContinue)) {
+        throw "Refusing to run against an existing installation: $dataDirectory"
+    }
+
+    New-Item -ItemType Directory -Path $dataDirectory -ErrorAction Stop | Out-Null
+    $targetCreated = $true
+    New-Item -ItemType Directory -Path $secretsDirectory -ErrorAction Stop | Out-Null
+
+    $driveRoot = [System.IO.Path]::GetPathRoot($dataDirectory)
+    if ([string]::IsNullOrWhiteSpace($driveRoot)) { throw "Could not determine the filesystem for $dataDirectory." }
+    $driveLetter = $driveRoot.Substring(0, 1)
+    $volume = Get-Volume -DriveLetter $driveLetter -ErrorAction Stop
+    if ($null -eq $volume) { throw "Could not determine the filesystem for $dataDirectory." }
+    $fileSystem = $volume.FileSystem
+
+    if ($fileSystem -eq 'NTFS') {
+        $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        & icacls $secretsDirectory /inheritance:r /grant:r "$account`:(OI)(CI)F" /T /C
+        if ($LASTEXITCODE -ne 0) { throw "icacls could not protect $secretsDirectory." }
+        Write-Output "Protected secrets for $account on NTFS before secret creation."
+    } elseif ($fileSystem -in @('exFAT', 'FAT32')) {
+        throw "The secrets directory is on $fileSystem. This file system has no file permissions, so setup cannot protect the secrets."
+    } else {
+        throw "The secrets directory is on $fileSystem. Setup cannot protect the secrets because this file system was not recognized as NTFS."
+    }
+
+    $dockerArgs = @(
+        'run', '--rm',
+        '--mount', "type=bind,source=$repoRoot,target=/work,readonly",
+        '--mount', "type=bind,source=$dataParent,target=/client-parent",
+        '--entrypoint', 'bash', 'mariadb:10.5',
+        '/work/scripts/container/setup-client.sh',
+        '--data-directory', "/client-parent/$dataName",
+        '--host-data-directory', $dataDirectory,
+        '--platform', 'windows',
+        '--prepared-directory'
+    )
+
+    & docker @dockerArgs
+    if ($LASTEXITCODE -ne 0) { throw "Docker setup failed with exit code $LASTEXITCODE." }
+} catch {
+    $failure = $_
+    if ($targetCreated) {
+        try {
+            Remove-Item -LiteralPath $dataDirectory -Recurse -Force -ErrorAction Stop
+        } catch {
+            throw "Setup failed and the new target could not be removed: $dataDirectory. $($_.Exception.Message)"
+        }
+    }
+    throw $failure
 }

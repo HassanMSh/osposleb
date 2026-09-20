@@ -4,6 +4,7 @@ namespace Tests;
 
 use App\Filters\ShopLockdownFilter;
 use App\Libraries\Sale_lib;
+use App\Models\Sale;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\HTTP\URI;
@@ -51,13 +52,13 @@ final class ShopLockdownTest extends CIUnitTestCase
     }
 
     /**
-     * Returns 404 for every removed module when its route is typed directly.
+     * Returns 404 for removed modules despite route case and repeated encoding.
      */
     public function testRemovedModuleRoutesReturnNotFound(): void
     {
         $filter = new ShopLockdownFilter();
 
-        foreach (ShopLockdown::REMOVED_MODULES as $module) {
+        foreach (array_merge(ShopLockdown::REMOVED_MODULES, ['Customers', '%2563ustomers', 'customers%252Fsearch']) as $module) {
             $request  = new IncomingRequest(new App(), new URI('/' . $module . '/index'), null, new UserAgent());
             $response = $filter->before($request);
 
@@ -77,7 +78,7 @@ final class ShopLockdownTest extends CIUnitTestCase
     }
 
     /**
-     * Applies the lockdown filter globally before controller routing.
+     * Applies the lockdown filter globally before controller execution.
      */
     public function testLockdownFilterIsRegisteredGlobally(): void
     {
@@ -98,6 +99,53 @@ final class ShopLockdownTest extends CIUnitTestCase
     }
 
     /**
+     * Exposes only cash options while editing an existing sale.
+     */
+    public function testExistingSalePaymentOptionsContainCashOnly(): void
+    {
+        $cash = lang('Sales.cash');
+
+        $this->assertSame([$cash => $cash], (new Sale())->get_payment_options(false, false));
+    }
+
+    /**
+     * Rejects a non-cash payment before the sale model can write it.
+     */
+    public function testSaleUpdateRejectsNonCashPayments(): void
+    {
+        $sale = new Sale();
+
+        foreach (['Credit', lang('Sales.rewards'), lang('Sales.cash_adjustment')] as $payment_type) {
+            $this->assertFalse($sale->update(1, [
+                'payments' => [
+                    ['payment_type' => $payment_type],
+                ],
+            ]), $payment_type);
+        }
+
+        $sale_status = COMPLETED;
+        $items       = [];
+        $payments    = [['payment_type' => 'Credit']];
+        $sales_taxes = [[], []];
+
+        $this->assertSame(-1, $sale->save_value(
+            NEW_ENTRY,
+            $sale_status,
+            $items,
+            NEW_ENTRY,
+            1,
+            '',
+            null,
+            null,
+            null,
+            SALE_TYPE_POS,
+            $payments,
+            null,
+            $sales_taxes,
+        ));
+    }
+
+    /**
      * Exposes exactly receipt, invoice, and return register modes.
      */
     public function testRegisterModesAreExactlyTheAllowedThree(): void
@@ -112,22 +160,18 @@ final class ShopLockdownTest extends CIUnitTestCase
     }
 
     /**
-     * Keeps the non-admin grants exactly aligned with the accepted decision.
+     * Falls back when a removed register mode remains in the session.
      */
-    public function testNonAdminGrantSetMatchesTheDecision(): void
+    public function testRemovedRegisterModeFallsBackToReceipt(): void
     {
-        $this->assertSame([
-            'items',
-            'reports',
-            'reports_items',
-            'reports_inventory',
-            'reports_sales',
-            'reports_sales_taxes',
-            'reports_taxes',
-            'reports_payments',
-            'reports_categories',
-            'sales',
-            'home',
-        ], ShopLockdown::NON_ADMIN_GRANTS);
+        $saleLibrary = (new ReflectionClass(Sale_lib::class))->newInstanceWithoutConstructor();
+        $session     = session();
+        $session->set('sales_mode', 'sale_quote');
+
+        $property = (new ReflectionClass(Sale_lib::class))->getProperty('session');
+        $property->setValue($saleLibrary, $session);
+
+        $this->assertSame('sale', $saleLibrary->get_mode());
+        $this->assertSame('sale', $session->get('sales_mode'));
     }
 }

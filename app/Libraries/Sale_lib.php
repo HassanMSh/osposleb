@@ -281,29 +281,44 @@ class Sale_lib
         return $this->session->get('suspended_id');
     }
 
+    /**
+     * Checks whether the validated stored mode is invoice mode.
+     */
     public function is_invoice_mode(): bool
     {
-        return $this->session->get('sales_mode') == 'sale_invoice' && $this->config['invoice_enable'];
+        return $this->get_mode() === 'sale_invoice' && $this->config['invoice_enable'];
     }
 
+    /**
+     * Checks whether the validated stored mode is receipt mode.
+     */
     public function is_sale_by_receipt_mode(): bool    // TODO: This function is not called anywhere in the code.
     {
-        return $this->session->get('sales_mode') == 'sale';    // TODO: === ?
+        return $this->get_mode() === 'sale';
     }
 
+    /**
+     * Keeps the removed quote mode disabled after validating the stored mode.
+     */
     public function is_quote_mode(): bool
     {
-        return $this->session->get('sales_mode') == 'sale_quote';    // TODO: === ?
+        return $this->get_mode() === 'sale_quote';
     }
 
+    /**
+     * Checks whether the validated stored mode is return mode.
+     */
     public function is_return_mode(): bool
     {
-        return $this->session->get('sales_mode') == 'return';    // TODO: === ?
+        return $this->get_mode() === 'return';
     }
 
+    /**
+     * Keeps the removed work-order mode disabled after validating the stored mode.
+     */
     public function is_work_order_mode(): bool
     {
-        return $this->session->get('sales_mode') == 'sale_work_order';    // TODO: === ?
+        return $this->get_mode() === 'sale_work_order';
     }
 
     public function set_price_work_orders(string $price_work_orders): void
@@ -635,13 +650,19 @@ class Sale_lib
         $this->session->remove('sales_employee');
     }
 
+    /**
+     * Returns the stored register mode, falling back to receipt mode if it is no longer supported.
+     */
     public function get_mode(): string
     {
-        if (! $this->session->get('sales_mode')) {
+        $mode = $this->session->get('sales_mode');
+        if (! is_string($mode) || ! array_key_exists($mode, $this->get_register_mode_options())) {
             $this->set_mode('sale');
+
+            return 'sale';
         }
 
-        return $this->session->get('sales_mode');
+        return $mode;
     }
 
     public function set_mode(string $mode): void

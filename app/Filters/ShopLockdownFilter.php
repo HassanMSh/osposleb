@@ -14,7 +14,7 @@ use Config\ShopLockdown;
 class ShopLockdownFilter implements FilterInterface
 {
     /**
-     * Rejects a request whose first URI segment is a removed module.
+     * Rejects a request whose normalized first URI segment is a removed module.
      *
      * @param list<string>|null $arguments
      *
@@ -22,13 +22,31 @@ class ShopLockdownFilter implements FilterInterface
      */
     public function before(RequestInterface $request, $arguments = null)
     {
-        $module = $request->getUri()->getSegment(1);
+        $module = $this->normalizeModuleSegment($request->getUri()->getSegment(1));
 
         if (in_array($module, ShopLockdown::REMOVED_MODULES, true)) {
             return Services::response()->setStatusCode(404);
         }
 
         return null;
+    }
+
+    /**
+     * Decodes a route segment repeatedly and normalizes its module name.
+     *
+     * @param string $segment Raw first URI segment.
+     *
+     * @return string Lowercase module name without later path segments.
+     */
+    private function normalizeModuleSegment(string $segment): string
+    {
+        do {
+            $decoded = rawurldecode($segment);
+            $changed = $decoded !== $segment;
+            $segment = $decoded;
+        } while ($changed);
+
+        return strtolower(explode('/', $segment, 2)[0]);
     }
 
     /**

@@ -73,8 +73,9 @@ The migration removes these module IDs from `ospos_modules`:
 It removes their matching permission rows, including the
 `receivings_stock` subpermission, and their grants. It does not drop any
 application data table. A global `ShopLockdownFilter` checks the first URI
-segment and returns HTTP 404 for each removed module. The filter is registered
-globally before routing, so hiding a menu entry is not the security boundary.
+segment and returns HTTP 404 for each removed module. CodeIgniter resolves the
+route before running global before-filters, but the filter still runs before
+the controller, so hiding a menu entry is not the security boundary.
 
 The settings screen no longer shows the reward configuration tab, which belongs
 to the removed customer and gift-card workflow.

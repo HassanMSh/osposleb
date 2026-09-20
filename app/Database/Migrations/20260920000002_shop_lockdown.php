@@ -8,7 +8,7 @@ use Config\ShopLockdown;
 class Migration_shop_lockdown extends Migration
 {
     /**
-     * Remove unused shop modules and apply the non-admin grant policy.
+     * Creates the first grant backup, removes unused modules, and applies the grant policy.
      */
     public function up(): void
     {
@@ -18,15 +18,17 @@ class Migration_shop_lockdown extends Migration
         $employees_table   = $this->db->prefixTable('employees');
         $backup_table      = $this->db->prefixTable('shop_lockdown_grants');
 
-        $this->db->query(
-            'CREATE TABLE IF NOT EXISTS ' . $backup_table . ' (
-                permission_id varchar(255) NOT NULL,
-                person_id int(10) NOT NULL,
-                menu_group varchar(32) DEFAULT NULL,
-                PRIMARY KEY (permission_id, person_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8',
-        );
-        $this->db->table($backup_table)->truncate();
+        $backup_exists = $this->db->tableExists($backup_table, false);
+        if (! $backup_exists) {
+            $this->db->query(
+                'CREATE TABLE ' . $backup_table . ' (
+                    permission_id varchar(255) NOT NULL,
+                    person_id int(10) NOT NULL,
+                    menu_group varchar(32) DEFAULT NULL,
+                    PRIMARY KEY (permission_id, person_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8',
+            );
+        }
 
         $removed_permissions = [
             'customers',
@@ -43,11 +45,13 @@ class Migration_shop_lockdown extends Migration
         ];
         $permission_list = implode(',', array_map([$this->db, 'escape'], $removed_permissions));
 
-        $this->db->query(
-            'INSERT INTO ' . $backup_table . ' (permission_id, person_id, menu_group)
-             SELECT permission_id, person_id, menu_group
-             FROM ' . $grants_table,
-        );
+        if (! $backup_exists) {
+            $this->db->query(
+                'INSERT INTO ' . $backup_table . ' (permission_id, person_id, menu_group)
+                 SELECT permission_id, person_id, menu_group
+                 FROM ' . $grants_table,
+            );
+        }
 
         $this->db->query(
             'DELETE FROM ' . $grants_table . '
@@ -56,6 +60,29 @@ class Migration_shop_lockdown extends Migration
 
         $this->db->table($permissions_table)->whereIn('permission_id', $removed_permissions)->delete();
         $this->db->table($modules_table)->whereIn('module_id', ShopLockdown::REMOVED_MODULES)->delete();
+
+        $module_grants = ['items', 'reports', 'sales', 'home'];
+        $admin         = $this->db->table($employees_table)
+            ->select('person_id')
+            ->where('username', 'admin')
+            ->get()
+            ->getRowArray();
+
+        if ($admin !== null) {
+            $admin_grants = [];
+
+            foreach ($this->db->table($permissions_table)->select('permission_id')->get()->getResultArray() as $permission) {
+                $admin_grants[] = [
+                    'permission_id' => $permission['permission_id'],
+                    'person_id'     => $admin['person_id'],
+                    'menu_group'    => in_array($permission['permission_id'], $module_grants, true) ? 'home' : '--',
+                ];
+            }
+
+            if ($admin_grants !== []) {
+                $this->db->table($grants_table)->ignore(true)->insertBatch($admin_grants);
+            }
+        }
 
         $non_admins = $this->db->table($employees_table)
             ->select('person_id')
@@ -67,8 +94,7 @@ class Migration_shop_lockdown extends Migration
             $this->db->table($grants_table)->whereIn('person_id', array_column($non_admins, 'person_id'))->delete();
         }
 
-        $module_grants = ['items', 'reports', 'sales', 'home'];
-        $grant_rows    = [];
+        $grant_rows = [];
 
         foreach ($non_admins as $employee) {
             foreach (ShopLockdown::NON_ADMIN_GRANTS as $permission_id) {
@@ -86,7 +112,9 @@ class Migration_shop_lockdown extends Migration
     }
 
     /**
-     * Restore the upstream module rows and every grant removed by up().
+     * Restores upstream module rows and the exact grant snapshot.
+     *
+     * @throws RuntimeException When the grant backup is missing.
      */
     public function down(): void
     {
@@ -94,6 +122,10 @@ class Migration_shop_lockdown extends Migration
         $permissions_table = $this->db->prefixTable('permissions');
         $grants_table      = $this->db->prefixTable('grants');
         $backup_table      = $this->db->prefixTable('shop_lockdown_grants');
+
+        if (! $this->db->tableExists($backup_table, false)) {
+            throw new \RuntimeException('Cannot roll back shop lockdown: backup table ' . $backup_table . ' does not exist.');
+        }
 
         $this->db->table($modules_table)->ignore(true)->insertBatch([
             ['name_lang_key' => 'module_customers', 'desc_lang_key' => 'module_customers_desc', 'sort' => 10, 'module_id' => 'customers'],
@@ -122,12 +154,11 @@ class Migration_shop_lockdown extends Migration
             ['permission_id' => 'office', 'module_id' => 'office', 'location_id' => null],
         ]);
 
+        $this->db->table($grants_table)->emptyTable();
+
         if ($this->db->table($backup_table)->countAllResults() > 0) {
-            $this->db->query(
-                'INSERT IGNORE INTO ' . $grants_table . ' (permission_id, person_id, menu_group)
-                 SELECT permission_id, person_id, menu_group
-                 FROM ' . $backup_table,
-            );
+            $backup_grants = $this->db->table($backup_table)->get()->getResultArray();
+            $this->db->table($grants_table)->insertBatch($backup_grants);
         }
 
         $this->db->query('DROP TABLE IF EXISTS ' . $backup_table);

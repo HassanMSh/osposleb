@@ -167,8 +167,8 @@ const COST_SUPPLIER  = 1;
  */
 const MAX_PRECISION         = 1e14;
 const DEFAULT_PRECISION     = 2;
-const DEFAULT_LANGUAGE      = 'english';
-const DEFAULT_LANGUAGE_CODE = 'en';
+const DEFAULT_LANGUAGE      = 'arabic';
+const DEFAULT_LANGUAGE_CODE = 'ar-LB';
 
 /**
  * Base language codes that are written right to left. Used by text_direction()

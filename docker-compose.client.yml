@@ -1,0 +1,12 @@
+services:
+    ospos:
+        environment: !reset []
+        volumes:
+            - ${OSPOS_DATA_DIR}/secrets/app.env:/app/.env:ro
+            - ${OSPOS_DATA_DIR}/uploads:/app/public/uploads
+    mysql:
+        container_name: !reset null
+        environment: !reset []
+        env_file:
+            - ${OSPOS_DATA_DIR}/secrets/mysql.env
+            - ${OSPOS_DATA_DIR}/secrets/db.env

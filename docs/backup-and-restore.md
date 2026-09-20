@@ -8,6 +8,110 @@ The Windows procedure comes first because the shop computer is Windows.
 
 The Linux procedure comes second for development and Linux-operated deployments.
 
+## Client installation setup
+
+The client layout keeps non-secret settings, secrets, uploads, and backups together while the database stays in a Docker named volume.
+
+The owner must keep a separate copy of the `secrets` directory somewhere other than the backup drive. `app.env` contains the application's own database connection settings and its encryption key; `mysql.env` contains the application database credentials for the database container; `db.env` contains the separate MariaDB root password.
+
+An archive must not carry both the backups and the secrets, because one stolen drive would then give up everything.
+
+Anyone with administrator rights on the shop computer, or anyone holding its disk, can read the secrets.
+
+### Windows setup
+
+Windows support is expected, not verified, until the project owner runs it on the shop computer.
+
+Install Docker Desktop and give Docker Desktop access to the drive holding the client directory.
+
+Keep the client directory on the internal NTFS drive when possible.
+
+Do not put the client directory on exFAT or FAT32 when secrets need protection, because those file systems have no file permissions.
+
+Open PowerShell in the repository directory and create the layout.
+
+```powershell
+.\scripts\setup-client.ps1 --data-directory C:\OSPOS\Client
+```
+
+On NTFS the setup command creates the new target and `secrets\`, restricts `secrets\` to the current Windows account with `icacls`, and removes inherited access before the shared setup entry point writes any secret.
+
+On exFAT or FAT32 the command refuses setup because those filesystems cannot protect the secrets. It does not write passwords there.
+
+If filesystem discovery or ACL preparation fails, setup stops and removes the exact new target. It does not leave generated secrets behind.
+
+Set the one client-directory variable before using Compose or a launcher.
+
+```powershell
+$env:OSPOS_DATA_DIR = 'C:\OSPOS\Client'
+docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
+```
+
+The client override binds `secrets\app.env` read-only at `/app/.env` and mounts `uploads\` at `/app/public/uploads`. The application container takes no `env_file` and has no environment of its own.
+
+The application reads the generated settings from the bind-mounted `/app/.env`, because Compose `env_file` silently drops any key containing a dot, so the secret file is delivered only by bind mount, never by the container environment. It is still not copied into the image.
+
+It leaves the database in the named `mysql` volume.
+
+The setup command refuses to run when the target directory already exists.
+
+The separate MariaDB root password, application database password, and application encryption key are made inside the setup container, so the host does not need OpenSSL or a PowerShell secret generator.
+
+### Linux setup
+
+The Linux path was verified in this environment.
+
+Run the setup command into a new directory.
+
+```bash
+./scripts/setup-client.sh --data-directory "$PWD/client-data"
+```
+
+The Linux setup command protects the secrets with the `secrets` directory at mode 700, not with the mode of the files inside it, keeps `app.env` at mode 644 because the application container's web server must read it there, keeps `mysql.env` and `db.env` at mode 600 because only Compose `env_file` ever reads them, and keeps the database in a named Docker volume.
+
+Set `OSPOS_DATA_DIR` and start the stack with the same client override.
+
+```bash
+export OSPOS_DATA_DIR="$PWD/client-data"
+docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
+```
+
+### Client backups and moves
+
+With `OSPOS_DATA_DIR` set, the backup command with no arguments reads `OSPOS_BACKUP_DESTINATION` from `ospos.conf` and writes the archive to that directory.
+
+An explicit `--destination` still wins over the configured destination.
+
+```powershell
+.\scripts\backup.ps1
+.\scripts\backup.ps1 --destination E:\OSPOS-Backups
+```
+
+```bash
+./scripts/backup.sh
+./scripts/backup.sh --destination /media/shop-backup
+```
+
+The default destination is the client `backups\` or `backups/` directory.
+
+The backup does not contain `.env`, `app.env`, `mysql.env`, or `db.env` at any archive depth.
+
+When the client-config destination is used, the launcher mounts the config file and writable backup destination separately. It does not mount the whole client directory into the backup container.
+
+To move a shop, install Docker, copy the client directory, set `OSPOS_DATA_DIR`, start the stack, and restore the latest archive.
+
+The restore step is required because the database is not in the copied client directory.
+
+```powershell
+$env:OSPOS_DATA_DIR = 'C:\OSPOS\Client'
+.\scripts\restore.ps1 --archive E:\OSPOS-Backups\ospos-backup-YYYYMMDD-HHMMSS.tar.gz --yes
+```
+
+```bash
+export OSPOS_DATA_DIR="$PWD/client-data"
+./scripts/restore.sh --archive /media/shop-backup/ospos-backup-YYYYMMDD-HHMMSS.tar.gz --yes
+```
+
 ## Windows operator procedure
 
 ### Before the first backup
@@ -34,13 +138,13 @@ Anyone holding an exFAT or FAT32 drive can therefore read the archive.
 
 The mode-600 setting is not protection for an archive stored on those drives.
 
-This is another reason that `.env` stays out of the archive.
+This is another reason that `secrets\app.env`, `secrets\mysql.env`, and `secrets\db.env` stay out of the archive.
 
-The `.env` file contains the database password and the encryption key.
+The client `secrets\` directory contains the database passwords and the application encryption key.
 
-Keep `.env` and the encryption key information in a separate protected location.
+Keep a separate copy of `secrets\` somewhere other than the backup drive.
 
-Do not put `.env` on the backup drive beside the archive.
+Do not put `secrets\` on the backup drive beside the archive.
 
 ### Set the application network
 
@@ -86,7 +190,7 @@ Use `--uploads C:\path\to\uploads` only when the shop stores uploads outside `pu
 
 Use `--env C:\path\to\another.env` when the database settings are in another file.
 
-The `.env` hostname is not used for the container connection unless `OSPOS_DB_HOST` overrides it.
+The `app.env` hostname is not used for the container connection unless `OSPOS_DB_HOST` overrides it.
 
 The password is kept in a temporary private MySQL defaults file inside the throwaway container.
 
@@ -105,7 +209,7 @@ if ($null -eq $backup -or $backup.Length -eq 0) { throw "No non-empty backup was
 
 The archive must contain `database.sql`, `manifest.txt`, and `uploads/`.
 
-The archive must not contain `.env`.
+The archive must not contain a member whose basename is `.env`, `app.env`, `mysql.env`, or `db.env`, at any depth.
 
 Copy an important archive to a second safe location.
 
@@ -219,7 +323,7 @@ tar -tzf "$backup"
 
 The listing must include `database.sql`, `manifest.txt`, and `uploads/`.
 
-The listing must not include `.env`.
+The listing must not include a member whose basename is `.env`, `app.env`, `mysql.env`, or `db.env`, at any depth.
 
 ### Restore the live Linux shop
 
@@ -297,7 +401,7 @@ The file contains `public/uploads/` by default, including item pictures and the 
 
 The file contains a small manifest with the backup date, application version, database name, migration version, and a database checksum.
 
-The file does not contain `.env`.
+The file does not contain a member whose basename is `.env`, `app.env`, `mysql.env`, or `db.env`, at any depth.
 
 The backup does not contain the application code, operating system, Docker images, logs, sessions, or cache files.
 
@@ -305,10 +409,8 @@ Keep the repository or deployment files available with the backup and keep the d
 
 ## Risks and limits
 
-- The shipped `docker-compose.yml` does not persist `public/uploads`.
-- In that Docker setup, the company logo and item pictures live inside the application container and are lost when that container is replaced.
-- The backup captures `public/uploads`, but the deployment should mount that directory as a volume.
-- Route the Docker volume fix to Phase 6 and ADR 0009.
+- The shipped development `docker-compose.yml` still does not persist `public/uploads`.
+- The client override mounts `public/uploads` from the client directory, so the client deployment keeps the company logo and item pictures when the application container is replaced.
 - `app/Database/resetdatabase.sh` drops and recreates the database.
 - `app/Database/resetdatabase.sh` destroys data and is not a backup tool.
 - Do not use `resetdatabase.sh` to make or restore a backup.
@@ -321,7 +423,7 @@ The scripts were checked with `bash -n`; `shellcheck` was not available in this 
 
 The Linux path was verified against the running MariaDB 10.5 stack on 2026-09-20.
 
-A real backup contained `database.sql` with twenty `INSERT` statements, `uploads/`, and `manifest.txt`, and did not contain `.env`.
+A real backup contained `database.sql` with twenty `INSERT` statements, `uploads/`, and `manifest.txt`, and did not contain `.env`, `app.env`, or `db.env`.
 
 Its manifest recorded application version 3.4.1, migration version `20260920000001`, and a SHA-256 checksum.
 
@@ -340,3 +442,27 @@ The Windows launchers and Windows restore drill remain expected, not verified, u
 Restore into a live production shop has not been rehearsed and remains Phase 6 work.
 
 The scripts use temporary files and atomic archive renaming so an interrupted backup does not look complete.
+
+## ADR 0011 Linux proof
+
+This proof ran on Linux on 2026-09-20 in a separate Docker Compose project and named database volume.
+
+The setup command created a new client directory, generated both secret files with mode 600, started the stack, and completed a real login, logo upload, item creation, and `$2.00` cash sale `POS 1`.
+
+The app and database containers were then destroyed and recreated without removing the named database volume.
+
+The login worked again, `uploads/proof-logo.png` remained, and the database still contained the completed sale.
+
+This is the explicit proof that the client `public/uploads` mount fixes the upstream uploads persistence defect.
+
+The no-argument backup wrote `ospos-backup-20260920-164515.tar.gz` to the `backups/` directory named by `ospos.conf`.
+
+The archive contained `database.sql`, `manifest.txt`, `uploads/`, and `uploads/proof-logo.png`.
+
+The archive contained neither `secrets/app.env` nor `secrets/db.env`.
+
+A restore drill into a second throwaway client directory restored the same logo, one completed sale, and a working login.
+
+A second setup attempt against the existing first directory returned status 1 and refused to run.
+
+Windows setup, NTFS ACL enforcement, and exFAT/FAT32 refusal remain expected, not verified, because no real Windows machine was available.

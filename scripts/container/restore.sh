@@ -11,6 +11,7 @@ uploads_arg="$repo_root/public/uploads"
 database_arg=''
 yes_flag=0
 uploads_option_set=0
+env_option_set=0
 database_option_set=0
 env_value=''
 db_host_arg=''
@@ -31,7 +32,7 @@ restore_success=0
 # Print the command-line help for the restore tool.
 show_help() {
     cat <<'HELP'
-Usage: scripts/container/restore.sh --archive <file> --db-host <host> [--uploads <path>] [--database <name>] [--yes]
+Usage: scripts/container/restore.sh --archive <file> --db-host <host> [--uploads <path>] [--env <path>] [--database <name>] [--yes]
 
 Restore one OSPOS backup archive.
 
@@ -39,11 +40,12 @@ Options:
   --archive <file>           Backup archive to restore.
   --db-host <host>           Database service name or TCP host.
   --uploads <path>           Uploads directory; default is public/uploads.
+  --env <path>               Database .env file; default is the repository .env.
   --database <name>          Restore into another database for a restore drill.
   --yes                      Skip the interactive confirmation.
   --help                     Show this help.
 
-Without --database, the database from .env is overwritten.
+Without --database, the database named by --env is overwritten.
 Use --database with a separate, empty database to test a restore without touching the live shop.
 This command never restores .env and never drops or recreates a database.
 HELP
@@ -176,8 +178,10 @@ validate_archive_members() {
         esac
 
         normalized=${member%/}
-        case $normalized in
-            .env|*/.env) fail 'The backup archive must not contain a .env file.' ;;
+        case ${normalized,,} in
+            .env|*/.env|app.env|*/app.env|mysql.env|*/mysql.env|db.env|*/db.env)
+                fail 'The backup archive must not contain a .env, app.env, mysql.env, or db.env basename.'
+                ;;
         esac
         case $normalized in
             database.sql)
@@ -338,6 +342,13 @@ parse_args() {
                 (( uploads_option_set == 0 )) || fail '--uploads was given more than once.'
                 uploads_arg=$2
                 uploads_option_set=1
+                shift 2
+                ;;
+            --env)
+                (( $# >= 2 )) || fail '--env needs a file path.'
+                (( env_option_set == 0 )) || fail '--env was given more than once.'
+                env_file=$2
+                env_option_set=1
                 shift 2
                 ;;
             --database)

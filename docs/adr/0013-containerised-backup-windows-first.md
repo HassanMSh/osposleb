@@ -39,7 +39,8 @@ The solution must:
 - use the existing `mariadb:10.5` image;
 - connect to the database over TCP using the `mysql` service name;
 - never mount the Docker socket;
-- preserve the non-sourcing `.env` parser, private defaults file, cleanup trap, atomic archive rename, manifest checksum, `.env` exclusion, and restore refusals;
+- preserve the non-sourcing environment parser, private defaults file, cleanup trap, atomic archive rename, manifest checksum, and restore refusals;
+- reject `.env`, `app.env`, and `db.env` by basename at every archive depth in both backup input and restore archives;
 - keep Linux and Windows operator launchers small and separate from the container entry points;
 - keep files written by the Linux launcher owned by the current operator;
 - keep the Windows path marked expected until it is tested on the shop computer.
@@ -85,7 +86,7 @@ The four host launchers are:
 - `scripts/backup.sh` and `scripts/restore.sh` for Linux;
 - `scripts/backup.ps1` and `scripts/restore.ps1` for Windows PowerShell.
 
-Each launcher mounts the repository read-only, mounts the selected archive or destination, mounts the uploads parent, joins the configured application network, and passes `mysql` as the database host.
+Each launcher mounts the repository read-only, mounts the selected archive or destination, mounts the uploads parent, and mounts the selected application environment read-only. The client-config backup path also mounts only the config file and writable configured backup destination, not the whole client directory. Each launcher joins the configured application network and passes `mysql` as the database host.
 
 The Linux launchers pass the current `uid:gid`.
 
@@ -115,11 +116,11 @@ Most portable drives use exFAT or FAT32 and cannot store Unix file permissions.
 
 On those file systems, the archive's mode-600 setting is silently ignored, so anyone holding the drive can read the archive.
 
-The archive must therefore never contain `.env`, and the guide must not present mode 600 as protection on those drives.
+The archive must therefore never contain `.env`, `app.env`, or `db.env`, and the guide must not present mode 600 as protection on those drives.
 
 The repository keeps shell scripts as LF so a Windows checkout does not turn the container entry point into a CRLF script.
 
-ADR 0011 must be revised for Windows secret storage before its client configuration directory is implemented.
+ADR 0011 records the Windows secret preparation and cleanup rules used by the client setup path.
 
 ## Compatibility, migration, and rollback
 
@@ -135,7 +136,7 @@ No migration is required.
 
 Linux acceptance requires:
 
-- a real archive with `database.sql`, `uploads/`, and `manifest.txt`, no `.env`, application version 3.4.1, and a numeric migration version;
+- a real archive with `database.sql`, `uploads/`, and `manifest.txt`, no `.env`, `app.env`, or `db.env` basename, application version 3.4.1, and a numeric migration version;
 - a restore drill into a scratch database and uploads directory with five items, nine sales, and both employee rows restored;
 - proof that the live database is unchanged after the drill;
 - refusal of a restore without `--yes` on non-interactive input;

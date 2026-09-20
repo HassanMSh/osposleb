@@ -6,9 +6,11 @@ umask 077
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo_root=$(dirname -- "$(dirname -- "$script_dir")")
 env_file="$repo_root/.env"
+config_file=''
 destination_arg=''
 uploads_arg="$repo_root/public/uploads"
 destination_option_set=0
+config_option_set=0
 uploads_option_set=0
 env_option_set=0
 db_host_arg=''
@@ -20,6 +22,7 @@ db_user=''
 db_password=''
 db_prefix=''
 env_value=''
+config_value=''
 stage_dir=''
 defaults_file=''
 archive_tmp=''
@@ -28,19 +31,21 @@ archive_path=''
 # Print the command-line help for the backup tool.
 show_help() {
     cat <<'HELP'
-Usage: scripts/container/backup.sh --destination <directory> --db-host <host> [--uploads <path>] [--env <path>]
+Usage: scripts/container/backup.sh --db-host <host> [--destination <directory>] [--config <path>] [--uploads <path>] [--env <path>]
 
 Create one timestamped OSPOS backup archive.
 
 Options:
   --destination <directory>  Existing, writable directory for the archive.
+  --config <path>            Plain client config used when destination is omitted.
   --db-host <host>           Database service name or TCP host.
   --uploads <path>           Uploads directory; default is public/uploads.
   --env <path>               Database .env file; default is the repository .env.
   --help                     Show this help.
 
-The database password is read from .env and is never printed or archived.
+The database credentials are read from --env and are never printed or archived.
 The archive contains database.sql, uploads/, and a small manifest.txt file.
+Without --destination, OSPOS_BACKUP_DESTINATION is read from --config.
 HELP
 }
 
@@ -97,6 +102,54 @@ read_env_value() {
     fi
 }
 
+# Read the non-secret backup setting without executing the config file.
+read_config_value() {
+    local key=$1
+    local line raw pattern
+    local matches=0
+
+    config_value=''
+    pattern="^[[:space:]]*${key//./\\.}[[:space:]]*=[[:space:]]*(.*)$"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ $line =~ $pattern ]]; then
+            matches=$((matches + 1))
+            raw=${BASH_REMATCH[1]}
+            raw="${raw#"${raw%%[![:space:]]*}"}"
+            raw="${raw%"${raw##*[![:space:]]}"}"
+
+            if [[ ${raw:0:1} == "'" ]]; then
+                [[ ${#raw} -ge 2 && ${raw: -1} == "'" ]] || fail "Invalid value for $key in $config_file."
+                config_value=${raw:1:${#raw}-2}
+            elif [[ ${raw:0:1} == '"' ]]; then
+                [[ ${#raw} -ge 2 && ${raw: -1} == '"' ]] || fail "Invalid value for $key in $config_file."
+                config_value=${raw:1:${#raw}-2}
+            else
+                raw=${raw%%#*}
+                raw="${raw#"${raw%%[![:space:]]*}"}"
+                raw="${raw%"${raw##*[![:space:]]}"}"
+                config_value=$raw
+            fi
+        fi
+    done < "$config_file"
+
+    (( matches == 1 )) || fail "The config file must contain one value for $key."
+}
+
+# Resolve the configured backup destination under the client directory.
+resolve_configured_destination() {
+    local config_directory
+    read_config_value 'OSPOS_BACKUP_DESTINATION'
+    [[ -n $config_value ]] || fail 'OSPOS_BACKUP_DESTINATION must not be empty.'
+    [[ $config_value != /* ]] || fail 'OSPOS_BACKUP_DESTINATION must be relative to the client directory.'
+    case $config_value in
+        .|..|*../*|*/..|*'/..'*)
+            fail 'OSPOS_BACKUP_DESTINATION contains an unsafe path.'
+            ;;
+    esac
+    config_directory=$(dirname -- "$config_file")
+    destination_arg="$config_directory/$config_value"
+}
+
 # Check that a database name or prefix is safe to use as an identifier.
 validate_identifier() {
     [[ $1 =~ ^[A-Za-z0-9_][A-Za-z0-9_-]*$ ]] || fail "Unsafe database identifier: $2"
@@ -122,8 +175,8 @@ resolve_uploads_directory() {
 
 # Refuse uploads content that would make the archive contain secrets or unsafe links.
 check_uploads_content() {
-    if find "$uploads_dir" -name '.env' -print -quit | grep -q .; then
-        fail 'Uploads directory contains a .env file; refusing to archive it.'
+    if find "$uploads_dir" -mindepth 1 \( -iname '.env' -o -iname 'app.env' -o -iname 'mysql.env' -o -iname 'db.env' \) -print -quit | grep -q .; then
+        fail 'Uploads directory contains a .env, app.env, mysql.env, or db.env basename; refusing to archive it.'
     fi
     if find "$uploads_dir" -type l -print -quit | grep -q .; then
         fail 'Uploads directory contains a symlink; refusing to archive it.'
@@ -199,6 +252,13 @@ parse_args() {
                 destination_option_set=1
                 shift 2
                 ;;
+            --config)
+                (( $# >= 2 )) || fail "--config needs a file path."
+                (( config_option_set == 0 )) || fail "--config was given more than once."
+                config_file=$2
+                config_option_set=1
+                shift 2
+                ;;
             --db-host)
                 (( $# >= 2 )) || fail "--db-host needs a host name."
                 (( db_host_option_set == 0 )) || fail "--db-host was given more than once."
@@ -225,12 +285,21 @@ parse_args() {
                 ;;
         esac
     done
-    [[ -n $destination_arg ]] || fail "--destination is required."
+    if (( destination_option_set == 0 )); then
+        [[ -n $config_file ]] || fail '--destination is required unless --config is provided.'
+    fi
 }
 
 parse_args "$@"
 [[ -f $env_file ]] || fail "Environment file does not exist: $env_file"
 [[ -r $env_file ]] || fail "Environment file is not readable: $env_file"
+if [[ -n $config_file ]]; then
+    [[ -f $config_file ]] || fail "Config file does not exist: $config_file"
+    [[ -r $config_file ]] || fail "Config file is not readable: $config_file"
+fi
+if (( destination_option_set == 0 )); then
+    resolve_configured_destination
+fi
 (( db_host_option_set == 1 )) || fail "--db-host is required."
 [[ -n $db_host_arg ]] || fail "--db-host must not be empty."
 require_command mysqldump

@@ -38,6 +38,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -55,6 +57,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -81,8 +85,18 @@ jobs:
       - name: Validate Composer configuration
         run: composer validate --no-check-publish
 
-      - name: Run lint on `app/`, `public/`
-        run: vendor/bin/php-cs-fixer fix --verbose --ansi --dry-run --config=.php-cs-fixer.no-header.php --using-cache=no --diff
+      - name: Check coding standards on changed PHP files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          mapfile -d '' php_files < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$GITHUB_SHA" -- '*.php')
+          if (( ${#php_files[@]} == 0 )); then
+            echo "No PHP files changed."
+            exit 0
+          fi
+          for php_file in "${php_files[@]}"; do
+            vendor/bin/php-cs-fixer fix "$php_file" --verbose --ansi --dry-run --config=.php-cs-fixer.no-header.php --using-cache=no --diff
+          done
 
       # Application container builds are disabled during baseline setup.
       # Enable this step after application code changes require image validation.

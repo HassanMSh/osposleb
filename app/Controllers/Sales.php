@@ -1156,6 +1156,9 @@ class Sales extends Secure_Controller
         $this->sale_lib->clear_all();
     }
 
+    /**
+     * Loads an existing sale edit form with cash-only payment choices.
+     */
     public function getEdit(int $sale_id): void
     {
         $data = [];
@@ -1187,14 +1190,11 @@ class Sales extends Secure_Controller
 
         $data['balance_due'] = $balance_due != 0;
 
-        // Don't allow gift card to be a payment option in a sale transaction edit because it's a complex change
-        $payment_options = $this->sale->get_payment_options(false);
-
-        if ($this->sale_lib->reset_cash_rounding()) {
-            $payment_options[lang('Sales.cash_adjustment')] = lang('Sales.cash_adjustment');
-        }
+        // Existing-sale edits expose cash only. Internal rounding rows are preserved on save.
+        $payment_options = $this->sale->get_payment_options(false, false);
 
         $data['payment_options'] = $payment_options;
+        $data['refund_options']  = [lang('Sales.cash') => lang('Sales.cash')];
 
         // Set up a slightly modified list of payment types for new payment entry
         $payment_options['--'] = lang('Common.none_selected_text');
@@ -1252,9 +1252,10 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * This saves the sale from the update sale view (sales/form).
-     * It only updates the sales table and payments.
+     * Saves an existing sale edit and accepts only cash payment changes.
+     * It updates the sales table and payment rows after validating all posted payment types.
      *
+     * @throws PageNotFoundException When a non-cash payment type is posted.
      * @throws ReflectionException
      */
     public function postSave(int $sale_id = NEW_ENTRY): void
@@ -1276,6 +1277,11 @@ class Sales extends Secure_Controller
         // In order to maintain tradition the only element that can change on prior payments is the payment type
         $amount_tendered    = 0;
         $number_of_payments = $this->request->getPost('number_of_payments', FILTER_SANITIZE_NUMBER_INT);
+        $existing_payments  = [];
+
+        foreach ($this->sale->get_sale_payments($sale_id)->getResult() as $existing_payment) {
+            $existing_payments[$existing_payment->payment_id] = (int) $existing_payment->cash_adjustment === CASH_ADJUSTMENT_TRUE;
+        }
 
         for ($i = 0; $i < $number_of_payments; $i++) {
             $payment_id     = $this->request->getPost("payment_id_{$i}", FILTER_SANITIZE_NUMBER_INT);
@@ -1284,14 +1290,22 @@ class Sales extends Secure_Controller
             $refund_type    = $this->request->getPost("refund_type_{$i}", FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             $cash_refund    = parse_decimals($this->request->getPost("refund_amount_{$i}"));
 
-            $cash_adjustment = $payment_type == lang('Sales.cash_adjustment') ? CASH_ADJUSTMENT_TRUE : CASH_ADJUSTMENT_FALSE;
+            $this->assertCashPaymentType($payment_type);
+            if ($refund_type !== null) {
+                $this->assertCashPaymentType($refund_type);
+            } elseif ($cash_refund > 0) {
+                throw PageNotFoundException::forPageNotFound();
+            }
+
+            $cash_adjustment = $existing_payments[$payment_id] ?? CASH_ADJUSTMENT_FALSE;
 
             if (! $cash_adjustment) {
                 $amount_tendered += $payment_amount - $cash_refund;
             }
 
-            // Non-cash positive refund amounts
-            if (empty(strstr($refund_type, lang('Sales.cash'))) && $cash_refund > 0) {    // TODO: This if and the one below can be combined.
+            // Non-cash positive refund amounts are rejected above, but retain this
+            // normalization for compatibility with the upstream update shape.
+            if ($refund_type !== null && empty(strstr($refund_type, lang('Sales.cash'))) && $cash_refund > 0) {
                 // Change it to be a new negative payment (a "non-cash refund")
                 $payment_type = $refund_type;
                 $payment_amount -= $cash_refund;
@@ -1311,20 +1325,19 @@ class Sales extends Secure_Controller
         $payment_id         = NEW_ENTRY;
         $payment_amount_new = $this->request->getPost('payment_amount_new');
         $payment_type       = $this->request->getPost('payment_type_new', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+        $payment_type ??= PAYMENT_TYPE_UNASSIGNED;
+
+        $this->assertCashPaymentType($payment_type, true);
 
         if ($payment_type != PAYMENT_TYPE_UNASSIGNED && ! empty($payment_amount_new)) {
-            $payment_amount = parse_decimals($payment_amount_new);
-            $cash_refund    = 0;
-            if ($payment_type == lang('Sales.cash_adjustment')) {
-                $cash_adjustment = CASH_ADJUSTMENT_TRUE;
-            } else {
-                $cash_adjustment = CASH_ADJUSTMENT_FALSE;
-                $amount_tendered += $payment_amount;
-                $sale_info = $this->sale->get_info($sale_id)->getRowArray();
+            $payment_amount  = parse_decimals($payment_amount_new);
+            $cash_refund     = 0;
+            $cash_adjustment = CASH_ADJUSTMENT_FALSE;
+            $amount_tendered += $payment_amount;
+            $sale_info = $this->sale->get_info($sale_id)->getRowArray();
 
-                if ($amount_tendered > $sale_info['amount_due']) {
-                    $cash_refund = $amount_tendered - $sale_info['amount_due'];
-                }
+            if ($amount_tendered > $sale_info['amount_due']) {
+                $cash_refund = $amount_tendered - $sale_info['amount_due'];
             }
 
             $sale_data['payments'][] = [
@@ -1342,6 +1355,25 @@ class Sales extends Secure_Controller
             echo json_encode(['success' => true, 'message' => lang('Sales.successfully_updated'), 'id' => $sale_id]);
         } else {
             echo json_encode(['success' => false, 'message' => lang('Sales.unsuccessfully_updated'), 'id' => $sale_id]);
+        }
+    }
+
+    /**
+     * Rejects a posted payment type that is not Cash.
+     *
+     * @param mixed $payment_type     The submitted payment type.
+     * @param bool  $allow_unassigned Whether the empty new-payment option is valid.
+     *
+     * @throws PageNotFoundException When the payment type is not allowed.
+     */
+    private function assertCashPaymentType(mixed $payment_type, bool $allow_unassigned = false): void
+    {
+        if ($allow_unassigned && $payment_type === PAYMENT_TYPE_UNASSIGNED) {
+            return;
+        }
+
+        if (! is_string($payment_type) || $payment_type !== lang('Sales.cash')) {
+            throw PageNotFoundException::forPageNotFound();
         }
     }
 

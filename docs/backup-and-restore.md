@@ -67,7 +67,7 @@ Run the setup command into a new directory.
 ./scripts/setup-client.sh --data-directory "$PWD/client-data"
 ```
 
-The Linux setup command writes both secret files with mode 600 and keeps the database in a named Docker volume.
+The Linux setup command protects the secrets with the `secrets` directory at mode 700, not with the mode of the files inside it, keeps `app.env` at mode 644 because the application container's web server must read it there, keeps `db.env` at mode 600 because only Compose `env_file` ever reads it, and keeps the database in a named Docker volume.
 
 Set `OSPOS_DATA_DIR` and start the stack with the same client override.
 

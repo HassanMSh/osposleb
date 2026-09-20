@@ -90,7 +90,7 @@ print_layout() {
     printf 'Created: %s\n' "$host_data_dir/uploads"
     printf 'Created: %s\n' "$host_data_dir/backups"
     if [[ $platform == linux ]]; then
-        printf 'Protected secrets: mode 600\n'
+        printf 'Protected secrets: secrets directory mode 700 (app.env mode 644, db.env mode 600)\n'
     else
         printf 'Windows secret protection: the host launcher prepared the secrets directory before writing.\n'
     fi
@@ -157,7 +157,8 @@ EOF
 
 if [[ $platform == linux ]]; then
     chmod 700 "$data_dir/secrets"
-    chmod 600 "$data_dir/secrets/app.env" "$data_dir/secrets/db.env"
+    chmod 644 "$data_dir/secrets/app.env"
+    chmod 600 "$data_dir/secrets/db.env"
     chmod 777 "$data_dir/uploads"
 fi
 

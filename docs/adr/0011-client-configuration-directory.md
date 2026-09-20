@@ -40,7 +40,7 @@ That approach does not work honestly on a Windows Docker Desktop bind mount.
 - Keep database files in a Docker named volume on both Linux and Windows.
 - Generate separate MariaDB root and application database passwords, plus the application encryption key, inside a throwaway container.
 - Provide thin Linux and Windows setup launchers over one container entry point.
-- Protect Linux secret files with mode 600.
+- Protect Linux secrets with the `secrets` directory at mode 700, not with the mode of the files inside it.
 - Restrict NTFS secrets to the current Windows account and refuse setup when the filesystem cannot protect them.
 - Mount the application environment read-only and mount `public/uploads` from the client directory.
 - Let the backup command use the destination in `ospos.conf` when no destination is supplied.
@@ -176,7 +176,7 @@ The owner, recovery process, and lost-passphrase policy belong in ADR 0009.
 
 ## Security and operational consequences
 
-Linux secret files are mode 600 and the containing directory is mode 700. The root and application database passwords are different values.
+The Linux secrets directory is mode 700, which is the real protection: no other account on the host can traverse into it. Inside that closed directory, `app.env` is mode 644 because the application container's web server, running as `www-data`, must read it, and `db.env` stays mode 600 because it is only ever read through Compose `env_file`, run by the invoking user. The root and application database passwords are different values.
 
 NTFS protection is applied to the `secrets` directory for the current Windows account.
 
@@ -212,7 +212,7 @@ The shell files were checked with `bash -n`.
 
 The Linux proof uses a throwaway client directory and a separate Compose project and named volume.
 
-The setup command creates both secret files with mode 600 and refuses to run against the existing directory on a second invocation.
+The setup command creates the secrets directory at mode 700, `app.env` at mode 644, and `db.env` at mode 600, and refuses to run against the existing directory on a second invocation.
 
 The Linux proof created a shop, logged in, uploaded `proof-logo.png`, created `Proof Item`, and completed sale `POS 1` for `$2.00`.
 

@@ -64,28 +64,17 @@ class Sale_lib
     }
 
     /**
-     * @return array
+     * Returns the three sale modes supported by the shop register.
+     *
+     * @return array<string, string>
      */
     public function get_register_mode_options(): array
     {
-        $register_modes = [];
-
-        if (!$this->config['invoice_enable']) {
-            $register_modes['sale'] = lang('Sales.sale');
-        } else {
-            $register_modes['sale'] = lang('Sales.receipt');
-            $register_modes['sale_quote'] = lang('Sales.quote');
-
-            if ($this->config['work_order_enable']) {
-                $register_modes['sale_work_order'] = lang('Sales.work_order');
-            }
-
-            $register_modes['sale_invoice'] = lang('Sales.invoice');
-        }
-
-        $register_modes['return'] = lang('Sales.return');
-
-        return $register_modes;
+        return [
+            'sale'         => lang('Sales.receipt'),
+            'sale_invoice' => lang('Sales.invoice'),
+            'return'       => lang('Sales.return'),
+        ];
     }
 
     /**

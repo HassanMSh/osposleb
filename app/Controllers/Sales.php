@@ -20,6 +20,7 @@ use App\Models\Stock_location;
 use App\Models\Tokens\Token_invoice_count;
 use App\Models\Tokens\Token_customer;
 use App\Models\Tokens\Token_invoice_sequence;
+use CodeIgniter\Exceptions\PageNotFoundException;
 use Config\Services;
 use Config\OSPOS;
 use ReflectionException;
@@ -238,14 +239,15 @@ class Sales extends Secure_Controller
     public function postChangeMode(): void
     {
         $mode = $this->request->getPost('mode', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+
+        if (! in_array($mode, ['sale', 'sale_invoice', 'return'], true)) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+
         $this->sale_lib->set_mode($mode);
 
         if ($mode == 'sale') {
             $this->sale_lib->set_sale_type(SALE_TYPE_POS);
-        } elseif ($mode == 'sale_quote') {
-            $this->sale_lib->set_sale_type(SALE_TYPE_QUOTE);
-        } elseif ($mode == 'sale_work_order') {
-            $this->sale_lib->set_sale_type(SALE_TYPE_WORK_ORDER);
         } elseif ($mode == 'sale_invoice') {
             $this->sale_lib->set_sale_type(SALE_TYPE_INVOICE);
         } else {
@@ -286,8 +288,6 @@ class Sales extends Secure_Controller
     public function change_register_mode(int $sale_type): void
     {
         $mode = match ($sale_type) {
-            SALE_TYPE_QUOTE => 'sale_quote',
-            SALE_TYPE_WORK_ORDER => 'sale_work_order',
             SALE_TYPE_INVOICE => 'sale_invoice',
             SALE_TYPE_RETURN => 'return',
             default => 'sale' // SALE_TYPE_POS
@@ -324,7 +324,7 @@ class Sales extends Secure_Controller
      */
     public function postSetPaymentType(): void    // TODO: This function does not appear to be called anywhere in the code.
     {
-        $this->sale_lib->set_payment_type($this->request->getPost('selected_payment_type', FILTER_SANITIZE_FULL_SPECIAL_CHARS));
+        $this->sale_lib->set_payment_type(lang('Sales.cash'));
         $this->_reload();    // TODO: Hungarian notation.
     }
 
@@ -363,7 +363,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Add a payment to the sale. Used in app/Views/sales/register.php
+     * Adds a cash payment to the sale. Used in app/Views/sales/register.php.
      *
      * @return void
      * @noinspection PhpUnused
@@ -372,7 +372,7 @@ class Sales extends Secure_Controller
     {
         $data = [];
         $giftcard = model(Giftcard::class);
-        $payment_type = $this->request->getPost('payment_type', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+        $payment_type = lang('Sales.cash');
 
         if ($payment_type !== lang('Sales.giftcard')) {
             $rules = ['amount_tendered' => 'trim|required|decimal_locale',];
@@ -1081,21 +1081,12 @@ class Sales extends Secure_Controller
         $data['print_after_sale'] = false;
         $data['price_work_orders'] = false;
 
-        if ($this->sale_lib->get_mode() == 'sale_invoice') {    // TODO: Duplicated code.
+        if ($this->sale_lib->get_mode() == 'sale_invoice') {
             $data['mode_label'] = lang('Sales.invoice');
-            $data['customer_required'] = lang('Sales.customer_required');
-        } elseif ($this->sale_lib->get_mode() == 'sale_quote') {
-            $data['mode_label'] = lang('Sales.quote');
-            $data['customer_required'] = lang('Sales.customer_required');
-        } elseif ($this->sale_lib->get_mode() == 'sale_work_order') {
-            $data['mode_label'] = lang('Sales.work_order');
-            $data['customer_required'] = lang('Sales.customer_required');
         } elseif ($this->sale_lib->get_mode() == 'return') {
             $data['mode_label'] = lang('Sales.return');
-            $data['customer_required'] = lang('Sales.customer_optional');
         } else {
             $data['mode_label'] = lang('Sales.receipt');
-            $data['customer_required'] = lang('Sales.customer_optional');
         }
 
         $invoice_type = $this->config['invoice_type'];
@@ -1170,11 +1161,7 @@ class Sales extends Secure_Controller
         $data['comment'] = $this->sale_lib->get_comment();
         $data['email_receipt'] = $this->sale_lib->is_email_receipt();
 
-        if ($customer_info && $this->config['customer_reward_enable']) {
-            $data['payment_options'] = $this->sale->get_payment_options(true, true);
-        } else {
-            $data['payment_options'] = $this->sale->get_payment_options();
-        }
+        $data['payment_options'] = get_payment_options();
 
         $data['items_module_allowed'] = $this->employee->has_grant('items', $this->employee->get_logged_in_employee_info()->person_id);
         $data['change_price'] = $this->employee->has_grant('sales_change_price', $this->employee->get_logged_in_employee_info()->person_id);
@@ -1196,22 +1183,12 @@ class Sales extends Secure_Controller
         $data['quote_number'] = $this->sale_lib->get_quote_number();
         $data['work_order_number'] = $this->sale_lib->get_work_order_number();
 
-        // TODO: the if/else set below should be converted to a switch
-        if ($this->sale_lib->get_mode() == 'sale_invoice') {    // TODO: Duplicated code.
+        if ($this->sale_lib->get_mode() == 'sale_invoice') {
             $data['mode_label'] = lang('Sales.invoice');
-            $data['customer_required'] = lang('Sales.customer_required');
-        } elseif ($this->sale_lib->get_mode() == 'sale_quote') {
-            $data['mode_label'] = lang('Sales.quote');
-            $data['customer_required'] = lang('Sales.customer_required');
-        } elseif ($this->sale_lib->get_mode() == 'sale_work_order') {
-            $data['mode_label'] = lang('Sales.work_order');
-            $data['customer_required'] = lang('Sales.customer_required');
         } elseif ($this->sale_lib->get_mode() == 'return') {
             $data['mode_label'] = lang('Sales.return');
-            $data['customer_required'] = lang('Sales.customer_optional');
         } else {
             $data['mode_label'] = lang('Sales.receipt');
-            $data['customer_required'] = lang('Sales.customer_optional');
         }
 
         echo view("sales/register", $data);

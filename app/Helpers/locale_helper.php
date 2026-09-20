@@ -261,45 +261,11 @@ function get_timeformats(): array
 }
 
 /**
- * Gets the payment options
+ * Returns the only payment option supported by the shop till.
  */
 function get_payment_options(): array
 {
-    $payments = [];
-    $config   = config(OSPOS::class)->settings;
-
-    // TODO: This needs to be switched to a switch statement
-    if ($config['payment_options_order'] === 'debitcreditcash') {    // TODO: ===
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-    } elseif ($config['payment_options_order'] === 'debitcashcredit') {    // TODO: ===
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
-    } elseif ($config['payment_options_order'] === 'creditdebitcash') {    // TODO: ===
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-    } elseif ($config['payment_options_order'] === 'creditcashdebit') {    // TODO: ===
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-    } else { // Default: if ($config['payment_options_order == 'cashdebitcredit')
-        $payments[lang('Sales.cash')]   = lang('Sales.cash');
-        $payments[lang('Sales.debit')]  = lang('Sales.debit');
-        $payments[lang('Sales.credit')] = lang('Sales.credit');
-    }
-
-    $payments[lang('Sales.due')]   = lang('Sales.due');
-    $payments[lang('Sales.check')] = lang('Sales.check');
-
-    // If India (list of country codes include India) then include Unified Payment Interface
-    if (stripos($config['country_codes'], 'IN') !== false) {
-        $payments[lang('Sales.upi')] = lang('Sales.upi');
-    }
-
-    return $payments;
+    return [lang('Sales.cash') => lang('Sales.cash')];
 }
 
 /**

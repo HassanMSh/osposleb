@@ -9,10 +9,10 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 ## Current project status
 
 - Approved baseline: `develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`, application version 3.4.1, approved 2026-09-20.
-- Phase 1 is complete on branch `chore/ospos-baseline`: ADRs 0001 and 0002 are accepted and `docs/gap-analysis.md` is complete.
-- Phase 2 is complete: ADRs 0003 and 0004 are accepted, both Arabic locales are fully translated, the right-to-left layer is in place, and the layout was verified in Google Chrome in both directions.
+- Phase 1 is complete and merged to `develop`: ADRs 0001 and 0002 are accepted and `docs/gap-analysis.md` is complete.
+- Phase 2 is complete and merged to `develop`: ADRs 0003 and 0004 are accepted, both Arabic locales are fully translated, the right-to-left layer is in place, and the layout was verified in Google Chrome in both directions.
 - Fork documentation lives in `docs/`. Track task status in `docs/progress-checklist.md` and update it at the end of every phase.
-- Next phase: Phase 3 — TVA model. ADR 0005 is accepted.
+- Phase 3 is built on branch `feat/tva-model`: ADR 0005 is accepted, the TVA model and the Lebanese pound presentation are implemented, and the migration was rehearsed and rolled back against a real database. Browser verification of the new screens is still outstanding.
 
 ## Code-style gate
 
@@ -29,8 +29,9 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 
 ## Agent roles
 
-- Always use `gpt-5.6-luna` with `xhigh` reasoning as the implementation agent.
-- Always use `gpt-5.6-luna` with `low` reasoning for Git and GitHub operations.
+- Hand implementation work to `gpt-5.6-luna`, run through the Codex command line: `codex exec -m gpt-5.6-luna`. Confirmed reachable on 2026-09-20 after an earlier attempt through the subagent interface failed. The Codex default model is `gpt-5.6-sol`, so the `-m` flag is required every time.
+- The coordinating agent keeps audit, decision records, review, Git and GitHub operations, and is responsible for checking whatever the implementation agent returns before it is committed.
+- Name the model that actually ran the work in the phase completion report. Do not record an intended model as if it had been used.
 
 ## Working directory
 
@@ -148,6 +149,10 @@ When hardware is unavailable, implement the software-side integration and clearl
 
 ## Git
 
+- `develop` is the integration branch, the repository's default branch since 2026-09-20, and the target of every pull request. `master` is dormant and is not used as a target.
+- A pull request that conflicts with `develop` gets no checks at all, because GitHub cannot build the trial merge it runs them against. Merge `develop` into the phase branch before opening the pull request.
+- One branch per phase, branched from `develop`. Implement the phase on it, open a pull request against `develop`, and leave the review and the merge to the project owner.
+- Never merge a pull request. Never push to `develop` directly.
 - Check the working tree before editing.
 - Preserve user changes and unrelated modifications.
 - Use small, focused commits.

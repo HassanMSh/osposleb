@@ -42,7 +42,7 @@ class Autoload extends AutoloadConfig
     public $psr4 = [
         APP_NAMESPACE => APPPATH,
         'Config'      => APPPATH . 'Config',
-        'dompdf'      => APPPATH . 'ThirdParty/dompdf/src'
+        'dompdf'      => APPPATH . 'ThirdParty/dompdf/src',
     ];
 
     /**
@@ -169,7 +169,7 @@ class Autoload extends AutoloadConfig
         'Token_lib'     => '/App/Libraries/Token_lib.php',
 
         // Miscellaneous
-        'Rounding_mode' => '/App/Models/Enums/Rounding_mode.php'
+        'Rounding_mode' => '/App/Models/Enums/Rounding_mode.php',
     ];
 
     /**
@@ -203,8 +203,9 @@ class Autoload extends AutoloadConfig
     public $helpers = [
         'form',
         'cookie',
+        'currency',
         'tabular',
         'locale',
-        'security'
+        'security',
     ];
 }

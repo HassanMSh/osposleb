@@ -1,0 +1,181 @@
+<?php
+
+namespace Tests;
+
+use CodeIgniter\Config\Factories;
+use CodeIgniter\Test\CIUnitTestCase;
+use Config\OSPOS;
+use ReflectionClass;
+
+/**
+ * Covers the display-only Lebanese pound conversion and register change maths.
+ *
+ * @internal
+ */
+final class CurrencyHelperTest extends CIUnitTestCase
+{
+    /**
+     * Loads the currency helper with an in-memory exchange-rate setting.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        helper('currency');
+
+        $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
+        $ospos->settings = ['lbp_exchange_rate' => '89500'];
+        Factories::injectMock('config', OSPOS::class, $ospos);
+    }
+
+    /**
+     * Rounds both sides of the contract to the nearest 5,000 pounds.
+     */
+    public function testPoundConversionRoundsUpAndDown(): void
+    {
+        $this->assertSame(4_090_000, to_lbp('45.70'));
+        $this->assertSame(1_105_000, to_lbp('12.34'));
+    }
+
+    /**
+     * Formats the rounded pound amount with separators and the LL marker.
+     */
+    public function testPoundFormattingUsesThousandsSeparatorsAndMarker(): void
+    {
+        $this->assertSame('4,090,000 LL', format_lbp(to_lbp('45.70')));
+    }
+
+    /**
+     * Derives both change figures from one dollar change calculation.
+     */
+    public function testChangeFiguresAgreeThroughDollarCalculation(): void
+    {
+        $total_dollars    = 45.70;
+        $tendered_pounds  = 4_500_000;
+        $tendered_dollars = $tendered_pounds / 89500;
+        $change_dollars   = $tendered_dollars - $total_dollars;
+        $change_pounds    = to_lbp((string) $change_dollars);
+
+        $this->assertSame(410_000, $change_pounds);
+    }
+
+    /**
+     * Confirms the conversion helper only reads settings and leaves the sale data untouched.
+     */
+    public function testConversionDoesNotWriteStoredValues(): void
+    {
+        $before = config(OSPOS::class)->settings;
+
+        to_lbp('45.70');
+
+        $this->assertSame($before, config(OSPOS::class)->settings);
+    }
+
+    /**
+     * Uses the cart marker for both taxed and untaxed receipt lines.
+     */
+    public function testReceiptTaxMarkerUsesExistingCartFlag(): void
+    {
+        $this->assertSame('*', format_receipt_tax_marker('T'));
+        $this->assertSame('*', format_receipt_tax_marker('ض'));
+        $this->assertSame('', format_receipt_tax_marker(' '));
+        $this->assertSame('', format_receipt_tax_marker(null));
+    }
+
+    /**
+     * Keeps the dollar and pound totals paired in both receipt templates.
+     */
+    public function testBothReceiptTemplatesUseTheSameDisplayTotal(): void
+    {
+        foreach (['receipt_default.php', 'receipt_short.php'] as $template) {
+            $source = file_get_contents(APPPATH . 'Views/sales/' . $template);
+
+            $this->assertIsString($source);
+            $this->assertStringContainsString('format_receipt_tax_marker', $source);
+            $this->assertStringContainsString('to_lbp($total)', $source);
+            $this->assertStringContainsString("lang('Sales.total_to_pay')", $source);
+        }
+    }
+
+    /**
+     * Keeps the register change helper read-only and based on one dollar result.
+     */
+    public function testRegisterChangeHelperUsesOneDollarCalculationWithoutWriting(): void
+    {
+        $source = file_get_contents(APPPATH . 'Views/sales/register.php');
+
+        $this->assertIsString($source);
+        $this->assertStringContainsString('id="change_helper_amount"', $source);
+        $this->assertStringContainsString('const changeDollars = tenderedDollars - changeHelperTotal;', $source);
+        $this->assertStringContainsString('const changePounds = Math.round((changeDollars * rate) / 5000) * 5000;', $source);
+
+        $helper_start = strpos($source, 'function updateChangeHelper');
+        $helper_end   = strpos($source, '// Add Keyboard Shortcuts', $helper_start);
+        $helper_code  = substr($source, $helper_start, $helper_end - $helper_start);
+
+        $this->assertStringNotContainsString('$.post', $helper_code);
+        $this->assertStringNotContainsString('add_payment_form', $helper_code);
+    }
+
+    /**
+     * Keeps the exchange rate outside stored, report, and drawer calculations.
+     */
+    public function testExchangeRateIsUsedOnlyByDisplayCode(): void
+    {
+        $helper_source   = file_get_contents(APPPATH . 'Helpers/currency_helper.php');
+        $register_source = file_get_contents(APPPATH . 'Views/sales/register.php');
+
+        $this->assertIsString($helper_source);
+        $this->assertIsString($register_source);
+        $this->assertStringNotContainsString('insert(', $helper_source);
+        $this->assertStringNotContainsString('update(', $helper_source);
+        $this->assertStringNotContainsString('delete(', $helper_source);
+        $change_start   = strpos($register_source, 'id="change_helper"');
+        $payment_start  = strpos($register_source, 'id="payment_details"');
+        $change_section = substr($register_source, $change_start, $payment_start - $change_start);
+
+        $this->assertStringNotContainsString('amount_tendered', $change_section);
+    }
+
+    /**
+     * Keeps receipt, register, and report dollar totals on the existing cent formatter.
+     */
+    public function testDollarTotalsUseTheSameSourceAcrossScreensAndReports(): void
+    {
+        foreach (['receipt_default.php', 'receipt_short.php', 'register.php'] as $template) {
+            $source = file_get_contents(APPPATH . 'Views/sales/' . $template);
+
+            $this->assertIsString($source);
+            $this->assertStringContainsString('to_currency($total)', $source);
+        }
+
+        $reports = file_get_contents(APPPATH . 'Controllers/Reports.php');
+
+        $this->assertIsString($reports);
+        $this->assertStringContainsString("'total'     => to_currency(\$row['total'])", $reports);
+    }
+
+    /**
+     * Confirms pound display code is absent from reports and drawer calculations.
+     */
+    public function testReportsAndDrawerCalculationsDoNotReadTheExchangeRate(): void
+    {
+        $paths = array_merge(
+            glob(APPPATH . 'Models/Reports/*.php') ?: [],
+            [
+                APPPATH . 'Controllers/Reports.php',
+                APPPATH . 'Controllers/Cashups.php',
+                APPPATH . 'Models/Cashup.php',
+                APPPATH . 'Helpers/tabular_helper.php',
+            ],
+        );
+
+        foreach ($paths as $path) {
+            $source = file_get_contents($path);
+
+            $this->assertIsString($source);
+            $this->assertStringNotContainsString('lbp_exchange_rate', $source, $path);
+            $this->assertStringNotContainsString('to_lbp(', $source, $path);
+        }
+    }
+}

@@ -8,7 +8,9 @@ use App\Models\Customer;
 use App\Models\Item;
 use App\Models\Item_taxes;
 use App\Models\Sale;
+use CodeIgniter\Config\Factories;
 use CodeIgniter\Test\CIUnitTestCase;
+use Config\OSPOS;
 use ReflectionClass;
 use ReflectionProperty;
 
@@ -108,6 +110,46 @@ final class TvaModelTest extends CIUnitTestCase
     }
 
     /**
+     * The ADR 0005 basket keeps its total, pound display, TVA, and exempt line.
+     */
+    public function testAdrBasketKeepsTotalsAndExemptLine(): void
+    {
+        helper('currency');
+
+        $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
+        $ospos->settings = ['lbp_exchange_rate' => '89500'];
+        Factories::injectMock('config', OSPOS::class, $ospos);
+
+        $taxLib = $this->makeTaxLibrary(
+            ['default_tax_1_rate' => '11', 'tax_included' => true],
+            [
+                1 => ['taxable' => 1],
+                2 => ['taxable' => 1],
+                3 => ['taxable' => 0, 'tax_exemption_reason' => 'exempt'],
+                4 => ['taxable' => 1],
+            ],
+        );
+        $cart = [
+            $this->makeCartLine(1, 1.10, 1, 2),
+            $this->makeCartLine(2, 2.50, 2),
+            $this->makeCartLine(3, 1.00, 3),
+            $this->makeCartLine(4, 40.00, 4),
+        ];
+
+        $details = $taxLib->get_taxes($cart);
+        $taxes   = array_values($details[0]);
+        $total   = 2 * 1.10 + 2.50 + 1.00 + 40.00;
+        $tax     = $this->findTaxGroup($taxes, 'VAT');
+        $exempt  = $this->findTaxGroup($taxes, 'exempt');
+
+        $this->assertSame(45.70, round($total, 2));
+        $this->assertSame(4_090_000, to_lbp('45.70'));
+        $this->assertSame(4.43, (float) $tax['sale_tax_amount']);
+        $this->assertSame(0.0, (float) $exempt['sale_tax_amount']);
+        $this->assertSame('0', $exempt['tax_rate']);
+    }
+
+    /**
      * Full-precision inclusive lines are rounded once after aggregation.
      */
     public function testAdrRoundingCaseProducesFourteenPointEightyFive(): void
@@ -163,6 +205,7 @@ final class TvaModelTest extends CIUnitTestCase
         $voidCart     = [$this->makeCartLine(1, 111)];
         $discountCart = [$this->makeCartLine(1, 111, 1, 1, 10)];
 
+        $this->assertSame('-1', $returnCart[0]['quantity']);
         $this->assertSame(-11.0, (float) $this->firstTax($taxLib->get_taxes($returnCart, 42))['sale_tax_amount']);
         $this->assertSame(11.0, (float) $this->firstTax($taxLib->get_taxes($voidCart, 42))['sale_tax_amount']);
         $this->assertSame(9.9, (float) $this->firstTax($taxLib->get_taxes($discountCart, 42))['sale_tax_amount']);
@@ -275,6 +318,20 @@ final class TvaModelTest extends CIUnitTestCase
     private function firstTax(array $details): array
     {
         return array_values($details[0])[0];
+    }
+
+    /**
+     * Finds one tax group by its displayed name.
+     */
+    private function findTaxGroup(array $taxes, string $taxGroup): array
+    {
+        foreach ($taxes as $tax) {
+            if ($tax['tax_group'] === $taxGroup) {
+                return $tax;
+            }
+        }
+
+        self::fail("Tax group {$taxGroup} was not found.");
     }
 
     /**

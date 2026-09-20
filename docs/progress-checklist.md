@@ -140,8 +140,10 @@ Last updated: 2026-09-20.
 
 - [ ] Create ADR 0009 for deployment, backup, update, security, and support boundaries.
 - [ ] Produce `test-plan.md`.
+- [x] Add the manual command-line backup and restore scripts and operator guide on 2026-09-20.
 - [ ] Set up automated database backups with retention and off-machine copies.
-- [ ] Produce `backup-and-restore.md` and complete a restore drill.
+- [x] Complete an isolated restore drill. Done 2026-09-20 into a scratch database and scratch uploads directory: five items, nine sales, both employee records and the uploads directory all came back, and the live database was verified untouched.
+- [ ] Validate a restore into a live production shop.
 - [ ] Harden production configuration, secrets, TLS, sessions, and dependency scanning.
 - [ ] Produce `operations-runbook.md`.
 - [ ] Run a clean installation and upgrade rehearsal.

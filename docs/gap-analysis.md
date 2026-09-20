@@ -56,7 +56,7 @@ printer, scanner, or cash drawer.
 | Sales totals, discounts, returns, voids, and reprints | `native/configuration` | `app/Controllers/Sales.php` and `app/Libraries/Sale_lib.php` support add/edit/payment/return/delete/restore paths; receipt views support reprint | Native retail transaction paths exist. They must be regression-tested after tax, modifier, and combo changes. Phase 3/5/6. | Complete sale, suspended sale if used, return, void, discount, refund, and reprint with totals matching stored data and reports. |
 | Sales, tax, inventory, employee, payment, and receiving reports | `native/configuration` | `app/Controllers/Reports.php` wires summary and detailed report models, including `summary_sales_taxes`; report access is checked per submodule | Native reporting is broad, but new TVA/modifier data will need report columns and agreement with receipts. Phase 3/5 must extend only where required. | Run each operator-needed report for a fixed date range and reconcile totals against sale, tax, payment, and inventory records. |
 | Users, modules, subpermissions, and employee language | `native/configuration` | `app/Controllers/Employees.php::getView/postSave`; `app/Models/Employee.php::save_employee/has_grant`; `app/Views/employees/form.php` exposes module and subpermission grants | Per-user access and language are native. Review destructive permissions such as sales delete, price change, config, and reports before deployment. Phase 6 hardening. | Create cashier/manager accounts; prove denied routes and allowed routes; test language selection and no self-delete. |
-| Database backup and restore | `unsupported/deferred` | No database backup/restore controller or command exists. `app/Helpers/security_helper.php` only makes a temporary `.env.bak`; `app/Database/resetdatabase.sh` drops/recreates the database | Production backups, retention, off-machine copies, and restore drills are outside the baseline. Phase 6, ADR 0009, must define and test the operational process. Never use `resetdatabase.sh` as a backup. | Take a real database and uploads backup using the deployment tool, restore into an isolated database, run login/sale/report checks, and record recovery time. |
+| Database backup and restore | `small extension` — manual workflow added 2026-09-20 | `scripts/backup.sh` creates a timestamped archive with `database.sql`, `uploads/`, and `manifest.txt`; `scripts/restore.sh` validates the archive, restores the database, and replaces uploads after confirmation; `app/Database/resetdatabase.sh` remains destructive | Manual command-line backup and restore now exist for an operator to copy to an external drive. Automated backups, retention, managed off-machine copies, and production sign-off remain Phase 6 and ADR 0009 work. An isolated restore drill into a scratch database was completed on 2026-09-20. Never use `resetdatabase.sh` as a backup. | Take a real database and uploads backup using the script, restore into an isolated database and uploads path, run login/sale/report checks, and record recovery time. |
 | Database update behavior | `native/configuration` | `app/Controllers/Login.php` checks migration state and runs `latest()` after login; `app/Libraries/MY_Migration.php` converts old migration tables and reports current/latest versions; `app/Config/Migrations.php` enables migrations | Native migrations are applied automatically at login. Many historical migration `down()` methods are empty, and no tested rollback plan exists. Phase 6 must require a backup and rehearsal before upgrades. | Upgrade a copy from the approved schema, inspect migration history, log in, run a sale/report, and restore the pre-upgrade backup. |
 | Update rollback and release safety | `unsupported/deferred` | `MY_Migration::up()` and `down()` are intentionally empty overrides; several migrations have empty `down()` methods; `UPGRADE.md` instructs manual code/database/config/uploads steps | Reverting application code alone may not revert schema or data. Phase 6 must define release snapshots, backup verification, and a forward-fix/restore procedure. | Rehearse a failed migration or bad release on a disposable copy and confirm recovery without touching the only production database. |
 
@@ -160,12 +160,15 @@ are accepted.
 
 ### Backup, restore, and updates
 
-The baseline has no application-level database backup or restore workflow. Its
-only `writable/backup` use is a temporary `.env` copy while encryption settings
-are repaired. The reset script is destructive. OSPOS migrations run from the
-login path, and several migration rollback methods are empty. Phase 6 must
-provide an external backup/restore runbook, an isolated restore drill, and a
-release rollback procedure before production handoff.
+The baseline had no application-level database backup or restore workflow. This
+branch adds `scripts/backup.sh` and `scripts/restore.sh` for a manual archive
+that includes the database and `public/uploads/`, while deliberately excluding
+`.env`. Its only `writable/backup` use is a temporary `.env` copy while
+encryption settings are repaired. The reset script is destructive. OSPOS
+migrations run from the login path, and several migration rollback methods are
+empty. Automated backups, retention, managed off-machine copies, and production
+sign-off remain Phase 6 and ADR 0009 work. An isolated restore drill into a
+scratch database was completed on 2026-09-20.
 
 ## Source evidence index
 

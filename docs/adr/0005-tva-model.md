@@ -64,7 +64,7 @@ So on the path this project will use, OSPOS already rounds once at the end, whic
 ### Requirements
 
 1. Prices include TVA by default.
-2. An item can be sold tax-exclusive.
+2. ~~An item can be sold tax-exclusive.~~ Dropped on 2026-09-20; see Inclusion under Decision.
 3. One global rate applies to every item that has not been given its own.
 4. An item can carry its own rate.
 5. An item can be switched to no TVA.
@@ -78,6 +78,7 @@ So on the path this project will use, OSPOS already rounds once at the end, whic
 - No cash-rounding rule for Lebanese pound notes. That belongs with Phase 4 receipts or Phase 6 operations.
 - No change to how discounts are applied, only to how tax is computed on the discounted amount.
 - No retroactive recalculation of historical sales.
+- No per-item or mixed tax inclusion. Inclusion is one setting for the whole shop.
 
 ## Options considered
 
@@ -115,9 +116,18 @@ At calculation time, for each line, in order:
 
 ### Inclusion
 
-`tax_included` stays the global default and is set on. Requirement 2, selling a specific item tax-exclusive, needs a per-item inclusion flag that does not exist today. This is the part of the request with the largest blast radius: `tax_included` is read in eleven places, including three report models, and making it per-line means every one of those has to handle a mixed basket.
+**Accepted by the project owner on 2026-09-20.** `tax_included` stays a single global setting and is set on. There is no per-item inclusion flag.
 
-**Open question for the owner.** Is requirement 2 actually needed for this shop, or does "can be excluded per item" mean "an item can be sold without TVA", which requirement 5 already covers? These are different things. A mixed inclusive-and-exclusive basket is unusual in retail and is the single most expensive item in this phase.
+The owner confirmed the shop's pricing model: shelf prices in the aisle are the prices the customer pays, TVA is already inside them, and the customer has no interest in the TVA figure. TVA on the receipt is therefore an information line for the shop and the auditor, never an amount added at the till.
+
+Requirement 2 as originally stated, selling a specific item tax-exclusive while others in the same basket are tax-inclusive, is **dropped**. Two reasons:
+
+1. It breaks the receipt. On a basket of water 2.20, chips 2.50, exempt bread 1.00 and a 40.00 case of oil, an all-inclusive receipt prints a 45.70 total with 4.43 of TVA inside it. Making the oil exclusive prints a 50.10 total with a 4.87 TVA line, of which only 4.40 was actually added. Neither the customer nor the cashier can reconcile that receipt, because two different meanings of "price" appear on it.
+2. It is the most expensive item in the phase. `tax_included` is read in eleven places, including three report models, and a per-line flag forces every one of them to handle a mixed basket.
+
+What the requirement was reaching for is covered by requirement 5: an item can be switched to no TVA. That is a switch on the item, not a change to what its price means.
+
+If VAT-exclusive pricing is ever needed, it will be for a wholesale or business customer buying by the case, not for a product. That belongs on the customer or on the sale, so that one receipt keeps one consistent meaning of "price". It is out of scope for Phase 3 and is recorded as a possible later addition.
 
 ### Exempt versus zero-rated
 
@@ -205,9 +215,8 @@ To be written with the implementation. The suite must cover:
 
 ## Open questions for the project owner
 
-1. **Per-item tax inclusion.** Under review by the owner; both options were costed on 2026-09-20. Does an item genuinely need to be sold tax-exclusive while others are tax-inclusive in the same basket, or is "no TVA on this item" enough?
-3. **Exempt or zero-rated.** Is the off switch "outside TVA" (exempt), or "inside TVA at 0 percent" (zero-rated)?
-4. **Currency.** Are prices held in dollars or Lebanese pounds, and how many decimal places?
+1. **Exempt or zero-rated.** Is the off switch "outside TVA" (exempt), or "inside TVA at 0 percent" (zero-rated)? The recommendation is to build both and default to exempt, because the cost of carrying the distinction now is one label and one report column, while adding it later means revisiting every item whose switch was turned off without recording which kind it was.
+2. **Currency.** Are prices held in dollars or Lebanese pounds, and how many decimal places? Dollars need two. Lebanese pounds need none and raise a separate cash-rounding question, because the smallest practical note is far larger than one pound.
 
 ## Links and evidence
 

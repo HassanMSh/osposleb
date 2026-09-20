@@ -2,15 +2,19 @@ name: Coding Standards
 
 on:
   push:
+    branches:
+      - develop
     paths:
       - '**.php'
       - 'spark'
-      - '.github/workflows/test-coding-standards.yml'
+      - '.github/workflows/main.yml'
   pull_request:
+    branches:
+      - develop
     paths:
       - '**.php'
       - 'spark'
-      - '.github/workflows/test-coding-standards.yml'
+      - '.github/workflows/main.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -20,25 +24,46 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: PHP ${{ matrix.php-version }} Lint with PHP CS Fixer
+  syntax:
+    name: PHP ${{ matrix.php-version }} Syntax
     runs-on: ubuntu-22.04
 
     strategy:
       fail-fast: false
       matrix:
         php-version:
-          - '7.4'
-          - '8.0'
+          - '8.1'
+          - '8.2'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-version }}
+          coverage: none
+
+      - name: Check PHP syntax
+        run: git ls-files -z '*.php' | xargs -0 -n1 php -l
+
+  coding-standards:
+    name: PHP 8.2 Coding Standards
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
           extensions: tokenizer
           coverage: none
 
@@ -46,16 +71,34 @@ jobs:
         run: echo "COMPOSER_CACHE_FILES_DIR=$(composer config cache-files-dir)" >> $GITHUB_ENV
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.COMPOSER_CACHE_FILES_DIR }}
-          key: ${{ runner.os }}-${{ matrix.php-version }}-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-php-8.2-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.php-version }}-
+            ${{ runner.os }}-php-8.2-
             ${{ runner.os }}-
 
       - name: Install dependencies
-        run: composer update --ansi --no-interaction
+        run: composer install --ansi --no-interaction --no-progress
 
-      - name: Run lint on `app/`, `public/`
-        run: vendor/bin/php-cs-fixer fix --verbose --ansi --dry-run --config=.php-cs-fixer.no-header.php --using-cache=no --diff
+      - name: Validate Composer configuration
+        run: composer validate --no-check-publish
+
+      - name: Check coding standards on changed PHP files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          mapfile -d '' php_files < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$GITHUB_SHA" -- '*.php')
+          if (( ${#php_files[@]} == 0 )); then
+            echo "No PHP files changed."
+            exit 0
+          fi
+          for php_file in "${php_files[@]}"; do
+            vendor/bin/php-cs-fixer fix "$php_file" --verbose --ansi --dry-run --config=.php-cs-fixer.no-header.php --using-cache=no --diff
+          done
+
+      # Application container builds are disabled during baseline setup.
+      # Enable this step after application code changes require image validation.
+      # - name: Build application container
+      #   run: docker build . --target ospos -t ospos

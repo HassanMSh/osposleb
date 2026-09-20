@@ -90,23 +90,30 @@ Last updated: 2026-09-20.
 
 ### Build
 
-- [ ] Migration: add the tax switch and its reason to the item table, and set the switch off for every item that has no tax rows today.
-- [ ] Rate resolution at calculation time, replacing the copy-on-create behaviour.
-- [ ] Item form: the three-position switch, the own-rate field, and the exempt or zero-rated choice.
-- [ ] Settings: the global TVA rate made operational, and the pounds-per-dollar rate.
-- [ ] Receipt templates `receipt_default` and `receipt_short`: asterisk, footnote, pound total, rate line.
-- [ ] Register screen: pound total under the dollar total.
-- [ ] Register screen: the change helper, in either currency, storing nothing.
-- [ ] Arabic and English strings for every new label, in all language variants.
+- [x] Migration: add the tax switch and its reason to the item table, and set the switch off for every item that has no tax rows today.
+- [x] Rate resolution at calculation time, replacing the copy-on-create behaviour.
+- [x] Item form: the three-position switch, the own-rate field, and the exempt or zero-rated choice.
+- [x] Settings: the global TVA rate made operational, and the pounds-per-dollar rate.
+- [x] Receipt templates `receipt_default` and `receipt_short`: asterisk, footnote, pound total, rate line.
+- [x] Register screen: pound total under the dollar total.
+- [x] Register screen: the change helper, in either currency, storing nothing.
+- [x] Arabic and English strings for every new label. Added to `en`, `ar-LB` and `ar-EG` only. The other eighty locales were deliberately left alone: a missing key already falls back to English, and editing them forces a full reformat of each file under the code-style gate for no benefit. An earlier pass that edited all of them was reverted.
+- [x] Import the intl `Locale` class in `app/Config/Services.php`. Pre-existing upstream defect, untouched since 2021, that made every `spark` command fail on the command line with `Class "Config\Locale" not found`. The web application was unaffected because the broken branch only runs outside an HTTP request. Fixing it was unavoidable: without it the Phase 3 migration cannot be run at all.
 
 ### Verification
 
-- [ ] Add calculation tests for sales, returns, discounts, receipts, and reports.
-- [ ] Test the migration against a copy of real data and confirm no item starts being taxed that was not taxed before.
-- [ ] Test the pound conversion at values that round up and down.
-- [ ] Test that the change helper writes nothing.
-- [ ] Confirm historical transactions stay valid across a rate change.
+- [x] Add calculation tests for sales, returns, discounts, receipts, and reports. The suite is 38 tests and 170 assertions, up from 20 and 36.
+- [x] Test the migration against a copy of real data and confirm no item starts being taxed that was not taxed before. Rehearsed on 2026-09-20 against the disposable MariaDB stack, seeded with five items, three carrying tax rows and two with none. After `spark migrate` the three kept the switch on and the two were switched off, with `exempt` as the reason. `spark migrate:rollback` removed both columns and the exchange-rate setting, leaving the table as it was, and re-applying worked.
+- [x] Test the pound conversion at values that round up and down. 45.70 gives 4,090,000 and 12.34 gives 1,105,000.
+- [x] Test that the change helper writes nothing.
+- [x] Confirm historical transactions stay valid across a rate change.
 - [ ] Run the full check suite and open the Phase 3 pull request.
+
+### Phase 3 items still open
+
+- [ ] Look at the new screens in a browser in both languages, as Phase 2 ended up needing. Nothing here has been seen rendered.
+- [ ] Confirm the three new receipt lines do not wrap on a 58 mm roll. Real printing is Phase 4.
+- [ ] Have a native Lebanese Arabic speaker review the new tax and currency wording.
 
 ## Phase 4 — POS hardware and Arabic receipts
 

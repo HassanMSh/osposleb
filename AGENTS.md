@@ -12,7 +12,7 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 - Phase 1 is complete and merged to `develop`: ADRs 0001 and 0002 are accepted and `docs/gap-analysis.md` is complete.
 - Phase 2 is complete and merged to `develop`: ADRs 0003 and 0004 are accepted, both Arabic locales are fully translated, the right-to-left layer is in place, and the layout was verified in Google Chrome in both directions.
 - Fork documentation lives in `docs/`. Track task status in `docs/progress-checklist.md` and update it at the end of every phase.
-- Phase 3 is in progress on branch `feat/tva-model`. ADR 0005 is accepted; the build is under way.
+- Phase 3 is built on branch `feat/tva-model`: ADR 0005 is accepted, the TVA model and the Lebanese pound presentation are implemented, and the migration was rehearsed and rolled back against a real database. Browser verification of the new screens is still outstanding.
 
 ## Code-style gate
 
@@ -149,7 +149,8 @@ When hardware is unavailable, implement the software-side integration and clearl
 
 ## Git
 
-- `develop` is the integration branch and the target of every pull request. `master` is not used as a target.
+- `develop` is the integration branch, the repository's default branch since 2026-09-20, and the target of every pull request. `master` is dormant and is not used as a target.
+- A pull request that conflicts with `develop` gets no checks at all, because GitHub cannot build the trial merge it runs them against. Merge `develop` into the phase branch before opening the pull request.
 - One branch per phase, branched from `develop`. Implement the phase on it, open a pull request against `develop`, and leave the review and the merge to the project owner.
 - Never merge a pull request. Never push to `develop` directly.
 - Check the working tree before editing.

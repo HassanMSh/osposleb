@@ -5,6 +5,9 @@ umask 077
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo_root=$(dirname -- "$script_dir")
+project_name=${COMPOSE_PROJECT_NAME:-$(basename -- "$repo_root")}
+network=${OSPOS_DOCKER_NETWORK:-${project_name}_app_net}
+db_host=${OSPOS_DB_HOST:-mysql}
 archive_arg=''
 uploads_arg="$repo_root/public/uploads"
 database_arg=''
@@ -24,10 +27,10 @@ while (( $# > 0 )); do
         --help|-h)
             exec docker run --rm \
                 --user "$(id -u):$(id -g)" \
-                --network "${OSPOS_DOCKER_NETWORK:-ospos_app_net}" \
+                --network "$network" \
                 --mount "type=bind,source=$repo_root,target=/work,readonly" \
                 --entrypoint bash mariadb:10.5 \
-                /work/scripts/container/restore.sh --help
+                /work/scripts/container/restore.sh --help --db-host "$db_host"
             ;;
         --archive)
             (( $# >= 2 )) || fail '--archive needs a file path.'
@@ -74,14 +77,16 @@ fi
 archive_parent=$(CDPATH= cd -- "$(dirname -- "$archive_arg")" && pwd -P) \
     || fail "Cannot use archive file: $archive_arg"
 archive_name=$(basename -- "$archive_arg")
-uploads_parent=$(CDPATH= cd -- "$(dirname -- "$uploads_arg")" && pwd -P) \
+uploads=$(CDPATH= cd -- "$uploads_arg" && pwd -P) \
     || fail "Cannot use uploads directory: $uploads_arg"
-uploads_name=$(basename -- "$uploads_arg")
+uploads_parent=$(CDPATH= cd -- "$(dirname -- "$uploads")" && pwd -P) \
+    || fail "Cannot use uploads directory: $uploads_arg"
+uploads_name=$(basename -- "$uploads")
 
 docker_args=(
     run --rm
     --user "$(id -u):$(id -g)"
-    --network "${OSPOS_DOCKER_NETWORK:-ospos_app_net}"
+    --network "$network"
     --mount "type=bind,source=$repo_root,target=/work,readonly"
     --mount "type=bind,source=$archive_parent,target=/archive-parent,readonly"
     --mount "type=bind,source=$uploads_parent,target=/uploads-parent"
@@ -97,7 +102,7 @@ docker_args+=(
     /work/scripts/container/restore.sh
     --archive "/archive-parent/$archive_name"
     --uploads "/uploads-parent/$uploads_name"
-    --db-host mysql
+    --db-host "$db_host"
 )
 
 if (( database_option_set == 1 )); then
@@ -107,4 +112,19 @@ if (( yes_flag == 1 )); then
     docker_args+=(--yes)
 fi
 
-exec docker "${docker_args[@]}"
+# Rewrite the container uploads path in streamed success output while preserving the Docker status.
+if docker "${docker_args[@]}" | while IFS= read -r line || [[ -n $line ]]; do
+    case $line in
+        'Restored uploads: /uploads-parent/'*)
+            printf 'Restored uploads: %s\n' "$uploads"
+            ;;
+        *)
+            printf '%s\n' "$line"
+            ;;
+    esac
+done; then
+    docker_status=${PIPESTATUS[0]}
+else
+    docker_status=${PIPESTATUS[0]}
+fi
+exit "$docker_status"

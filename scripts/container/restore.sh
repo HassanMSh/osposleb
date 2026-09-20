@@ -151,6 +151,11 @@ run_mysql() {
     mysql --defaults-extra-file="$defaults_file" "$target_database" "$@"
 }
 
+# Run mysql against the server without selecting the restore target.
+run_mysql_server() {
+    mysql --defaults-extra-file="$defaults_file" "$@"
+}
+
 # Validate every outer archive member before extracting anything.
 validate_archive_members() {
     local member normalized line member_type
@@ -419,8 +424,14 @@ fi
 verify_database_checksum
 confirm_restore
 
-if ! run_mysql -e 'SELECT 1' >/dev/null 2> "$stage_dir/mysql-connection-error"; then
-    fail 'Could not connect to the target database.'
+if ! run_mysql_server -e 'SELECT 1' >/dev/null 2> "$stage_dir/mysql-connection-error"; then
+    fail 'Could not connect to the database server.'
+fi
+if ! run_mysql -e 'SELECT 1' >/dev/null 2> "$stage_dir/mysql-target-error"; then
+    if (( database_option_set == 1 )) && [[ $target_database != "$configured_database" ]]; then
+        fail 'Could not access the scratch database; the account may need rights on it.'
+    fi
+    fail 'Could not access the target database.'
 fi
 if ! run_mysql < "$stage_dir/database.sql" 2> "$stage_dir/mysql-restore-error"; then
     fail 'Database restore failed; the uploads directory was not changed.'

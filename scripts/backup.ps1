@@ -1,6 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$projectName = if ($env:COMPOSE_PROJECT_NAME) { $env:COMPOSE_PROJECT_NAME } else { Split-Path -Leaf $repoRoot }
+$network = if ($env:OSPOS_DOCKER_NETWORK) { $env:OSPOS_DOCKER_NETWORK } else { $projectName + '_app_net' }
+$dbHost = if ($env:OSPOS_DB_HOST) { $env:OSPOS_DB_HOST } else { 'mysql' }
 $destinationArg = $null
 $uploadsArg = Join-Path $repoRoot 'public\uploads'
 $envArg = Join-Path $repoRoot '.env'
@@ -11,17 +14,15 @@ $envSet = $false
 for ($index = 0; $index -lt $args.Count; $index++) {
     switch ($args[$index]) {
         '--help' {
-            $helpNetwork = if ($env:OSPOS_DOCKER_NETWORK) { $env:OSPOS_DOCKER_NETWORK } else { 'ospos_app_net' }
-            & docker run --rm --network $helpNetwork `
+            & docker run --rm --network $network `
                 --mount "type=bind,source=$repoRoot,target=/work,readonly" `
-                --entrypoint bash mariadb:10.5 /work/scripts/container/backup.sh --help
+                --entrypoint bash mariadb:10.5 /work/scripts/container/backup.sh --help --db-host $dbHost
             exit $LASTEXITCODE
         }
         '-h' {
-            $helpNetwork = if ($env:OSPOS_DOCKER_NETWORK) { $env:OSPOS_DOCKER_NETWORK } else { 'ospos_app_net' }
-            & docker run --rm --network $helpNetwork `
+            & docker run --rm --network $network `
                 --mount "type=bind,source=$repoRoot,target=/work,readonly" `
-                --entrypoint bash mariadb:10.5 /work/scripts/container/backup.sh --help
+                --entrypoint bash mariadb:10.5 /work/scripts/container/backup.sh --help --db-host $dbHost
             exit $LASTEXITCODE
         }
         '--destination' {
@@ -59,7 +60,6 @@ $uploadsName = Split-Path -LiteralPath $uploads -Leaf
 $envFile = (Resolve-Path -LiteralPath $envArg).Path
 $envParent = Split-Path -LiteralPath $envFile -Parent
 $envName = Split-Path -LiteralPath $envFile -Leaf
-$network = if ($env:OSPOS_DOCKER_NETWORK) { $env:OSPOS_DOCKER_NETWORK } else { 'ospos_app_net' }
 
 $dockerArgs = @(
     'run', '--rm', '--network', $network,
@@ -72,8 +72,17 @@ $dockerArgs = @(
     '--destination', '/destination',
     '--uploads', "/uploads-parent/$uploadsName",
     '--env', "/env-parent/$envName",
-    '--db-host', 'mysql'
+    '--db-host', $dbHost
 )
 
-& docker @dockerArgs
-exit $LASTEXITCODE
+# Rewrite the container destination in streamed success output while preserving the Docker status.
+& docker @dockerArgs | ForEach-Object {
+    $line = [string]$_
+    if ($line.StartsWith('/destination/')) {
+        Write-Output (Join-Path -Path $destination -ChildPath $line.Substring('/destination/'.Length))
+    } else {
+        Write-Output $_
+    }
+}
+$dockerExitCode = $LASTEXITCODE
+exit $dockerExitCode

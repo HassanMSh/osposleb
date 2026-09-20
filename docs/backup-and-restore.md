@@ -46,14 +46,19 @@ Do not put `.env` on the backup drive beside the archive.
 
 The launcher joins the application Docker network and connects to the database service named `mysql`.
 
-The default network name is `ospos_app_net`.
+The default network name is `project-folder_app_net`: replace `project-folder` with the Compose project folder name. For a repository folder named `osposleb`, it is `osposleb_app_net`.
+
+If `COMPOSE_PROJECT_NAME` is set, the launcher uses that value before adding `_app_net`.
 
 Set `OSPOS_DOCKER_NETWORK` when the running Compose project uses another name.
 
-For the verification stack used by this project, set it as follows.
+Set `OSPOS_DB_HOST` to override the database host; it defaults to `mysql`.
 
-```powershell
-$env:OSPOS_DOCKER_NETWORK = "ospos-baseline-verify_verify_net"
+To find the real network and database container, run these commands and look for the network containing the application and the container named `mysql`.
+
+```text
+docker network ls
+docker ps --format "table {{.Names}}\t{{.Networks}}"
 ```
 
 ### Take a Windows backup
@@ -64,7 +69,7 @@ The following is a worked example using the real Windows drive-letter form `E:`.
 
 ```powershell
 Set-Location C:\osposleb
-$env:OSPOS_DOCKER_NETWORK = "ospos-baseline-verify_verify_net"
+$env:OSPOS_DOCKER_NETWORK = "osposleb_app_net"
 New-Item -ItemType Directory -Force E:\OSPOS-Backups | Out-Null
 .\scripts\backup.ps1 --destination E:\OSPOS-Backups
 ```
@@ -81,7 +86,7 @@ Use `--uploads C:\path\to\uploads` only when the shop stores uploads outside `pu
 
 Use `--env C:\path\to\another.env` when the database settings are in another file.
 
-The launcher passes the database host `mysql` explicitly because the `.env` value `localhost` is not the database service from inside the tool container.
+The `.env` hostname is not used for the container connection unless `OSPOS_DB_HOST` overrides it.
 
 The password is kept in a temporary private MySQL defaults file inside the throwaway container.
 
@@ -120,7 +125,7 @@ Use `--yes` only after the operator has approved the exact restore.
 
 ```powershell
 Set-Location C:\osposleb
-$env:OSPOS_DOCKER_NETWORK = "ospos-baseline-verify_verify_net"
+$env:OSPOS_DOCKER_NETWORK = "osposleb_app_net"
 .\scripts\restore.ps1 --archive E:\OSPOS-Backups\ospos-backup-YYYYMMDD-HHMMSS.tar.gz --yes
 ```
 
@@ -147,7 +152,7 @@ Create the scratch database with the database administrator account and a passwo
 Create the scratch uploads directory before starting the drill.
 
 ```powershell
-docker exec -it ospos-baseline-verify-mysql-1 mysql -uroot -p -e "CREATE DATABASE ospos_restore_drill;"
+docker exec -it mysql mysql -uroot -p -e "CREATE DATABASE ospos_restore_drill; GRANT ALL PRIVILEGES ON ospos_restore_drill.* TO 'admin'@'%';"
 New-Item -ItemType Directory -Force C:\ospos-restore-drill\uploads | Out-Null
 .\scripts\restore.ps1 --archive E:\OSPOS-Backups\ospos-backup-YYYYMMDD-HHMMSS.tar.gz --database ospos_restore_drill --uploads C:\ospos-restore-drill\uploads --yes
 ```
@@ -158,7 +163,12 @@ The `--uploads` option keeps the live uploads directory untouched.
 
 Check the five items, nine sales, both employee rows, and the restored uploads before cleanup.
 
-Drop the scratch database and remove the scratch uploads directory after the drill.
+```powershell
+docker exec -it mysql mysql -uroot -p -e "REVOKE ALL PRIVILEGES ON ospos_restore_drill.* FROM 'admin'@'%'; DROP DATABASE ospos_restore_drill;"
+Remove-Item -Recurse -Force C:\ospos-restore-drill\uploads
+```
+
+Remove the scratch database and scratch uploads directory after the drill.
 
 The Windows restore drill is expected, not verified here, because no Windows machine is available.
 
@@ -174,7 +184,7 @@ The launcher does not receive the Docker socket.
 
 Mount an external drive and create a writable backup directory.
 
-Set `OSPOS_DOCKER_NETWORK` when the application network is not `ospos_app_net`.
+Set `OSPOS_DOCKER_NETWORK` when the application network is not the launcher default.
 
 The Linux launcher passes the current `uid:gid`, so files written into the mount belong to the operator.
 
@@ -184,7 +194,7 @@ Run the command from the repository root.
 
 ```bash
 cd /path/to/osposleb
-export OSPOS_DOCKER_NETWORK=ospos-baseline-verify_verify_net
+export OSPOS_DOCKER_NETWORK=osposleb_app_net
 mkdir -p /media/shop-backup
 scripts/backup.sh --destination /media/shop-backup
 ```
@@ -193,9 +203,7 @@ Use `--env /path/to/another.env` when the database settings are in another file.
 
 Use `--uploads /path/to/uploads` only when the shop stores uploads somewhere other than `public/uploads`.
 
-The launcher passes `--db-host mysql` to the container entry point.
-
-The `.env` hostname is not used for the container connection.
+The launcher uses `OSPOS_DB_HOST` when set and otherwise passes `--db-host mysql` to the container entry point.
 
 ### Check the Linux backup
 
@@ -227,7 +235,7 @@ Use `--yes` only after the operator has approved the exact restore.
 
 ```bash
 cd /path/to/osposleb
-export OSPOS_DOCKER_NETWORK=ospos-baseline-verify_verify_net
+export OSPOS_DOCKER_NETWORK=osposleb_app_net
 scripts/restore.sh --archive /media/shop-backup/ospos-backup-YYYYMMDD-HHMMSS.tar.gz --yes
 ```
 
@@ -248,9 +256,9 @@ Do not point the running shop at the scratch database.
 Create the scratch database with the database administrator account and a password prompt.
 
 ```bash
-docker exec -it ospos-baseline-verify-mysql-1 mysql -uroot -p -e 'CREATE DATABASE ospos_restore_drill;'
+docker exec -it mysql mysql -uroot -p -e "CREATE DATABASE ospos_restore_drill; GRANT ALL PRIVILEGES ON ospos_restore_drill.* TO 'admin'@'%';"
 mkdir -p /path/to/restore-drill/uploads
-export OSPOS_DOCKER_NETWORK=ospos-baseline-verify_verify_net
+export OSPOS_DOCKER_NETWORK=osposleb_app_net
 scripts/restore.sh --archive /media/shop-backup/ospos-backup-YYYYMMDD-HHMMSS.tar.gz --database ospos_restore_drill --uploads /path/to/restore-drill/uploads --yes
 ```
 
@@ -260,7 +268,12 @@ The `--uploads` option keeps the live uploads directory untouched.
 
 Check the five items, nine sales, both employee rows, and the restored uploads before cleanup.
 
-Drop the scratch database and remove the scratch uploads directory after the drill.
+```bash
+docker exec -it mysql mysql -uroot -p -e "REVOKE ALL PRIVILEGES ON ospos_restore_drill.* FROM 'admin'@'%'; DROP DATABASE ospos_restore_drill;"
+rm -rf -- /path/to/restore-drill/uploads
+```
+
+Remove the scratch database and scratch uploads directory after the drill.
 
 ### How often to do this
 
@@ -319,6 +332,8 @@ The live database was verified untouched after the drill.
 Three refusals were verified: a restore without `--yes` on non-interactive input was refused, an archive naming a different database than `.env` was refused without `--database`, and an archive with altered `database.sql` was refused because its checksum did not match the manifest.
 
 The tool container was verified not to have access to the Docker socket.
+
+The Linux verification used the test-only network `ospos-baseline-verify_verify_net` and container `ospos-baseline-verify-mysql-1`; those names are not operator defaults.
 
 The Windows launchers and Windows restore drill remain expected, not verified, until the project owner tests them on the shop computer.
 

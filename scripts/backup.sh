@@ -5,6 +5,9 @@ umask 077
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo_root=$(dirname -- "$script_dir")
+project_name=${COMPOSE_PROJECT_NAME:-$(basename -- "$repo_root")}
+network=${OSPOS_DOCKER_NETWORK:-${project_name}_app_net}
+db_host=${OSPOS_DB_HOST:-mysql}
 destination_arg=''
 uploads_arg="$repo_root/public/uploads"
 env_arg="$repo_root/.env"
@@ -23,10 +26,10 @@ while (( $# > 0 )); do
         --help|-h)
             exec docker run --rm \
                 --user "$(id -u):$(id -g)" \
-                --network "${OSPOS_DOCKER_NETWORK:-ospos_app_net}" \
+                --network "$network" \
                 --mount "type=bind,source=$repo_root,target=/work,readonly" \
                 --entrypoint bash mariadb:10.5 \
-                /work/scripts/container/backup.sh --help
+                /work/scripts/container/backup.sh --help --db-host "$db_host"
             ;;
         --destination)
             (( $# >= 2 )) || fail '--destination needs a directory.'
@@ -76,7 +79,7 @@ env_name=$(basename -- "$env_arg")
 docker_args=(
     run --rm
     --user "$(id -u):$(id -g)"
-    --network "${OSPOS_DOCKER_NETWORK:-ospos_app_net}"
+    --network "$network"
     --mount "type=bind,source=$repo_root,target=/work,readonly"
     --mount "type=bind,source=$destination,target=/destination"
     --mount "type=bind,source=$uploads_parent,target=/uploads-parent,readonly"
@@ -87,7 +90,22 @@ docker_args=(
     --destination /destination
     --uploads "/uploads-parent/$uploads_name"
     --env "/env-parent/$env_name"
-    --db-host mysql
+    --db-host "$db_host"
 )
 
-exec docker "${docker_args[@]}"
+# Rewrite the container mount path in streamed success output while preserving the Docker status.
+if docker "${docker_args[@]}" | while IFS= read -r line || [[ -n $line ]]; do
+    case $line in
+        /destination/*)
+            printf '%s/%s\n' "${destination%/}" "${line#/destination/}"
+            ;;
+        *)
+            printf '%s\n' "$line"
+            ;;
+    esac
+done; then
+    docker_status=${PIPESTATUS[0]}
+else
+    docker_status=${PIPESTATUS[0]}
+fi
+exit "$docker_status"

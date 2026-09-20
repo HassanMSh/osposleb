@@ -96,9 +96,9 @@ The generated `app.env` contains the CodeIgniter database settings, the applicat
 
 The generated `db.env` contains only the MariaDB root password.
 
-The application Compose service injects `secrets/app.env` as its environment, binds the same file read-only at `/app/client.env`, and binds `uploads/` to `/app/public/uploads`.
+The application Compose service injects `secrets/app.env` as its environment and also binds the same file read-only at `/app/.env`, and binds `uploads/` to `/app/public/uploads`.
 
-The application reads the generated settings from its container environment, so the secret file is not copied into the image and is not made readable by the web-server account inside the container.
+The application reads the generated settings from the bind-mounted `/app/.env`, because Compose `env_file` silently drops any key containing a dot, such as `database.default.*` and `encryption.key`, so those keys never reach the container's environment. The secret file is still not copied into the image and is not made readable by the web-server account inside the container.
 
 The MariaDB service reads both `secrets/app.env` and `secrets/db.env` with Compose `env_file`. This supplies the application account values from `app.env` and the separate root password from `db.env`.
 

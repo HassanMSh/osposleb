@@ -47,9 +47,9 @@ $env:OSPOS_DATA_DIR = 'C:\OSPOS\Client'
 docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
 ```
 
-The client override injects `secrets\app.env` as the application environment, binds the same file read-only at `/app/client.env`, and mounts `uploads\` at `/app/public/uploads`.
+The client override injects `secrets\app.env` as the application environment and also binds the same file read-only at `/app/.env`, and mounts `uploads\` at `/app/public/uploads`.
 
-The application reads the generated settings from its container environment, so the secret file is not copied into the image.
+The application reads the generated settings from the bind-mounted `/app/.env`, because Compose `env_file` silently drops any key containing a dot, so the secret file is delivered by bind mount rather than by the container environment. It is still not copied into the image.
 
 It leaves the database in the named `mysql` volume.
 

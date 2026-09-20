@@ -50,13 +50,18 @@ final class CurrencyHelperTest extends CIUnitTestCase
      */
     public function testChangeFiguresAgreeThroughDollarCalculation(): void
     {
-        $total_dollars    = 45.70;
-        $tendered_pounds  = 4_500_000;
+        $dollar_change = 50.00 - 45.70;
+
+        $this->assertSame(4.30, round($dollar_change, 2));
+        $this->assertSame(385_000, to_lbp((string) $dollar_change));
+
+        $tendered_pounds  = 5_000_000;
         $tendered_dollars = $tendered_pounds / 89500;
-        $change_dollars   = $tendered_dollars - $total_dollars;
+        $change_dollars   = $tendered_dollars - 45.70;
         $change_pounds    = to_lbp((string) $change_dollars);
 
-        $this->assertSame(410_000, $change_pounds);
+        $this->assertSame(10.17, round($change_dollars, 2));
+        $this->assertSame(910_000, $change_pounds);
     }
 
     /**
@@ -80,6 +85,28 @@ final class CurrencyHelperTest extends CIUnitTestCase
         $this->assertSame(lang('Items.tax_reason_zero_rated'), format_tax_group_label('zero-rated'));
         $this->assertSame('VAT', format_tax_group_label('VAT'));
         $this->assertSame('', format_tax_group_label(null));
+    }
+
+    /**
+     * Resolves exemption labels in English and Lebanese Arabic.
+     */
+    public function testTaxGroupLabelsResolveInEnglishAndLebaneseArabic(): void
+    {
+        $language = service('language');
+        $request  = service('request');
+
+        $labels = [
+            'en'    => ['Exempt', 'Zero-rated'],
+            'ar-LB' => ['معفى', 'معدل صفري'],
+        ];
+
+        foreach ($labels as $locale => [$exempt, $zeroRated]) {
+            $request->setLocale($locale);
+            $language->setLocale($locale);
+
+            $this->assertSame($exempt, format_tax_group_label('exempt'));
+            $this->assertSame($zeroRated, format_tax_group_label('zero-rated'));
+        }
     }
 
     /**

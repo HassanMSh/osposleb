@@ -62,7 +62,7 @@ Last updated: 2026-09-20.
 - [x] Handle mixed Arabic and Latin content for numbers, currency, barcodes, identifiers, dates, and URLs in the application shell.
 - [!] Capture visual evidence for the critical workflows in both directions. Blocked: the browser automation server failed to connect, so no screenshots exist. Markup, language, direction, and stylesheet delivery were verified instead.
 - [ ] Have a native Lebanese Arabic speaker review register and configuration terminology before go-live.
-- [ ] Commit, push, and open the Phase 2 pull request against `develop`.
+- [x] Commit, push, and open the Phase 2 pull request. It is stacked on the Phase 1 pull request and will retarget to `develop` when that merges. All checks pass; awaiting the owner's merge decision.
 
 ### Phase 2 items deferred on purpose
 
@@ -73,14 +73,36 @@ Last updated: 2026-09-20.
 
 ## Phase 3 — TVA model
 
-- [ ] Decide tax-inclusive versus tax-exclusive prices.
-- [ ] Decide the precedence rule between per-item tax, a global default, and no tax.
-- [ ] Decide how an item opts out of the global default, and keep inherit, zero-rated, and exempt distinct.
-- [ ] Decide rounding precision and whether rounding happens per line or per invoice.
-- [ ] Create ADR 0005 and obtain approval before any schema or calculation change.
-- [ ] Implement the smallest compatible change.
+### Decisions, all settled 2026-09-20
+
+- [x] Decide tax-inclusive versus tax-exclusive prices. Inclusive, one setting for the whole shop, no per-item version.
+- [x] Decide the precedence rule between per-item tax, a global default, and no tax. Switch off wins, then the item's own rate, then the global rate.
+- [x] Decide how an item opts out of the global default, and keep inherit, zero-rated, and exempt distinct. A three-position switch on the item, with a reason of exempt or zero-rated when it is off. Exempt is the default.
+- [x] Decide rounding precision and whether rounding happens per line or per invoice. Full precision per line, summed per rate, rounded once at the end, half up, two decimals.
+- [x] Decide the currency of record. United States dollars at two decimal places.
+- [x] Decide the Lebanese pound presentation. One global rate, display only, rounded to the nearest 5,000, never stored, not frozen per sale.
+- [x] Decide the receipt layout. Asterisk on taxed lines, footnote explaining the tax already included, pound total under the dollar total, rate on its own line at the foot. Currency symbol stays in front, as it is everywhere else.
+- [x] Create ADR 0005 and obtain approval before any schema or calculation change. Accepted 2026-09-20.
+
+### Build
+
+- [ ] Migration: add the tax switch and its reason to the item table, and set the switch off for every item that has no tax rows today.
+- [ ] Rate resolution at calculation time, replacing the copy-on-create behaviour.
+- [ ] Item form: the three-position switch, the own-rate field, and the exempt or zero-rated choice.
+- [ ] Settings: the global TVA rate made operational, and the pounds-per-dollar rate.
+- [ ] Receipt templates `receipt_default` and `receipt_short`: asterisk, footnote, pound total, rate line.
+- [ ] Register screen: pound total under the dollar total.
+- [ ] Register screen: the change helper, in either currency, storing nothing.
+- [ ] Arabic and English strings for every new label, in all language variants.
+
+### Verification
+
 - [ ] Add calculation tests for sales, returns, discounts, receipts, and reports.
-- [ ] Confirm historical transactions stay valid.
+- [ ] Test the migration against a copy of real data and confirm no item starts being taxed that was not taxed before.
+- [ ] Test the pound conversion at values that round up and down.
+- [ ] Test that the change helper writes nothing.
+- [ ] Confirm historical transactions stay valid across a rate change.
+- [ ] Run the full check suite and open the Phase 3 pull request.
 
 ## Phase 4 — POS hardware and Arabic receipts
 
@@ -116,7 +138,6 @@ Last updated: 2026-09-20.
 ## Decisions still needed from the project owner
 
 - [ ] The default operator language for production. The terminology itself is settled in ADR 0003 and needs a native-speaker review rather than a decision.
-- [ ] The TVA rules listed under Phase 3.
 - [ ] The exact POS hardware models and their host environment.
 - [ ] Whether fast-food sizes and combos can be represented with existing items and kits, or need the Phase 5 modifier feature.
 - [ ] The backup target, retention period, recovery objective, and update rollback process.

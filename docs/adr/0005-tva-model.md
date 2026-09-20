@@ -179,9 +179,9 @@ Chips            1 x 2.50        2.50*
 Bread            1 x 1.00        1.00
 Oil, case        1 x 40.00      40.00*
 ------------------------------------------
-TOTAL TO PAY                    45.70 $
+TOTAL TO PAY                   $45.70
                           4,090,000 LL
-* VAT 11% included               4.43 $
+* VAT 11% included              $4.43
 
 LBP Rate 89,500 LL
 ```
@@ -190,7 +190,7 @@ Rules:
 
 - A trailing asterisk marks every line that carried TVA. Lines with the switch off carry no marker.
 - The TVA footnote line opens with the asterisk that explains the marker, and states the amount already contained in the total.
-- Dollar totals carry a trailing ` $`. This is a suffix. `to_currency()` formats through `NumberFormatter::CURRENCY` against `number_locale`, which prefixes the symbol for English and varies by locale, so the receipt totals need their own formatting rather than the shared helper. The other 177 call sites of `to_currency()` are left alone.
+- Dollar amounts keep the existing `to_currency()` formatting, which places the symbol in front. A trailing symbol was considered and rejected: it is purely cosmetic, and the project does not change cosmetics without a reason beyond appearance.
 - The pound total sits directly beneath the dollar total with no currency symbol beyond `LL`.
 - The rate prints on its own line at the foot of the receipt, separated from the totals block.
 - Both receipt templates, `receipt_default` and `receipt_short`, get the same treatment. `receipt_config.php` selects between them.
@@ -264,7 +264,6 @@ To be written with the implementation. The suite must cover:
 
 - The migration must correctly identify today's deliberately untaxed items. Getting this wrong silently starts charging TVA on them. This is the highest risk in the phase and needs a rehearsal against a copy of real data.
 - Reprinting an old receipt after an exchange-rate change prints a different pound figure than the customer was given. Accepted by the owner. It becomes a real problem only if the shop starts taking pound cash, at which point the rate must be frozen per sale.
-- The receipt totals stop using the shared money formatter so the currency symbol can trail the amount. The receipt and the rest of the application can therefore drift apart in how money looks. This is confined to the two receipt templates.
 - Removing the per-line rounding on the tax-exclusive path changes totals by a cent or two compared with today. This matters only if the shop has already been running tax-exclusive, which it has not.
 
 ### Follow-up work

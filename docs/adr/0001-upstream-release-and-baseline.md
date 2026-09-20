@@ -183,31 +183,108 @@ requirement before custom feature work begins.
 
 ## Verification results
 
-Verification was run on 2026-09-20 against the unchanged application code:
+Verification was run on 2026-09-20 against the unchanged application code at
+the approved baseline.
 
-- Baseline evidence: `.git/HEAD` points to `refs/heads/chore/ospos-baseline`,
-  whose local ref contains
-  `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`. `app/Config/App.php` and
-  `package.json` both report version 3.4.1.
-- `npm run build` — blocked, exit 127: `gulp: not found`. `node_modules/`
-  is absent. No dependency installation was attempted.
-- `composer test` — blocked, exit 1: Composer is not installed. `vendor/`
-  is absent, and PHP is not installed.
-- `docker compose -f docker-compose.yml config --quiet` — passed, exit 0.
-- `docker compose -f docker-compose.dev.yml config --quiet` — passed, exit 0;
-  Docker reported unset `USERID` and `GROUPID` variables only.
-- `docker compose -f docker-compose.nginx.yml config --quiet` — passed, exit
-  0; Docker reported unset environment variables and the existing obsolete
-  `version` key warning.
-- `docker compose -f docker-compose.test.yml config --quiet` — failed, exit
-  1: the existing test file references an undefined `sqlscript` service. It
-  also reports the existing obsolete `version` key warning.
+### Baseline identity
+
+`HEAD` is `refs/heads/chore/ospos-baseline`, branched from
+`bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`. `app/Config/App.php` and
+`package.json` both report version 3.4.1, and the running application reports
+`Powered by OSPOS 3.4.1`.
+
+### Build
+
+- `npm ci` — passed, exit 0. Node 24.12.0 and npm 11.6.2.
+- `npm run build` — failed, exit 1, at its first step `update-licenses`. That
+  step shells out to `composer licenses`, and Composer is not installed on the
+  build host. It is the only step that needs Composer.
+- The remaining asset steps were run directly and all passed, exit 0:
+  `copy-bootswatch`, `copy-bootswatch5`, `copy-bootstrap`, `debug-js`,
+  `prod-js`, `debug-css`, `prod-css`, `copy-fonts`, `copy-menubar`, and
+  `build-database`. They produce `public/resources/` and the generated
+  `app/Database/database.sql`, both of which are excluded from Git.
+- The asset build rewrites the tracked file `app/Views/partial/header.php` by
+  injecting the generated script and stylesheet tags. That change was reverted
+  so this phase stays documentation-only.
+- `docker compose build` against the `ospos_test` stage — passed, exit 0.
+  `composer install` inside the image resolved the locked dependencies on PHP
+  8.2 without platform overrides.
+
+### Runtime
+
+A disposable stack was started outside the repository, using MariaDB 10.5
+seeded from `app/Database/tables.sql` and `app/Database/constraints.sql`, and
+the locally built image. The repository's own compose files were not modified.
+
+- The seeded schema created 27 tables and the default `admin` employee.
+- `GET /` returned HTTP 200 and served the login page.
+- Logging in as `admin` triggered the migration runner. 40 migrations were
+  applied, ending at version `20250522000000`, and the schema grew to 39
+  tables.
+- A second login succeeded and landed on `/home`, titled
+  `Open Source Point of Sale | Powered by OSPOS 3.4.1`.
+- These routes returned HTTP 200 while authenticated: `/sales`, `/items`,
+  `/customers`, `/suppliers`, `/reports/summary_sales`, `/config`, and
+  `/item_kits`. `/taxes` returned HTTP 302, which is the native redirect when
+  destination-based tax is disabled.
+
+Two routes failed on the first attempt, and both causes were environmental
+rather than defects in the application code:
+
+- `/config` returned HTTP 500 with
+  `DirectoryIterator::__construct(resources/bootswatch): Failed to open
+  directory`. The image had been built before the asset build ran, so the
+  generated theme directory was absent. Copying the built assets into the
+  container fixed it.
+- `/sales` returned HTTP 500 with `Encrypter needs a starter key`. The
+  environment file supplied an empty `encryption.key` and was mounted
+  read-only, so the application could not generate and persist one. The log
+  also recorded `Unable to open /app/.env for updating`. Supplying a
+  base64 key fixed it.
+
+Both failures are recorded because they are real deployment requirements: the
+asset build must run before the application is served, and the environment file
+must either contain an encryption key or be writable at first start.
+
+### Tests
+
+- `composer test` — failed, exit 2:
+  `Cannot open bootstrap script "/app/system/Test/bootstrap.php"`. That path
+  does not exist. The CodeIgniter test bootstrap is installed at
+  `vendor/codeigniter4/framework/system/Test/bootstrap.php`, so `phpunit.xml.dist`
+  points at a location this installation layout never creates.
+- The baseline contains no PHP test classes. `phpunit.xml.dist` declares a
+  test suite over `./tests`, which holds only browser test scripts, and
+  `tests/phpunit.xml` declares suites over `helpers`, `libraries`, and
+  `models`, none of which exist.
 - `node --check` passed for `tests/sanity_check.js`,
   `tests/giftcard_numbering.js`, `tests/receiving_quantity.js`,
   `tests/make_sale_receiving.js`, and `tests/ospos.js`.
 
-No application code, `.env` file, database, generated dependency directory,
-or production data was changed. PHP syntax, PHPUnit, application startup,
-login, database-backed sales, and hardware tests remain unverified because
-the required runtime, dependencies, database, browser, and devices are not
-available in this environment. No container was built or started.
+There is therefore no baseline PHP test result to preserve, and no pre-existing
+PHP test failure is being hidden. Automated coverage for this fork has to be
+created from nothing. This is tracked in `docs/progress-checklist.md`.
+
+### Compose configuration
+
+- `docker compose -f docker-compose.yml config --quiet` — passed, exit 0.
+- `docker compose -f docker-compose.dev.yml config --quiet` — passed, exit 0,
+  with unset `USERID` and `GROUPID` warnings only.
+- `docker compose -f docker-compose.nginx.yml config --quiet` — passed, exit 0,
+  with unset environment variable warnings and the obsolete `version` key
+  warning.
+- `docker compose -f docker-compose.test.yml config --quiet` — failed, exit 1.
+  It includes `docker/docker-mysql.yml`, whose database service declares
+  `volumes_from: sqlscript`, but the test file never defines a `sqlscript`
+  service.
+
+### Scope of change
+
+No application code, `.env` file, database, or production data in the
+repository was changed by this verification. The disposable stack, its
+environment file, and the generated assets live outside version control. The
+containers were removed afterwards.
+
+Printer, scanner, and cash-drawer behavior remains unverified. No physical
+device was available.

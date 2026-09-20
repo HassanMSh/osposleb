@@ -218,10 +218,20 @@ until the relevant ADR and business decisions are accepted.
   CSS, tax models/controllers/views, sales and barcode libraries, receipt
   printing, kits and attributes, reports, employee grants, migrations, and
   backup/update scripts.
-- No application files or database values were changed.
-- No automated application tests were run because this change only adds audit
-  documentation and the available environment does not provide the PHP runtime
-  needed to execute the repository test command.
+- Arabic coverage was measured programmatically against the English key set
+  rather than estimated.
+- The baseline was built and run. Frontend dependencies installed, the asset
+  build produced its output, the application image built, and a disposable
+  MariaDB 10.5 stack served the login page, applied 40 migrations on first
+  login, and returned the dashboard, sales, items, customers, suppliers,
+  reports, settings, and item-kit pages while authenticated. Full evidence is
+  in [ADR 0001](adr/0001-upstream-release-and-baseline.md).
+- The repository test command could not run. It points at a bootstrap file that
+  this installation layout never creates, and the baseline contains no PHP test
+  classes. There is no baseline PHP test result to preserve.
+- No application files, repository compose files, or committed configuration
+  were changed. The verification stack and its environment file were created
+  outside version control and removed afterwards.
 - No physical hardware was available or tested. Printer, scanner, and drawer
   status remains unverified.
 

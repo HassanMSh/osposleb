@@ -8,12 +8,15 @@ repo_root=$(dirname -- "$script_dir")
 project_name=${COMPOSE_PROJECT_NAME:-$(basename -- "$repo_root")}
 network=${OSPOS_DOCKER_NETWORK:-${project_name}_app_net}
 db_host=${OSPOS_DB_HOST:-mysql}
+data_dir=${OSPOS_DATA_DIR:-}
 archive_arg=''
-uploads_arg="$repo_root/public/uploads"
+uploads_arg=''
+env_arg=''
 database_arg=''
 yes_flag=0
 archive_option_set=0
 uploads_option_set=0
+env_option_set=0
 database_option_set=0
 
 # Stop with a readable launcher error.
@@ -46,6 +49,13 @@ while (( $# > 0 )); do
             uploads_option_set=1
             shift 2
             ;;
+        --env)
+            (( $# >= 2 )) || fail '--env needs a file path.'
+            (( env_option_set == 0 )) || fail '--env was given more than once.'
+            env_arg=$2
+            env_option_set=1
+            shift 2
+            ;;
         --database)
             (( $# >= 2 )) || fail '--database needs a database name.'
             (( database_option_set == 0 )) || fail '--database was given more than once.'
@@ -65,14 +75,23 @@ while (( $# > 0 )); do
 done
 
 [[ -n $archive_arg ]] || fail '--archive is required.'
+if [[ -n $data_dir ]]; then
+    [[ -d $data_dir ]] || fail "Client data directory does not exist: $data_dir"
+    data_dir=$(CDPATH= cd -- "$data_dir" && pwd -P) || fail "Cannot use client data directory: $data_dir"
+    [[ -n $uploads_arg ]] || uploads_arg="$data_dir/uploads"
+    [[ -n $env_arg ]] || env_arg="$data_dir/secrets/app.env"
+else
+    [[ -n $uploads_arg ]] || uploads_arg="$repo_root/public/uploads"
+    [[ -n $env_arg ]] || env_arg="$repo_root/.env"
+fi
 if [[ $uploads_arg != /* ]]; then
     uploads_arg="$repo_root/$uploads_arg"
 fi
 [[ -f $archive_arg ]] || fail "Archive file does not exist: $archive_arg"
 [[ -r $archive_arg ]] || fail "Archive file is not readable: $archive_arg"
 [[ -d $uploads_arg ]] || fail "Uploads directory does not exist: $uploads_arg"
-[[ -f "$repo_root/.env" ]] || fail "Environment file does not exist: $repo_root/.env"
-[[ -r "$repo_root/.env" ]] || fail "Environment file is not readable: $repo_root/.env"
+[[ -f $env_arg ]] || fail "Environment file does not exist: $env_arg"
+[[ -r $env_arg ]] || fail "Environment file is not readable: $env_arg"
 
 archive_parent=$(CDPATH= cd -- "$(dirname -- "$archive_arg")" && pwd -P) \
     || fail "Cannot use archive file: $archive_arg"
@@ -82,6 +101,9 @@ uploads=$(CDPATH= cd -- "$uploads_arg" && pwd -P) \
 uploads_parent=$(CDPATH= cd -- "$(dirname -- "$uploads")" && pwd -P) \
     || fail "Cannot use uploads directory: $uploads_arg"
 uploads_name=$(basename -- "$uploads")
+env_parent=$(CDPATH= cd -- "$(dirname -- "$env_arg")" && pwd -P) \
+    || fail "Cannot use environment file: $env_arg"
+env_name=$(basename -- "$env_arg")
 
 docker_args=(
     run --rm
@@ -90,6 +112,7 @@ docker_args=(
     --mount "type=bind,source=$repo_root,target=/work,readonly"
     --mount "type=bind,source=$archive_parent,target=/archive-parent,readonly"
     --mount "type=bind,source=$uploads_parent,target=/uploads-parent"
+    --mount "type=bind,source=$env_parent,target=/env-parent,readonly"
     --entrypoint bash
 )
 
@@ -102,6 +125,7 @@ docker_args+=(
     /work/scripts/container/restore.sh
     --archive "/archive-parent/$archive_name"
     --uploads "/uploads-parent/$uploads_name"
+    --env "/env-parent/$env_name"
     --db-host "$db_host"
 )
 

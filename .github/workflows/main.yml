@@ -4,17 +4,12 @@ on:
   push:
     branches:
       - develop
-    paths:
-      - '**.php'
-      - 'spark'
-      - '.github/workflows/main.yml'
+      - master
+  # No branch filter: a phase branch is often stacked on the previous phase
+  # rather than on develop, and those pull requests still need checking.
+  # No path filter either, so every pull request reports a result instead of
+  # showing no checks at all. The jobs exit early when no PHP file changed.
   pull_request:
-    branches:
-      - develop
-    paths:
-      - '**.php'
-      - 'spark'
-      - '.github/workflows/main.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -97,7 +92,6 @@ jobs:
           for php_file in "${php_files[@]}"; do
             vendor/bin/php-cs-fixer fix "$php_file" --verbose --ansi --dry-run --config=.php-cs-fixer.no-header.php --using-cache=no --diff
           done
-
       # Application container builds are disabled during baseline setup.
       # Enable this step after application code changes require image validation.
       # - name: Build application container

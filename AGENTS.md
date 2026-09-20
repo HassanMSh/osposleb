@@ -12,7 +12,9 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 - Phase 1 is complete and merged to `develop`: ADRs 0001 and 0002 are accepted and `docs/gap-analysis.md` is complete.
 - Phase 2 is complete and merged to `develop`: ADRs 0003 and 0004 are accepted, both Arabic locales are fully translated, the right-to-left layer is in place, and the layout was verified in Google Chrome in both directions.
 - Fork documentation lives in `docs/`. Track task status in `docs/progress-checklist.md` and update it at the end of every phase.
-- Phase 3 is built on branch `feat/tva-model`: ADR 0005 is accepted, the TVA model and the Lebanese pound presentation are implemented, and the migration was rehearsed and rolled back against a real database. Browser verification of the new screens is still outstanding.
+- Phase 3 is complete and merged to `develop`: ADR 0005 is accepted, the TVA model and the Lebanese pound presentation are implemented, the migration was rehearsed and rolled back against a real database, and the new screens were verified in Google Chrome in both languages.
+- The shop runs in Arabic (Lebanon) by default, the `admin` account runs in English, and the login page is always English and left to right. Decided 2026-09-20.
+- Phase 4 is waiting for the project owner's hardware to arrive. Do not start model-specific work until the devices are named.
 
 ## Code-style gate
 

@@ -81,8 +81,8 @@ INSERT INTO `ospos_app_config` (`key`, `value`) VALUES
     ('receipt_template', 'receipt_default'),
     ('theme', 'flatly'),
     ('statistics', '1'),
-    ('language', 'english'),
-    ('language_code', 'en');
+    ('language', 'arabic'),
+    ('language_code', 'ar-LB');
 
 
 -- --------------------------------------------------------

@@ -216,7 +216,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Changes the sale mode in the register to carry out different types of sales
+     * Changes the register mode for sales receipts, quotes, or returns.
      *
      * @noinspection PhpUnused
      */
@@ -224,7 +224,7 @@ class Sales extends Secure_Controller
     {
         $mode = $this->request->getPost('mode', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 
-        if (! in_array($mode, ['sale', 'sale_invoice', 'return'], true)) {
+        if (! in_array($mode, ['sale', 'sale_quote', 'return'], true)) {
             throw PageNotFoundException::forPageNotFound();
         }
 
@@ -232,8 +232,8 @@ class Sales extends Secure_Controller
 
         if ($mode == 'sale') {
             $this->sale_lib->set_sale_type(SALE_TYPE_POS);
-        } elseif ($mode == 'sale_invoice') {
-            $this->sale_lib->set_sale_type(SALE_TYPE_INVOICE);
+        } elseif ($mode == 'sale_quote') {
+            $this->sale_lib->set_sale_type(SALE_TYPE_QUOTE);
         } else {
             $this->sale_lib->set_sale_type(SALE_TYPE_RETURN);
         }
@@ -265,15 +265,41 @@ class Sales extends Secure_Controller
         $this->_reload();
     }
 
+    /**
+     * Sets the register mode that matches a reloaded sale type.
+     *
+     * Invoices complete immediately, so they are not normally reloaded from
+     * the held-sales list. If one is encountered, receipt mode is the
+     * supported fallback because invoice mode is no longer in the picker.
+     */
     public function change_register_mode(int $sale_type): void
     {
         $mode = match ($sale_type) {
-            SALE_TYPE_INVOICE => 'sale_invoice',
+            SALE_TYPE_QUOTE   => 'sale_quote',
+            SALE_TYPE_INVOICE => 'sale',
             SALE_TYPE_RETURN  => 'return',
             default           => 'sale', // SALE_TYPE_POS
         };
 
         $this->sale_lib->set_mode($mode);
+    }
+
+    /**
+     * Returns the completion label for a supported register mode.
+     *
+     * Invoice mode is no longer in the register picker, so get_mode() normalises
+     * it to sale and this arm is unreachable today. It keeps the original
+     * invoice label so restoring the mode later does not silently mislabel the
+     * completion button.
+     */
+    private function get_register_mode_label(string $mode): string
+    {
+        return match ($mode) {
+            'sale_quote'   => lang('Sales.quote'),
+            'return'       => lang('Sales.return'),
+            'sale_invoice' => lang('Sales.invoice'),
+            default        => lang('Sales.receipt'),
+        };
     }
 
     /**
@@ -1027,13 +1053,7 @@ class Sales extends Secure_Controller
         $data['print_after_sale']  = false;
         $data['price_work_orders'] = false;
 
-        if ($this->sale_lib->get_mode() == 'sale_invoice') {
-            $data['mode_label'] = lang('Sales.invoice');
-        } elseif ($this->sale_lib->get_mode() == 'return') {
-            $data['mode_label'] = lang('Sales.return');
-        } else {
-            $data['mode_label'] = lang('Sales.receipt');
-        }
+        $data['mode_label'] = $this->get_register_mode_label($this->sale_lib->get_mode());
 
         $invoice_type         = $this->config['invoice_type'];
         $data['invoice_view'] = $invoice_type;
@@ -1125,13 +1145,7 @@ class Sales extends Secure_Controller
         $data['quote_number']      = $this->sale_lib->get_quote_number();
         $data['work_order_number'] = $this->sale_lib->get_work_order_number();
 
-        if ($this->sale_lib->get_mode() == 'sale_invoice') {
-            $data['mode_label'] = lang('Sales.invoice');
-        } elseif ($this->sale_lib->get_mode() == 'return') {
-            $data['mode_label'] = lang('Sales.return');
-        } else {
-            $data['mode_label'] = lang('Sales.receipt');
-        }
+        $data['mode_label'] = $this->get_register_mode_label($this->sale_lib->get_mode());
 
         echo view('sales/register', $data);
     }

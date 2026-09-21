@@ -34,6 +34,12 @@ The rationale was to hide unused workflows and direct routes while preserving
 upstream data and upgrade paths, and to keep the till small enough for the
 shop's daily cashier workflow.
 
+On 2026-09-21, the project owner amended the register decisions above:
+
+- Old decision: offer Sales Receipt, Invoice, and Return, with invoices completing without customer details.
+- New decision: offer Sales Receipt, Quote, and Return; keep existing invoice records and code valid, but do not expose Invoice in the register picker.
+- Reason: Invoice completes a real sale and deducts stock, while the owner wanted a price offer. Quote is the existing suspended, no-stock-movement flow for that purpose.
+
 On 2026-09-21, review changed item 1: Office remains an internal upstream
 module, and its normal controller guard remains the access boundary. The
 change followed verification that the Office area supplies the administrator's
@@ -70,7 +76,7 @@ predictable and prevents a posted form value from changing the navigation policy
 - The lockdown removes Customers, Item Kits, Suppliers, Receivings, Gift Cards, Messages, Expenses, Expenses Categories, and Cashups from module and permission data.
 - The lockdown filter returns HTTP 404 for those removed modules when they are requested directly.
 - Historical transaction and operational data tables are not removed.
-- The till remains cash-only and keeps the existing simplified Sales, Invoice, and Return scope.
+- The till remains cash-only and exposes only Sales Receipt, Quote, and Return; invoice code and historical invoice data remain on disk.
 - Kitchen tracking, table management, delivery, multi-branch support, and hardware-specific behavior remain out of scope.
 
 ## Migration and rollback

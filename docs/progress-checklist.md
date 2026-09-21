@@ -133,7 +133,7 @@ Last updated: 2026-09-21.
 - [x] Add the shared menu-group helper and use it in migration and employee save policy code.
 - [x] Add the global 404 route filter for every removed module.
 - [x] Simplify the till to cash only, with no discount or customer block.
-- [x] Restrict the register to Sales Receipt, Invoice, and Return.
+- [x] Restrict the register to Sales Receipt, Quote, and Return (amended 2026-09-21).
 - [x] Remove the unused reward settings tab.
 - [x] Record ADR 0010 with status Accepted.
 
@@ -143,7 +143,8 @@ Last updated: 2026-09-21.
 - [x] Run PHP-CS-Fixer on every changed PHP file and inspect comparison rewrites.
 - [x] Run the PHPUnit suite after the final code and documentation review: 75 tests, 341 assertions, twice after a clean rebuild.
 - [x] Verify administrator Settings, cashier tiles, removed routes, and English/Arabic layout in Chrome. Done 2026-09-21 against a database rebuilt from the generated install file with all 43 migrations applied, driving Google Chrome directly. Twenty-nine checks, all passing. The administrator home grid read `Items, Reports, Sales, Office`; the office area, Settings and the employee list all opened; all eight removed modules returned 404. A cashier created through the real employee form with Items, Sales and Home ticked, Reports deliberately left off and Settings ticked came back with Reports still off and Settings stripped, holding `home:office items:home sales:home`, and saw exactly `Items, Sales` with no office tile and no duplicate home tile. That cashier was refused at `/office`, `/config` and `/employees`, and rendered `lang=ar-LB dir=rtl` when set to Arabic. A new employee saved with nothing ticked received the 13-grant standard till set and opened the till.
-- [ ] Ring up a cash sale, print an invoice, and process a return as a cashier in Chrome. Not done on 2026-09-21: the rebuilt test database has no items, so the sale could not be completed end to end. The till screen was confirmed to open and render for a standard cashier in Arabic and for the administrator in English.
+- [x] Verify the amended register modes in Chrome in both languages. Done 2026-09-21 by the project owner against the running shop, ten checks, all passing, each run once with the shop in Arabic and once as the administrator in English. The picker offered exactly Sales Receipt, Quote and Return with no Invoice or Work Order entry. Quote mode labelled its completion button Quote and عرض أسعار. A quote for a known item left the stock count unchanged, printed on the quote layout with its quote number, and appeared in the held-sales list under that quote number rather than a plain sale number. Reopening it from the held list kept the register in quote mode. Switching to Sales Receipt and completing reduced the stock by the quoted quantity exactly once. A return still restored stock, the Arabic layout rendered right to left without overlap, and the English interface and login page were unchanged.
+- [ ] Ring up a cash sale and process a return as a standard cashier in Chrome, rather than as the project owner's account. Not done on 2026-09-21. Invoice printing is no longer part of this check, because the 2026-09-21 amendment removed Invoice from the register.
 - [ ] Confirm hardware behavior after the project owner names the devices.
 
 ## Phase 4 — POS hardware and Arabic receipts

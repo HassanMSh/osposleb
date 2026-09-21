@@ -151,7 +151,7 @@ final class SecurityHelperTest extends CIUnitTestCase
     }
 
     /**
-     * Confirms that a generated key is hexadecimal and has the required length.
+     * Confirms that a generated key is valid and both environment files are protected.
      */
     private function assertGeneratedKeyWasWritten(): void
     {
@@ -159,7 +159,12 @@ final class SecurityHelperTest extends CIUnitTestCase
 
         $this->assertIsString($contents);
         $this->assertMatchesRegularExpression("/^[ \t]*encryption\\.key[ \t]*=[ \t]*'([0-9a-f]{64})'[ \t]*$/mi", $contents);
-        $this->assertSame(0660, fileperms($this->configPath) & 0777);
-        $this->assertSame(0660, fileperms($this->backupPath) & 0777);
+        clearstatcache(true, $this->configPath);
+        $configFileMode = fileperms($this->configPath) & 0777;
+        $this->assertSame(0660, $configFileMode, sprintf('Expected .env mode 0660, got %04o.', $configFileMode));
+
+        clearstatcache(true, $this->backupPath);
+        $backupFileMode = fileperms($this->backupPath) & 0777;
+        $this->assertSame(0660, $backupFileMode, sprintf('Expected backup mode 0660, got %04o.', $backupFileMode));
     }
 }

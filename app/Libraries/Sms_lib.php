@@ -3,35 +3,34 @@
 namespace app\Libraries;
 
 use CodeIgniter\Encryption\Encryption;
-use CodeIgniter\Encryption\EncrypterInterface;
 use Config\OSPOS;
 use Config\Services;
-
 
 /**
  * SMS library
  *
  * Library with utilities to send texts via SMS Gateway (requires proxy implementation)
  */
-
 class Sms_lib
 {
     /**
      * SMS sending function
+     * A missing encryption key leaves the stored password empty.
+     *
      * Example of use: $response = sendSMS('4477777777', 'My test message');
      */
     public function sendSMS(int $phone, string $message): bool
     {
         $config = config(OSPOS::class)->settings;
 
-        $encrypter = Services::encrypter();
-
-        $password = $config['msg_pwd'];
-        if (!empty($password)) {
-            $password = $encrypter->decrypt($password);
+        $password = $config['msg_pwd'] ?? '';
+        if (! empty($password) && ! empty(config('Encryption')->key)) {
+            $password = Services::encrypter()->decrypt($password);
+        } else {
+            $password = '';
         }
 
-        $username = $config['msg_uid'];
+        $username   = $config['msg_uid'];
         $originator = $config['msg_src'];
 
         $response = false;

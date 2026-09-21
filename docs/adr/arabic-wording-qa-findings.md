@@ -26,9 +26,9 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 1.2 The picker must offer exactly three choices
 
-- Status: partly fixed on 2026-09-21 on branch `fix/arabic-wording`
+- Status: fixed on 2026-09-21 on branch `fix/register-quote-mode`
 - Done: the three labels now read as the owner chose, in both locales. The Egyptian return label was corrected to the owner's spelling.
-- Not done: the option list itself still offers four or five entries. Trimming it to three needs a code change outside the language files and was left out of the wording branch on purpose. Recorded in ADR 0010 as superseding the 2026-09-20 register-mode decision.
+- Corrected record: before this amendment, the picker offered three entries—Sales Receipt, Invoice, and Return. It now offers three entries—Sales Receipt, Quote, and Return.
 - Screen: Sale screen, drop-down at the top of the register
 - Decision: the drop-down shows only these three, in the owner's wording:
   - `عملية بيع`
@@ -37,7 +37,7 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 - Removed from the picker: `فاتورة` (invoice) and `طلب عمل` (work order). Neither is used in a supermarket or fast-food shop.
 - Owner wording note: the owner chose `عملية بيع` over the shorter `بيع`. The shorter form was proposed and dismissed.
 - Owner wording note: the owner confirmed `إسترجاع` as written. The alternative spelling `استرجاع` was raised and dismissed.
-- Implementation note: no combination of existing settings produces exactly these three. With invoicing off the picker offers only sale and return, with no price offer. With invoicing on it offers four or five entries. Delivering the three-item list therefore needs a small code change in the function that builds the option list, not a settings change.
+- Implementation note: the exact three-item list is now enforced in `Sale_lib::get_register_mode_options()` and the register mode controller allow-list.
 - Risk: invoice and work order remain reachable elsewhere in the application. Removing them from this picker hides them from the cashier. It does not delete existing invoices or work orders, and it does not change how any saved record behaves.
 - Strings and code: `Sale_lib::get_register_mode_options()`; labels `Sales.sale`, `Sales.receipt`, `Sales.quote`, `Sales.work_order`, `Sales.invoice`, `Sales.return`
 

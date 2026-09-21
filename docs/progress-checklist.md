@@ -133,7 +133,7 @@ Last updated: 2026-09-21.
 - [x] Add the shared menu-group helper and use it in migration and employee save policy code.
 - [x] Add the global 404 route filter for every removed module.
 - [x] Simplify the till to cash only, with no discount or customer block.
-- [x] Restrict the register to Sales Receipt, Invoice, and Return.
+- [x] Restrict the register to Sales Receipt, Quote, and Return (amended 2026-09-21).
 - [x] Remove the unused reward settings tab.
 - [x] Record ADR 0010 with status Accepted.
 

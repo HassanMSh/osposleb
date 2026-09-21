@@ -170,6 +170,14 @@ Suggested branch prefixes:
 - `docs/`
 - `chore/`
 
+## Docker images
+
+- The shop image is published to Docker Hub as `hassanshamseddine/osposlb`. The local Docker client is already logged in to that account.
+- Never build and push the image from a developer machine. Image publishing belongs to GitHub Actions only, so every published tag comes from a reviewed commit.
+- The workflow authenticates with the repository secrets `DOCKER_HUB_USER` (the Docker Hub username) and `DOCKER_HUB` (the Docker Hub access token). Do not put either value in the repository, in a compose file, or in an ADR.
+- Local Docker use is limited to building and running throwaway images for testing.
+- When a local test container bind-mounts a worktree over `/app`, the mount hides the installed dependencies that live inside the image. Add a separate `/app/vendor` volume to the service so the image's dependencies stay visible, or the command line tool and the web entry point both fail to start.
+
 ## Dependencies
 
 - Reuse existing dependencies whenever practical.

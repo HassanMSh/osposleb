@@ -9,9 +9,9 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 ## Current project status
 
 - Approved baseline: `develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`, application version 3.4.1, approved 2026-09-20.
-- Phase 1 is complete and merged to `develop`: ADRs 0001 and 0002 are accepted and `docs/gap-analysis.md` is complete.
+- Phase 1 is complete and merged to `develop`: ADRs 0001 and 0002 are accepted and `docs/adr/gap-analysis.md` is complete.
 - Phase 2 is complete and merged to `develop`: ADRs 0003 and 0004 are accepted, both Arabic locales are fully translated, the right-to-left layer is in place, and the layout was verified in Google Chrome in both directions.
-- Fork documentation lives in `docs/`. Track task status in `docs/progress-checklist.md` and update it at the end of every phase.
+- Operator documentation lives in `docs/`. Internal records, plans, and audits live in `docs/adr/`, which is untracked and stays on the developer machine. Track task status in `docs/adr/progress-checklist.md` and update it at the end of every phase.
 - Phase 3 is complete and merged to `develop`: ADR 0005 is accepted, the TVA model and the Lebanese pound presentation are implemented, the migration was rehearsed and rolled back against a real database, and the new screens were verified in Google Chrome in both languages.
 - The shop runs in Arabic (Lebanon) by default, the `admin` account runs in English, and the login page is always English and left to right. Decided 2026-09-20.
 - Phase 4 is waiting for the project owner's hardware to arrive. Do not start model-specific work until the devices are named.
@@ -25,7 +25,7 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 
 ## Source of truth
 
-Read `OSPOS_IMPLEMENTATION_PLAN.md` before making changes.
+Read `docs/adr/OSPOS_IMPLEMENTATION_PLAN.md` before making changes. It is untracked, so it exists only on the developer machine.
 
 Follow its phases, ADR numbering, scope, and acceptance criteria. If this file conflicts with the implementation plan, the implementation plan wins.
 

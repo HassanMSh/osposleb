@@ -41,6 +41,28 @@ back-to-home navigation and that a non-administrator can satisfy the accepted
 criterion while still receiving a valid `home` grant. The cash-only and
 historical-data decisions remain unchanged.
 
+### Register modes superseded on 2026-09-21
+
+On 2026-09-21 the project owner replaced item 7 while reviewing Arabic wording.
+The register-mode picker must offer exactly three choices: sale, price offer,
+and return. Invoice and work order are removed from the picker because neither
+is used in a supermarket or fast-food shop.
+
+This supersedes the 2026-09-20 list of Sales Receipt, Invoice, and Return.
+
+No combination of existing settings produces exactly these three. With
+invoicing off the picker offers sale and return with no price offer. With
+invoicing on it offers four or five entries. Delivering the three-item list
+therefore needs a change to the function that builds the option list, not a
+settings change.
+
+Invoice and work order remain reachable elsewhere in the application. Removing
+them from the picker hides them from the cashier. It does not delete existing
+invoices or work orders and does not change how any saved record behaves.
+
+This change is not implemented on this branch. It is recorded here so the
+register-mode scope in this ADR is not read as current.
+
 ## Decision
 
 - Keep `office` out of `ShopLockdown::REMOVED_MODULES`.
@@ -70,7 +92,8 @@ predictable and prevents a posted form value from changing the navigation policy
 - The lockdown removes Customers, Item Kits, Suppliers, Receivings, Gift Cards, Messages, Expenses, Expenses Categories, and Cashups from module and permission data.
 - The lockdown filter returns HTTP 404 for those removed modules when they are requested directly.
 - Historical transaction and operational data tables are not removed.
-- The till remains cash-only and keeps the existing simplified Sales, Invoice, and Return scope.
+- The till remains cash-only.
+- The register-mode list is no longer the one approved on 2026-09-20. See "Register modes superseded on 2026-09-21" below.
 - Kitchen tracking, table management, delivery, multi-branch support, and hardware-specific behavior remain out of scope.
 
 ## Migration and rollback
@@ -155,4 +178,6 @@ remove the only active `config` holder.
 - Deleting the last administrator is refused through the employee delete path.
 - The route filter returns 404 for Expenses, Expense Categories, and Cashups in a fully migrated database.
 - The full PHPUnit suite and PHP-CS-Fixer pass.
-- Browser checks remain pending and must be run in Chrome in English and Arabic after the database is rebuilt.
+- Browser checks were run in Chrome on 2026-09-21 against a database rebuilt from empty with every migration applied. All 29 checks passed in English and Arabic.
+- Browser checks confirmed the administrator home grid as Items, Reports, Sales, Office; a standard cashier as Items, Reports, Sales; a cashier saved with a trimmed selection as Items, Sales; cashier grants stored as `home:office items:home sales:home`; HTTP 403 for a cashier at `/office`, `/config`, and `/employees`; and `lang="ar-LB" dir="rtl"` on the Arabic till.
+- Completing a sale, printing a receipt, and processing a return were not exercised in the browser because the rebuilt test database holds no items. This remains outstanding.

@@ -132,7 +132,7 @@ Last updated: 2026-09-21.
 - [x] Add the shared menu-group helper and use it in migration and employee save policy code.
 - [x] Add the global 404 route filter for every removed module.
 - [x] Simplify the till to cash only, with no discount or customer block.
-- [x] Restrict the register to Sales Receipt, Invoice, and Return.
+- [x] Restrict the register to Sales Receipt, Invoice, and Return. Superseded on 2026-09-21: the project owner decided the picker must offer exactly sale, price offer, and return. Recorded in ADR 0010 and not yet implemented.
 - [x] Remove the unused reward settings tab.
 - [x] Record ADR 0010 with status Accepted.
 
@@ -172,8 +172,8 @@ Last updated: 2026-09-21.
 - [x] Add the manual command-line backup and restore scripts and operator guide on 2026-09-20.
 - [x] Add the ADR 0011 client configuration directory, setup launchers, client Compose override, and default backup destination on 2026-09-20.
 - [x] Prove the client setup, restart persistence, exclusion of `.env`, `app.env`, and `db.env`, configured backup destination, restore drill, and existing-installation refusal on Linux on 2026-09-20.
-- [ ] Run the client setup, ACL, exFAT/FAT32 refusal, backup, restart, and restore proofs on Windows; status remains expected until the project owner tests the shop computer.
-- [ ] Set up automated database backups with retention and off-machine copies.
+- [ ] Run the client setup, ACL, exFAT/FAT32 refusal, backup, restart, and restore proofs on Windows; status remains expected until the project owner tests the shop computer. Writing the Windows deployment notes was deferred by the project owner on 2026-09-21; do not start without being asked. The notes must cover install, autostart at boot, recovery steps for shop staff, and replacing the shipped default database password and the empty encryption key on every install.
+- [ ] Set up automated database backups with retention and off-machine copies. Deferred by the project owner on 2026-09-21; do not start without being asked.
 - [x] Complete an isolated restore drill. Done 2026-09-20 into a scratch database and scratch uploads directory: five items, nine sales, both employee records and the uploads directory all came back, and the live database was verified untouched.
 - [ ] Validate a restore into a live production shop.
 - [ ] Harden production configuration, secrets, TLS, sessions, and dependency scanning.

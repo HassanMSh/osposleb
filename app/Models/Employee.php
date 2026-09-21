@@ -14,11 +14,12 @@ use Config\ShopLockdown;
 class Employee extends Person
 {
     public Session $session;
-    protected $table            = 'Employees';
-    protected $primaryKey       = 'person_id';
-    protected $useAutoIncrement = false;
-    protected $useSoftDeletes   = false;
-    protected $allowedFields    = [
+    private ?string $save_failure_reason = null;
+    protected $table                     = 'Employees';
+    protected $primaryKey                = 'person_id';
+    protected $useAutoIncrement          = false;
+    protected $useSoftDeletes            = false;
+    protected $allowedFields             = [
         'username',
         'password',
         'deleted',
@@ -120,39 +121,58 @@ class Employee extends Person
     }
 
     /**
-     * Inserts or updates an employee and limits non-admin grants to the shop policy.
+     * Inserts or updates an employee while applying the permission ceiling.
      *
-     * @param array<string, mixed>              $person_data   Person fields to save.
-     * @param array<string, mixed>              $employee_data Employee fields to save.
-     * @param array<int, array<string, string>> $grants_data   Requested grants.
-     * @param int                               $employee_id   Employee identifier to update, or NEW_ENTRY.
+     * Existing administrators receive the selected grants posted by the
+     * employee form, except for removed modules. New and existing
+     * non-administrators cannot receive administrative grants. A new employee
+     * with no posted grants receives the standard cashier grants.
+     *
+     * @param array<string, mixed>             $person_data   Person fields to save.
+     * @param array<string, mixed>             $employee_data Employee fields to save.
+     * @param array<int, array<string, mixed>> $grants_data   Requested grants.
+     * @param int                              $employee_id   Employee identifier to update, or NEW_ENTRY.
      */
     public function save_employee(array &$person_data, array &$employee_data, array &$grants_data, int $employee_id = NEW_ENTRY): bool
     {
-        $success = false;
+        $this->save_failure_reason = null;
 
-        $is_admin = false;
-        if ($employee_id == NEW_ENTRY) {
-            $is_admin = ($employee_data['username'] ?? null) === 'admin';
+        if ($employee_id !== NEW_ENTRY && ! $this->exists($employee_id)) {
+            return false;
+        }
+
+        $current_is_admin = $employee_id !== NEW_ENTRY
+            && $this->has_administrator_capability($employee_id);
+        $stock_admin_fallback = $employee_id !== NEW_ENTRY
+            && ! $current_is_admin
+            && ! $this->has_any_grant($employee_id)
+            && $this->is_stock_admin($employee_id);
+        $requested_is_admin = $this->requested_administrator_capability($grants_data);
+
+        if (($current_is_admin || $stock_admin_fallback)
+            && ! $requested_is_admin
+            && ! $this->has_other_active_holder('config', $employee_id)) {
+            $this->save_failure_reason = 'last_administrator';
+
+            return false;
+        }
+
+        $is_admin = $current_is_admin && $requested_is_admin;
+
+        if ($employee_id === NEW_ENTRY && $grants_data === []) {
+            $grants_data = $this->standard_cashier_grants();
         } else {
-            $current_username = $this->get_info($employee_id)->username;
-            $saved_username   = $employee_data['username'] ?? $current_username;
-            $is_admin         = $current_username === 'admin' && $saved_username === 'admin';
+            $grants_data = $this->prepare_grants($grants_data, $is_admin);
         }
 
-        if (! $is_admin) {
-            $grants_data = array_values(array_filter(
-                $grants_data,
-                static fn (array $grant): bool => in_array($grant['permission_id'], ShopLockdown::NON_ADMIN_GRANTS, true),
-            ));
-        }
+        $success = false;
 
         // Run these queries as a transaction, we want to make sure we do all or nothing
         $this->db->transStart();
 
         if (parent::save_value($person_data, $employee_id)) {
             $builder = $this->db->table('employees');
-            if ($employee_id == NEW_ENTRY || ! $this->exists($employee_id)) {
+            if ($employee_id == NEW_ENTRY) {
                 $employee_data['person_id'] = $employee_id = $person_data['person_id'];
                 $success                    = $builder->insert($employee_data);
             } else {
@@ -190,9 +210,202 @@ class Employee extends Person
     }
 
     /**
-     * Deletes one employee
+     * Returns the reason for the last refused employee save, if one exists.
+     */
+    public function get_save_failure_reason(): ?string
+    {
+        return $this->save_failure_reason;
+    }
+
+    /**
+     * Checks whether an active employee has the config capability used for administration.
+     */
+    private function has_administrator_capability(int $employee_id): bool
+    {
+        return $this->has_capability('config', $employee_id);
+    }
+
+    /**
+     * Checks whether an active employee has a named capability grant.
+     */
+    private function has_capability(string $permission_id, int $employee_id): bool
+    {
+        return $this->db->table('employees AS employees')
+            ->join('grants AS grants', 'grants.person_id = employees.person_id')
+            ->where('employees.person_id', $employee_id)
+            ->where('employees.deleted', 0)
+            ->where('grants.permission_id', $permission_id)
+            ->countAllResults() > 0;
+    }
+
+    /**
+     * Checks whether an employee has any grant row to inspect.
+     */
+    private function has_any_grant(int $employee_id): bool
+    {
+        return $this->db->table('grants')
+            ->where('person_id', $employee_id)
+            ->countAllResults() > 0;
+    }
+
+    /**
+     * Checks whether an existing employee is the stock admin account.
+     */
+    private function is_stock_admin(int $employee_id): bool
+    {
+        return ($this->get_info($employee_id)->username ?? null) === 'admin';
+    }
+
+    /**
+     * Checks whether requested grants include the administrator capability.
      *
-     * @param mixed|null $employee_id
+     * @param array<int, array<string, mixed>> $grants_data Requested grant rows.
+     */
+    private function requested_administrator_capability(array $grants_data): bool
+    {
+        return $this->requested_grant($grants_data, 'config');
+    }
+
+    /**
+     * Checks whether requested grants include a permission.
+     *
+     * @param array<int, array<string, mixed>> $grants_data Requested grant rows.
+     */
+    private function requested_grant(array $grants_data, string $permission_id): bool
+    {
+        foreach ($grants_data as $grant) {
+            if (($grant['permission_id'] ?? null) === $permission_id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks whether another active employee holds a protected capability.
+     */
+    private function has_other_active_holder(string $permission_id, int $employee_id): bool
+    {
+        return $this->db->table('employees AS employees')
+            ->join('grants AS grants', 'grants.person_id = employees.person_id')
+            ->where('employees.deleted', 0)
+            ->where('grants.permission_id', $permission_id)
+            ->where('grants.person_id !=', $employee_id)
+            ->countAllResults() > 0;
+    }
+
+    /**
+     * Checks whether deleting the given employees would remove every active administrator.
+     *
+     * @param array<int, int> $person_ids Employee identifiers to delete.
+     */
+    private function deleting_last_administrator(array $person_ids): bool
+    {
+        $active_administrators = $this->db->table('employees AS employees')
+            ->join('grants AS grants', 'grants.person_id = employees.person_id')
+            ->where('employees.deleted', 0)
+            ->where('grants.permission_id', 'config')
+            ->countAllResults();
+
+        if ($active_administrators === 0) {
+            return false;
+        }
+
+        $administrators_to_delete = $this->db->table('employees AS employees')
+            ->join('grants AS grants', 'grants.person_id = employees.person_id')
+            ->where('employees.deleted', 0)
+            ->where('grants.permission_id', 'config')
+            ->whereIn('employees.person_id', $person_ids)
+            ->countAllResults();
+
+        return $administrators_to_delete === $active_administrators;
+    }
+
+    /**
+     * Builds the standard cashier grants, including active stock-location grants.
+     *
+     * @return list<array<string, string>>
+     */
+    private function standard_cashier_grants(): array
+    {
+        $permission_ids = ShopLockdown::STANDARD_CASHIER_GRANTS;
+        $stock_rows     = $this->db->table('stock_locations')
+            ->select('location_name')
+            ->where('deleted', 0)
+            ->get()
+            ->getResultArray();
+
+        foreach ($stock_rows as $stock_row) {
+            $location_name    = str_replace(' ', '_', $stock_row['location_name']);
+            $permission_ids[] = 'items_' . $location_name;
+            $permission_ids[] = 'sales_' . $location_name;
+        }
+
+        $grants_data = [];
+
+        foreach (array_unique($permission_ids) as $permission_id) {
+            $grants_data[] = [
+                'permission_id' => $permission_id,
+                'menu_group'    => ShopLockdown::menu_group($permission_id),
+            ];
+        }
+
+        return $this->prepare_grants($grants_data, false);
+    }
+
+    /**
+     * Filters requested grants through the permission ceiling and assigns the
+     * fixed menu group for each module-level permission.
+     *
+     * @param array<int, array<string, mixed>> $grants_data Requested grant rows.
+     *
+     * @return list<array<string, string>>
+     */
+    private function prepare_grants(array $grants_data, bool $is_admin): array
+    {
+        $permission_rows = $this->db->table('permissions')
+            ->select('permission_id, module_id')
+            ->get()
+            ->getResultArray();
+        $permissions = [];
+
+        foreach ($permission_rows as $permission_row) {
+            $permissions[$permission_row['permission_id']] = $permission_row['module_id'];
+        }
+
+        $prepared = [];
+        $seen     = [];
+
+        foreach ($grants_data as $grant) {
+            $permission_id = (string) ($grant['permission_id'] ?? '');
+            if ($permission_id === '' || ! isset($permissions[$permission_id]) || isset($seen[$permission_id])) {
+                continue;
+            }
+
+            $module_id = $permissions[$permission_id];
+            if (in_array($module_id, ShopLockdown::REMOVED_MODULES, true) || (! $is_admin && in_array($permission_id, ShopLockdown::ADMINISTRATIVE_GRANTS, true))) {
+                continue;
+            }
+
+            $seen[$permission_id] = true;
+            $menu_group           = $permission_id === $module_id
+                ? ShopLockdown::menu_group($permission_id)
+                : '--';
+
+            $prepared[] = [
+                'permission_id' => $permission_id,
+                'menu_group'    => $menu_group,
+            ];
+        }
+
+        return $prepared;
+    }
+
+    /**
+     * Soft-deletes one employee unless that employee is the last active administrator.
+     *
+     * @param mixed|null $employee_id Employee identifier to delete.
      */
     public function delete($employee_id = null, bool $purge = false): bool
     {
@@ -200,6 +413,10 @@ class Employee extends Person
 
         // Don't let employees delete themselves
         if ($employee_id == $this->get_logged_in_employee_info()->person_id) {
+            return false;
+        }
+
+        if ($this->deleting_last_administrator([(int) $employee_id])) {
             return false;
         }
 
@@ -221,7 +438,9 @@ class Employee extends Person
     }
 
     /**
-     * Deletes a list of employees
+     * Soft-deletes a list of employees unless it removes every active administrator.
+     *
+     * @param array<int, int> $person_ids Employee identifiers to delete.
      */
     public function delete_list(array $person_ids): bool
     {
@@ -229,6 +448,10 @@ class Employee extends Person
 
         // Don't let employees delete themselves
         if (in_array($this->get_logged_in_employee_info()->person_id, $person_ids)) {
+            return false;
+        }
+
+        if ($this->deleting_last_administrator($person_ids)) {
             return false;
         }
 
@@ -493,23 +716,16 @@ class Employee extends Person
     }
 
     /**
-     * Returns the menu group designation that this module is to appear in
+     * Returns the fixed menu group assigned to a module by the shop policy.
+     * The employee ID is retained for the upstream method signature but does
+     * not affect placement.
+     *
+     * @param string   $permission_id Module or permission ID.
+     * @param int|null $person_id     Unused employee ID retained for callers.
      */
     public function get_menu_group(string $permission_id, ?int $person_id): string
     {
-        $builder = $this->db->table('grants');
-        $builder->select('menu_group');
-        $builder->where('permission_id', $permission_id);
-        $builder->where('person_id', $person_id);
-
-        $row = $builder->get()->getRow();
-
-        // If no grants are assigned yet then set the default to 'home'
-        if ($row == null) {
-            return 'home';
-        }
-
-        return $row->menu_group;
+        return ShopLockdown::menu_group($permission_id);
     }
 
     /**

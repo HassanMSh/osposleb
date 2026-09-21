@@ -1,227 +1,158 @@
 # ADR 0010: Shop lockdown and simplified till
 
 - Status: Accepted
-- Date: 2026-09-20
+- Date: 2026-09-21
 - Decision owners: Project owner and implementation team
-- Scope: Shop lockdown and cash-only till for the approved OSPOS 3.4.1 baseline
-- Baseline: `develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`
-- Branch: `feat/shop-lockdown`
-- Related: ADR 0004 (RTL layer), ADR 0005 (TVA model)
+- Branch: `fix/shop-lockdown-browser-qa`
+- Related: ADR 0004 for RTL and ADR 0005 for TVA
 
-## Context and current upstream behavior
+## Context
 
-The fork serves one small Lebanese supermarket and fast-food counter. OSPOS also
-contains customer accounts, item kits, suppliers, receiving, gift cards,
-messaging, expenses, cashups, and an office module. The shop does not use these
-areas. They add menu entries, permissions, support work, and routes that a
-cashier can reach by typing an address.
+Stock OSPOS uses the home grid for Items, Reports, Sales, and the Office tile.
+The Office tile opens the office grid, which contains Home, Employees, Taxes, Attributes, and Config.
+The native `Secure_Controller` permission check denies `/office` to employees without the `office` grant.
+The global lockdown filter therefore blocks only the removed modules and does not block `/office`.
+The approved permission rows identify `config`, `employees`, `taxes`, `attributes`, and `office` as administrative access.
 
-OSPOS stores modules, permissions, and employee grants in
-`ospos_modules`, `ospos_permissions`, and `ospos_grants`. The register
-normally offers receipt, quote, invoice, work order, and return modes depending
-on settings. Its payment list can contain cash, debit, credit, due, check,
-gift card, and reward points. The register also shows a per-line discount
-column and a customer block. Invoice mode normally asks for a customer.
+## Superseded decisions
 
-The project owner settled the following scope on 2026-09-20:
+On 2026-09-20, the project owner approved this original requirement list:
 
-- Nine unused areas disappear from the application: customers, item kits,
-  suppliers, receivings, gift cards, messages, expenses, cashups, and office.
-  Expenses categories is the tenth module row removed with expenses.
-- Non-admin employees can work with items, reports, and sales only.
-- The till accepts cash only, has no discount controls, and has no customer
-  block.
-- The register offers Sales Receipt, Invoice, and Return only.
+1. Remove the ten unused module rows from menu and permission data, including
+   Office.
+2. Return HTTP 404 for every removed module route, including directly typed
+   URLs.
+3. Keep upstream code, views, controllers, and historical data tables on disk.
+4. Keep all permissions and grants needed by the administrator.
+5. Give non-administrators the agreed cashier grant set.
+6. Keep the till cash-only, without discount controls or a customer block.
+7. Offer only Sales Receipt, Invoice, and Return register modes.
+8. Let invoices complete without customer details.
+9. Keep existing sales and historical customer or supplier references valid.
 
-## Requirements and non-goals
+The rationale was to hide unused workflows and direct routes while preserving
+upstream data and upgrade paths, and to keep the till small enough for the
+shop's daily cashier workflow.
 
-### Requirements
-
-1. Remove the ten module rows from the menu and permission data.
-2. Make every removed module route return 404, including a directly typed URL.
-3. Keep the upstream controllers, models, views, and historical data tables on
-   disk.
-4. Keep all permissions and grants needed by the admin account.
-5. Give every non-admin employee exactly the accepted grant set below.
-6. Make the register cash-only and prevent a crafted payment-type request from
-   adding another payment type.
-7. Remove the per-line discount controls and the customer block.
-8. Allow exactly `sale`, `sale_invoice`, and `return` register modes.
-9. Let an invoice complete without a customer and print without buyer details.
-10. Keep existing sales and historical customer or supplier references valid.
-
-### Non-goals
-
-- Deleting upstream PHP files, views, models, or controllers.
-- Dropping customer, supplier, sales, or other historical-data tables.
-- Adding a new customer workflow or free-text buyer name.
-- Reworking the upstream sales model to remove old quote, work-order, gift-card,
-  or customer methods.
-- Changing the TVA, pricing, inventory, return, or reporting calculations.
-- Claiming printer, scanner, or cash-drawer support before real-device testing.
+On 2026-09-21, review changed item 1: Office remains an internal upstream
+module, and its normal controller guard remains the access boundary. The
+change followed verification that the Office area supplies the administrator's
+back-to-home navigation and that a non-administrator can satisfy the accepted
+criterion while still receiving a valid `home` grant. The cash-only and
+historical-data decisions remain unchanged.
 
 ## Decision
 
-### Removal means unreachable, not deleted
+- Keep `office` out of `ShopLockdown::REMOVED_MODULES`.
+- Leave the upstream Office module row and permission row in place with `sort = 999`.
+- Keep the Office tile on the administrator home grid.
+- Do not route-block `/office`.
+- Deny `/office` to non-administrators through OSPOS's native `Secure_Controller` check because they hold no `office` grant.
+- The administrator chooses which permissions an employee has and the system decides where each renders.
+- The first hard limit is that a non-administrator cannot hold a permission whose module is in `ShopLockdown::REMOVED_MODULES`.
+- The second hard limit is that a non-administrator cannot hold `config`, `employees`, `taxes`, `attributes`, or `office`.
+- Filter grants outside either hard limit instead of replacing the employee's whole selection.
+- A new employee with no posted grants receives the standard cashier grants.
+- A new or existing non-administrator cannot gain administrative access by posting `config` or any other administrative grant.
+- An existing administrator keeps the selected grants from the form, may rename the account, and may give up administrative access only when another active `config` holder remains.
+- The system ignores every posted menu placement. Module-level permissions use `ShopLockdown::MENU_GROUPS`, and every sub-permission uses `--`.
+- Identify an existing administrator by the `config` grant.
+- Exclude soft-deleted employees from the lockdown policy.
+- Keep stock-location permissions dynamic by deriving `items_` and `sales_` grants from each active location name with spaces replaced by underscores.
+- Refuse a save that would remove administrative access from the last active holder of `config`, return `false`, and let the AJAX controller return a clear JSON message.
 
-The migration removes these module IDs from `ospos_modules`:
+The accepted trade-off is that operators cannot move a module between Home and
+Office from the employee screen. Fixed placement keeps cashier navigation
+predictable and prevents a posted form value from changing the navigation policy.
 
-`customers`, `item_kits`, `suppliers`, `receivings`, `giftcards`,
-`messages`, `expenses`, `expenses_categories`, `cashups`, and
-`office`.
+## Scope and non-goals
 
-It removes their matching permission rows, including the
-`receivings_stock` subpermission, and their grants. It does not drop any
-application data table. A global `ShopLockdownFilter` checks the first URI
-segment and returns HTTP 404 for each removed module. CodeIgniter resolves the
-route before running global before-filters, but the filter still runs before
-the controller, so hiding a menu entry is not the security boundary.
+- The lockdown removes Customers, Item Kits, Suppliers, Receivings, Gift Cards, Messages, Expenses, Expenses Categories, and Cashups from module and permission data.
+- The lockdown filter returns HTTP 404 for those removed modules when they are requested directly.
+- Historical transaction and operational data tables are not removed.
+- The till remains cash-only and keeps the existing simplified Sales, Invoice, and Return scope.
+- Kitchen tracking, table management, delivery, multi-branch support, and hardware-specific behavior remain out of scope.
 
-The settings screen no longer shows the reward configuration tab, which belongs
-to the removed customer and gift-card workflow.
+## Migration and rollback
 
-The migration creates a temporary grant backup table while it is applied. It
-stores every grant before the non-admin policy is changed. The down migration
-uses it to restore every deleted grant and then removes the temporary table.
-This table is not an application data table and is not part of the normal
-schema after rollback.
-
-### Permissions
-
-The admin account keeps all remaining permissions. Every other employee gets
-exactly these grants:
-
-| Permission | Granted | Reason |
-| --- | --- | --- |
-| `items` | yes | Add, change, and read items. |
-| `items_stock` | no | Stock adjustment is an owner job. |
-| `reports` | yes | Report module access. |
-| `reports_items`, `reports_inventory`, `reports_sales`, `reports_sales_taxes`, `reports_taxes`, `reports_payments`, `reports_categories` | yes | Reports needed by the shop. |
-| `reports_customers`, `reports_suppliers`, `reports_receivings`, `reports_discounts`, `reports_expenses_categories`, `reports_employees` | no | Removed areas or other employees' data. |
-| `sales` | yes | Work the till. |
-| `sales_change_price`, `sales_delete`, `sales_stock` | no | Prevent price overrides, deletion, and stock changes. |
-| `home` | yes | Landing page. |
-| `employees`, `config`, `taxes`, `attributes` | no | Owner-only administration. |
-
-**Accepted limitation:** OSPOS has one `items` permission for add, change,
-and delete. Granting item editing therefore also grants item deletion. A
-separate guard would diverge from upstream and is not justified for this shop.
-
-### Simplified till
-
-`get_payment_options()` returns cash alone. The payment-type dropdown and
-gift-card inputs are removed from the register. The payment box contains only
-the amount tendered. The controller also ignores a posted payment type and
-records cash, so the UI is not the only protection.
-
-The register view removes the per-line discount field, its currency/percent
-toggle, and the customer discount row. Existing server-side discount code stays
-in place because this ADR removes the till controls and does not change the
-upstream sales model.
-
-`Sale_lib::get_register_mode_options()` returns exactly:
-
-- `sale` — Sales Receipt
-- `sale_invoice` — Invoice
-- `return` — Return
-
-The mode endpoint rejects every other value with 404. Old quote and work-order
-sale types loaded from suspended data map to the normal receipt mode instead of
-reopening an unavailable register mode. Invoice mode does not set a customer
-requirement. A new invoice therefore has no buyer details to print.
-
-## Alternatives considered
-
-**Delete the upstream code.** Rejected. Future OSPOS updates would conflict on
-those files, and restoring a module would require rewriting it.
-
-**Only revoke non-admin grants.** Rejected. The admin menu would still show
-unused areas, and direct routes would remain reachable.
-
-**Keep a free-text customer name for invoices.** Rejected. The owner chose an
-invoice without buyer details.
-
-**Drop invoice mode.** Rejected. The owner requires both Sales Receipt and
-Invoice.
-
-**Remove all customer and gift-card code from Sales.** Rejected. That is a
-larger upstream rewrite than this shop needs. The remaining code is unreachable
-from the simplified register and the removed-module route filter.
+The original migration is corrected in place at `app/Database/Migrations/20260920000002_shop_lockdown.php`.
+Any database that already ran the earlier migration must be rebuilt from the approved baseline because the migration is recorded as applied and will not be upgraded in place.
+The migration checks for an active `config` holder before any write. It then creates and fills the three snapshot tables for the life of the installation: `shop_lockdown_grants`, `shop_lockdown_modules`, and `shop_lockdown_permissions`.
+These tables are included by the normal backup and restore scripts and are not temporary tables.
+The grant snapshot records every grant row before the policy is applied.
+The module and permission snapshots record every module and permission row that the migration removes.
+Rollback first removes module and permission rows that this migration added, then restores the recorded rows and replaces grants only for employees present in the grant snapshot.
+Employees created after the snapshot keep their current grants.
+Rollback refuses absent snapshots instead of guessing at the original state.
+The migration drops all three snapshot tables after a successful rollback, so a later fresh run records a fresh snapshot.
+Snapshot-table DDL and snapshot inserts run before the transaction. The policy data changes and rollback data changes run inside database transactions; this avoids claiming that MySQL can roll back the preceding `CREATE TABLE` statements.
 
 ## Consequences and risks
 
-Positive results:
+Administrators retain their selected remaining administration grants without a custom Office route bypass.
+Cashiers receive the permissions selected for them, with the two policy ceilings enforced.
+Changing a location name or adding a location changes the derived stock-location permission IDs on the next employee save.
+The policy grants the single upstream `items` permission, so item editing and deletion remain coupled by the upstream permission model.
+Hardware support remains unverified until the project owner names the devices.
 
-- Cashiers see only the workflows used by the shop.
-- Direct navigation to the removed modules is closed.
-- The admin retains the remaining management capability.
-- The register has one payment path and three clear modes.
-- No historical tables or sales references are destroyed.
+Known limitations:
 
-Risks and accepted limitations:
+- Saving or renaming a stock location can recreate a permission row for a
+  removed module. Access is unaffected, and the next employee save strips it.
+- Reports for removed features remain openable by an administrator because the
+  route filter checks only the first URI segment. The owner may still see
+  reports for features that no longer exist.
+- `migrate` is not in the administrative ceiling because upstream's 3.2.0
+  migration already deletes that permission.
+- A second administrator must be seeded through the documented database step;
+  the employee screen cannot promote a non-administrator.
+- If the stock `admin` account has no grant rows, the last-administrator guard
+  still recognizes that username as a safety fallback. It cannot grant access;
+  a real `config` grant is still required.
 
-- A TVA invoice without buyer details may not satisfy a business customer or
-  auditor. This is the owner's accepted choice and can be revisited later.
-- Removing the discount UI does not remove every upstream server-side discount
-  path. A future hardening phase can add that guard if needed.
-- Gift-card balances, if any already exist, become unreachable. The test shop
-  has none. Confirm this before deploying to a trading shop.
-- Existing reports for removed areas may remain available to admin and may show
-  no new activity. They are not rewritten.
-- The non-admin policy applies when this migration runs to current employees.
-  Any future employee-creation workflow must preserve this policy.
+To create a second administrator outside the employee screen:
 
-## Data-model, migration, compatibility, and rollback impact
+1. Back up the database.
+2. Create the employee as a normal cashier in the employee screen and note the username.
+3. In the database console, remove any administrative grants for that `person_id`, then add the five grants with their fixed groups:
 
-- The migration is `20260920000002_shop_lockdown.php`.
-- It deletes rows only from the module, permission, and grant tables.
-- It does not drop customer, supplier, sales, item, or other historical tables.
-- The down migration restores the exact upstream module and permission values,
-  including sort order and the `receivings_stock` location row.
-- The down migration restores every grant captured before the policy change,
-  including grants that were removed only because they were outside the
-  non-admin set.
-- Run a database backup before production migration, as required by ADR 0002.
-- Rollback is the migration down step followed by reverting the application
-  commit if the code must also be removed.
+   ```sql
+   DELETE FROM <prefix>grants
+    WHERE person_id = <person_id>
+      AND permission_id IN ('config', 'employees', 'taxes', 'attributes', 'office');
 
-## Test and acceptance approach
+   INSERT INTO <prefix>grants (permission_id, person_id, menu_group) VALUES
+     ('office', <person_id>, 'home'),
+     ('config', <person_id>, 'office'),
+     ('employees', <person_id>, 'office'),
+     ('taxes', <person_id>, 'office'),
+     ('attributes', <person_id>, 'office');
+   ```
 
-Automated tests cover:
+4. Log in as the new administrator and use the employee screen to adjust later grants.
+5. Verify that at least two active employees have the `config` grant.
 
-- the ten removed module IDs;
-- a 404 from the route filter for each removed module;
-- global filter registration;
-- cash as the only payment option;
-- the exact three register modes;
-- the exact non-admin grant set.
+Use the configured table prefix when running the database statements. Do not
+remove the only active `config` holder.
 
-Verification also includes the full PHPUnit suite, PHP-CS-Fixer dry-run checks
-for every changed PHP file, and an up/down migration rehearsal against the
-verification MariaDB database. The rehearsal compares the module, permission,
-grant, and migration state before and after rollback. It must leave the live
-verification database unchanged.
+## Acceptance tests
 
-Manual acceptance remains:
-
-- log in as admin and a non-admin;
-- confirm the menu contains only the remaining permitted areas;
-- type every removed module address and confirm 404;
-- complete a cash receipt, invoice without a customer, and return;
-- confirm the invoice has no buyer block;
-- verify Arabic and English register layout in Chrome.
-
-Hardware behavior is not accepted by this ADR. Scanner, printer, and drawer
-tests remain in Phase 4 after the project owner names the devices.
-
-## Links and evidence
-
-- [ADR 0002](0002-native-feature-configuration-and-gap-analysis.md), audit and
-  migration practice.
-- [ADR 0004](0004-rtl-and-mixed-direction-rules.md), language and direction
-  behavior.
-- [ADR 0005](0005-tva-model.md), the unchanged TVA and currency model.
-- `docs/adr/adr-0010-draft.md\), the accepted decision source.
-- `app/Config/ShopLockdown.php`, the removed-module and non-admin policy lists.
-- `app/Filters/ShopLockdownFilter.php`, the route boundary.
-- `app/Database/Migrations/20260920000002_shop_lockdown.php`, data changes.
+- `office` is absent from `REMOVED_MODULES`.
+- The administrative ceiling lists the five approved permission IDs.
+- The menu-group helper returns the accepted values and `--` for unknown or sub-permission IDs.
+- A clean migration leaves the Office module at `sort = 999` and keeps its permission row.
+- Administrator home modules are Items, Reports, Sales, and Office in native sort order.
+- Administrator office modules include Home, Employees, Taxes, Attributes, and Config.
+- Non-administrator home modules are exactly Items, Reports, and Sales in native sort order after the migration.
+- Non-administrator office modules exclude Office, Config (Settings), Employees, Taxes, and Attributes after the migration; other valid modules such as Home may remain.
+- New and existing non-administrator saves strip all five administrative grants, including a posted `config` grant.
+- A new employee with no posted grants receives the standard cashier grants.
+- Every saved module grant uses `ShopLockdown::MENU_GROUPS`, regardless of the posted placement, and every sub-permission stores `--`.
+- The settings Office-icon lookup returns the saved sort value without a missing-row error.
+- Employee creation, non-administrator promotion attempts, administrator updates, demotion, and administrator username changes use the capability policy.
+- A cashier's exact Home menu is Items, Reports, and Sales; it has no Home or Settings tile.
+- Unknown employee saves and last-administrator changes return a failure without changing data, and the controller returns JSON for the refused last-administrator save.
+- Deleting the last administrator is refused through the employee delete path.
+- The route filter returns 404 for Expenses, Expense Categories, and Cashups in a fully migrated database.
+- The full PHPUnit suite and PHP-CS-Fixer pass.
+- Browser checks remain pending and must be run in Chrome in English and Arabic after the database is rebuilt.

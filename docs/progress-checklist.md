@@ -4,7 +4,7 @@ One place to see what is done, blocked, or pending. Update this file at the end 
 
 Legend: `[x]` done, `[~]` in progress, `[!]` blocked, `[ ]` pending.
 
-Last updated: 2026-09-20.
+Last updated: 2026-09-21.
 
 ## Phase 0 — Upstream release recommendation and repository handoff
 
@@ -120,13 +120,17 @@ Last updated: 2026-09-20.
 
 ### Decisions and implementation
 
-- [x] Accept the ten module removals as unreachable, not deleted, and keep the
-  upstream controllers, models, views, and data tables on disk.
-- [x] Add the lockdown migration with exact upstream module and permission
-  values, grant backup, and rollback.
+- [x] Keep the nine unused module IDs unreachable and keep upstream code and data tables on disk.
+- [x] Keep the internal `office` module and permission rows with upstream `sort = 999`.
+- [x] Keep `office` out of the removed-module list so its normal controller guard remains authoritative.
+- [x] Correct the original lockdown migration with grant snapshots, removed-row snapshots, transactions, replay-safe fresh snapshots, and inverse rollback.
+- [x] Detect administrators through the active `config` capability and exclude soft-deleted employees from policy changes.
+- [x] Protect the last active `config` (Settings) holder during employee save and delete.
+- [x] Reject posted administrative grants for new and existing non-administrators; preserve selected grants and username changes for existing administrators.
+- [x] Ignore posted menu placement and assign module groups from `ShopLockdown::MENU_GROUPS`; subpermissions store `--`.
+- [x] Build non-admin stock grants from active stock-location permissions using upstream names.
+- [x] Add the shared menu-group helper and use it in migration and employee save policy code.
 - [x] Add the global 404 route filter for every removed module.
-- [x] Apply the exact non-admin grant set and record the accepted single items
-  permission limitation.
 - [x] Simplify the till to cash only, with no discount or customer block.
 - [x] Restrict the register to Sales Receipt, Invoice, and Return.
 - [x] Remove the unused reward settings tab.
@@ -134,16 +138,11 @@ Last updated: 2026-09-20.
 
 ### Verification
 
-- [x] Add focused tests for modules, route filtering, cash payments, modes, and
-  non-admin grants.
-- [x] Run the full PHPUnit suite: 56 tests and 238 assertions passed. The only
-  warning is that the container has no code coverage driver.
-- [x] Run the PHP-CS-Fixer dry-run check on every changed PHP file. All ten
-  changed PHP files pass.
-- [x] Rehearse migration up and down against the verification database. Module,
-  permission, grant, migration, and configuration hashes matched before and
-  after rollback, and the temporary backup table was removed.
-- [ ] Verify the register and invoice manually in English and Arabic Chrome.
+- [x] Add focused unit and database tests for policy, exact cashier Home modules, fixed menu groups, dynamic stock grants, menu builders, settings lookup, unknown employees, and rollback.
+- [x] Run PHP-CS-Fixer on every changed PHP file and inspect comparison rewrites.
+- [x] Run the PHPUnit suite after the final code and documentation review: 75 tests, 341 assertions, twice after a clean rebuild.
+- [x] Verify administrator Settings, cashier tiles, removed routes, and English/Arabic layout in Chrome. Done 2026-09-21 against a database rebuilt from the generated install file with all 43 migrations applied, driving Google Chrome directly. Twenty-nine checks, all passing. The administrator home grid read `Items, Reports, Sales, Office`; the office area, Settings and the employee list all opened; all eight removed modules returned 404. A cashier created through the real employee form with Items, Sales and Home ticked, Reports deliberately left off and Settings ticked came back with Reports still off and Settings stripped, holding `home:office items:home sales:home`, and saw exactly `Items, Sales` with no office tile and no duplicate home tile. That cashier was refused at `/office`, `/config` and `/employees`, and rendered `lang=ar-LB dir=rtl` when set to Arabic. A new employee saved with nothing ticked received the 13-grant standard till set and opened the till.
+- [ ] Ring up a cash sale, print an invoice, and process a return as a cashier in Chrome. Not done on 2026-09-21: the rebuilt test database has no items, so the sale could not be completed end to end. The till screen was confirmed to open and render for a standard cashier in Arabic and for the administrator in English.
 - [ ] Confirm hardware behavior after the project owner names the devices.
 
 ## Phase 4 — POS hardware and Arabic receipts

@@ -19,8 +19,8 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 ## Code-style gate
 
 - Continuous integration runs PHP-CS-Fixer over every PHP file changed in a pull request, and the configuration disagrees with most of the upstream tree.
-- Touching one line of an upstream PHP file therefore requires reformatting that whole file, and the formatter rewrites loose comparisons into strict ones.
-- Check every strict-comparison rewrite the formatter introduces against the real value types before accepting it. Several upstream files carry `// TODO: ===` markers for exactly this reason.
+- Touching one line of an upstream PHP file therefore requires reformatting that whole file, but the fixer configuration disables the strict-comparison and strict-parameter rules.
+- Keep existing loose comparisons unless a change proves that a strict comparison is safe. Several upstream files carry `// TODO: ===` markers for exactly this reason.
 - Prefer solving a problem with a CSS selector or a new file over editing an upstream view for one attribute.
 
 ## Source of truth

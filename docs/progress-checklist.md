@@ -65,8 +65,9 @@ Last updated: 2026-09-21.
   - Free-text fields were forced right to left, so a Latin value was reordered on screen. A company address stored as `123 Nowhere street` displayed as `Nowhere street 123`.
   - The register's totals used inline `text-align: right` on every value cell, which an ordinary rule cannot override, so the label and the amount met in the middle of the panel instead of sitting at opposite edges.
 - [x] Confirm English is unchanged by the fixes. The six English pages are pixel-identical below the clock strip, before and after.
-- [ ] Have a native Lebanese Arabic speaker review register and configuration terminology before go-live.
+- [x] Have a native Lebanese Arabic speaker review register and configuration terminology before go-live. The project owner reviewed the sale screen on 2026-09-20 and the findings are recorded in `docs/adr/arabic-wording-qa-findings.md`. Other screens are still unreviewed.
 - [x] Commit, push, and open the Phase 2 pull request against `develop`. Merged 2026-09-20.
+- [x] Fix the agreed and owner-decided wording findings on the sale screen. Done 2026-09-21 on branch `fix/arabic-wording`, in the Lebanese and Egyptian sales strings only. Two findings were left open because they need code rather than translation: trimming the register-mode picker to three choices, and giving the printed receipt its own heading.
 
 ### Phase 2 items deferred on purpose
 

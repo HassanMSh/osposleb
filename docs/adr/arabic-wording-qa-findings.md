@@ -9,13 +9,13 @@
 
 This file is a running list. It is stored beside the ADRs for convenience. It is not an architecture decision record and nothing in it is accepted or implemented until a separate change is made. It carries no record number so it never takes one reserved for a workstream ADR.
 
-Status values used below: `open` means agreed and waiting for a fix, `decided by the owner` means the owner has chosen the target wording, `open question for the owner` means the fix cannot start until the owner answers.
+Status values used below: `open` means agreed and waiting for a fix, `decided by the owner` means the owner has chosen the target wording, `open question for the owner` means the fix cannot start until the owner answers, `fixed` means the change is implemented on a branch, and `partly fixed` means the wording is done but code work remains.
 
 ## Section 1: Sale screen, register mode picker
 
 ### 1.1 The picker label reads as "registration mode"
 
-- Status: open
+- Status: fixed on 2026-09-21 on branch `fix/arabic-wording`, both locales
 - Screen: Sale screen, drop-down at the top of the register
 - Current Arabic: `وضع التسجيل`
 - English source: `Register Mode`
@@ -26,7 +26,9 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 1.2 The picker must offer exactly three choices
 
-- Status: decided by the owner
+- Status: partly fixed on 2026-09-21 on branch `fix/arabic-wording`
+- Done: the three labels now read as the owner chose, in both locales. The Egyptian return label was corrected to the owner's spelling.
+- Not done: the option list itself still offers four or five entries. Trimming it to three needs a code change outside the language files and was left out of the wording branch on purpose. Recorded in ADR 0010 as superseding the 2026-09-20 register-mode decision.
 - Screen: Sale screen, drop-down at the top of the register
 - Decision: the drop-down shows only these three, in the owner's wording:
   - `عملية بيع`
@@ -41,7 +43,7 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 1.3 A stray hash sign prints on every paper receipt
 
-- Status: open
+- Status: fixed on 2026-09-21 on branch `fix/arabic-wording`, both locales
 - Screens: Sale screen picker, and the heading at the top of every printed receipt
 - Current Arabic: `عملية بيع #`
 - English source: `Sales Receipt`
@@ -52,7 +54,7 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 1.4 One text is doing two different jobs
 
-- Status: open
+- Status: open. Not attempted on `fix/arabic-wording` because it needs a new string and edits to the three receipt views, which is code, not translation.
 - Problem: the same text is used as the name of the sale mode in the picker and as the heading printed at the top of the receipt. A mode name and a document heading are not the same kind of phrase, so no single wording fits both well.
 - Proposed fix: separate them. Keep the owner's `عملية بيع` as the mode name. Give the printed receipt its own heading, for example `إيصال بيع`.
 - Note: this needs a new string, because upstream shares one string across both uses.
@@ -60,7 +62,7 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 1.5 Missing hamza in the price offer label
 
-- Status: open
+- Status: fixed on 2026-09-21 on branch `fix/arabic-wording`, both locales
 - Current Arabic: `عرض اسعار`
 - Proposed Arabic: `عرض أسعار`
 - Problem: the second word is missing its hamza.
@@ -68,7 +70,7 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 1.6 Unused translation overstates what an invoice is
 
-- Status: open, low priority
+- Status: fixed on 2026-09-21 on branch `fix/arabic-wording`, both locales. The word "official" was removed and the entry was kept.
 - Current Arabic: `البيع بفاتورة رسمية`
 - English source: `Sale by Invoice`
 - Problem: nothing in the application displays this text, so it is dead. It also adds the word "official", which in Lebanon suggests a tax document the software does not produce.
@@ -79,7 +81,7 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 2.1 The word for a sold thing must be `سلعة`
 
-- Status: decided by the owner
+- Status: fixed on 2026-09-21 on branch `fix/arabic-wording`, in the eleven listed Lebanese strings
 - Screens: sale screen item search box, and the cart table headings
 - Decision: wherever the application currently says `مادة` or `المادة`, it must say `سلعة` or `السلعة`.
 - Reason: `مادة` means material or substance. A supermarket sells goods, and `سلعة` is the word a Lebanese shopper and cashier use.
@@ -88,7 +90,7 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 2.2 A second word for the same thing is used everywhere else
 
-- Status: decided by the owner
+- Status: closed on 2026-09-21. The owner's decision was applied on branch `fix/arabic-wording`: only the rare word changed, and the common word was left untouched in both locales. Both questions below are answered by that decision and need no further input.
 - Decision, 2026-09-21: only the rare word changes. Replace `مادة` with `سلعة` in the Lebanese sales strings as described in 2.1, and leave `صنف` exactly as it is in both locales.
 - Consequence accepted by the owner: the two locales keep `صنف` as the everyday word, and no reports, inventory or item management strings are touched.
 - Problem: the application uses two different Arabic words for the same thing, and they appear one line apart on the same screen. The search box label says `باركود المادة`. The grey hint text inside the same box says `باركود الصنف`.
@@ -100,7 +102,7 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 2.3 Wrong verb form in the two search hints
 
-- Status: open
+- Status: fixed on 2026-09-21 on branch `fix/arabic-wording`, both locales
 - Current Arabic: `ابداء بكتابة اسم أو مسح باركود الصنف...` and `ابداء بكتابة اسم العميل...`
 - Problem: `ابداء` is not a command. The imperative is `ابدأ`.
 - Proposed Arabic: `ابدأ بكتابة ...`
@@ -108,15 +110,16 @@ Status values used below: `open` means agreed and waiting for a fix, `decided by
 
 ### 2.4 The Lebanese sales strings are written in Egyptian spelling
 
-- Status: open
+- Status: fixed on 2026-09-21 on branch `fix/arabic-wording`, for the Lebanese sales file only. The wider point stands: other Lebanese files were not checked and may carry the same pattern.
 - Problem: the Lebanese sales file spells words the Egyptian way, using `ى` where Lebanese writing uses `ي`, and joining words that should be separate.
 - Examples seen on this screen and nearby: `خطاء` for `خطأ`, `فى` for `في`, `لايوجد` for `لا يوجد`, `كافى` for `كافٍ`, `الايصال` for `الإيصال`.
 - Proposed fix: one spelling pass over the whole Lebanese sales file rather than string-by-string fixes.
 - Note: this is a symptom, not a one-off. The Lebanese file appears to have been copied from an Egyptian source. Other Lebanese files should be checked for the same pattern.
+- Leftovers found on 2026-09-21 and deliberately not touched, because they are cosmetic and pre-date this work: `Sales.key_finish_sale` still reads `كمل واتمام`, where `كمل` looks like stray text from upstream and `واتمام` wants a hamza; `Sales.none_selected` still reads `بإختيار` instead of `باختيار`; `Sales.confirm_restore` still reads `انت` instead of `أنت`. Fold these into a later pass over the whole Lebanese tree rather than widening this one.
 
 ### 2.5 A second stray hash sign, in the cart table heading
 
-- Status: open
+- Status: fixed on 2026-09-21 on branch `fix/arabic-wording`
 - Current Arabic: `مادة رقم #`
 - English source: `Item Number`
 - Problem: the same leftover `#` as finding 1.3. It shows as a column heading in the cart with nothing after it.

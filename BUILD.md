@@ -66,6 +66,9 @@ export GROUPID=$(id -g)
 docker-compose -f docker-compose.dev.yml up
 ```
 
+The development stack generates its own encryption key on first use and needs no developer setup.
+A real shop gets its encryption key from the client setup script instead.
+
 ## The Result
 
 The build creates a developer version of a runnable instance of OSPOS.  It contains a ton of developer stuff that **should not be deployed to a production environment**.

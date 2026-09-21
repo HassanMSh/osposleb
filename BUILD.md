@@ -12,6 +12,18 @@ The goal here is to set up and configure the build process so that the actual bu
 
 The build process uses the build tools "npm" and "gulp" to piece everything together.
 
+The asset hashes committed in `app/Views/partial/header.php` are a build snapshot, not permanent filenames.
+
+Running `npm run build` rewrites `app/Views/partial/header.php` in place with the fresh asset hashes.
+
+The Docker image installs the Node dependencies and builds the front-end assets itself, then copies the built assets and matching header into the application image.
+
+A development or review checkout must run the asset build itself before it is served, because `docker-compose.dev.yml` bind-mounts the checkout over `/app` and the checkout supplies the page header.
+
+The built asset directories are deliberately not restored from the image through a volume: the asset filenames are content hashes that must match the header injected beside them, and serving image assets against a checkout header brings back the 404s this setup exists to prevent.
+
+`AssetIntegrityTest` fails with the list of missing files whenever a checkout has not been built, so a bare checkout reports the problem instead of silently rendering an unstyled page.
+
 ## Prerequisites
 
 - Install the latest version of NPM (tested using version 9.4.2)

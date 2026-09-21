@@ -5,6 +5,8 @@ volumes:
         driver: local
     mysql:
         driver: local
+    vendor:
+        driver: local
 
 networks:
     app_net:
@@ -45,6 +47,14 @@ services:
             - app_net
         volumes:
             - .:/app
+            # The dependency directory is restored from the image because the bind
+            # mount above hides it. The built asset directories are deliberately NOT
+            # restored this way: their filenames are content hashes that must match
+            # the injected header, and the header comes from the bind mount. Serving
+            # image assets against a checkout header reintroduces the 404s this
+            # setup exists to prevent. Run "npm install && npm run build" in the
+            # checkout instead; AssetIntegrityTest fails loudly when you have not.
+            - vendor:/app/vendor
         environment:
             - CI_ENVIRONMENT=development
             - MYSQL_USERNAME=admin

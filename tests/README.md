@@ -91,6 +91,12 @@ HTML code coverage reports.
 
 ## Test Cases
 
+`AssetIntegrityTest` checks that every stylesheet and script named by both header asset blocks, the default theme stylesheet, and the favicon exists under `public/`.
+
+It also checks that the production bundle keeps the right-to-left and print stylesheets, that every icon produced by the `copy-menubar` task exists, and that each injection block actually declares assets so an emptied block fails instead of passing with nothing to check.
+
+If this test fails, the checkout has missing or stale front-end assets; run `npm install && npm run build` from the project root and run the test again.
+
 Every test needs a *test case*, or class that your tests extend. CodeIgniter 4
 provides one class that you may use directly:
 * `CodeIgniter\Test\CIUnitTestCase`

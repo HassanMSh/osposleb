@@ -34,7 +34,7 @@ final class ShopLockdownTest extends CIUnitTestCase
     }
 
     /**
-     * Keeps every removed module out of the configured application module set.
+     * Guards the owner-approved list of modules that must stay unreachable.
      */
     public function testRemovedModulesAreAbsentFromTheModulePolicy(): void
     {
@@ -48,8 +48,8 @@ final class ShopLockdownTest extends CIUnitTestCase
             'expenses',
             'expenses_categories',
             'cashups',
-            'office',
         ], ShopLockdown::REMOVED_MODULES);
+        $this->assertNotContains('office', ShopLockdown::REMOVED_MODULES);
     }
 
     /**
@@ -59,13 +59,33 @@ final class ShopLockdownTest extends CIUnitTestCase
     {
         $filter = new ShopLockdownFilter();
 
-        foreach (array_merge(ShopLockdown::REMOVED_MODULES, ['Customers', '%2563ustomers', 'customers%252Fsearch']) as $module) {
+        foreach (array_merge([
+            'customers',
+            'item_kits',
+            'suppliers',
+            'receivings',
+            'giftcards',
+            'messages',
+            'expenses',
+            'expenses_categories',
+            'cashups',
+        ], ['Customers', '%2563ustomers', 'customers%252Fsearch']) as $module) {
             $request  = new IncomingRequest(new App(), new URI('/' . $module . '/index'), null, new UserAgent());
             $response = $filter->before($request);
 
             $this->assertInstanceOf(ResponseInterface::class, $response, $module);
             $this->assertSame(404, $response->getStatusCode(), $module);
         }
+    }
+
+    /**
+     * Leaves the internal office route available to its normal controller guard.
+     */
+    public function testOfficeRouteIsNotARemovedModule(): void
+    {
+        $request = new IncomingRequest(new App(), new URI('/office/index'), null, new UserAgent());
+
+        $this->assertNull((new ShopLockdownFilter())->before($request));
     }
 
     /**

@@ -14,6 +14,18 @@ The client layout keeps non-secret settings, secrets, uploads, and backups toget
 
 The owner must keep a separate copy of the `secrets` directory somewhere other than the backup drive. `app.env` contains the application's own database connection settings and its encryption key; `mysql.env` contains the application database credentials for the database container; `db.env` contains the separate MariaDB root password.
 
+The shop secrets file `secrets/app.env` holds the application encryption key.
+
+Backups deliberately exclude the secrets files, including the encryption key.
+
+Losing the encryption key makes stored email and messaging credentials unreadable.
+
+After restoring a database with a different encryption key, clear the stored SMTP Password before opening Settings.
+Clear the stored SMS-API Password before opening Settings.
+Clear the stored MailChimp API key before opening Settings.
+Clear the stored MailChimp List(s) before opening Settings.
+Then enter these settings again.
+
 An archive must not carry both the backups and the secrets, because one stolen drive would then give up everything.
 
 Anyone with administrator rights on the shop computer, or anyone holding its disk, can read the secrets.

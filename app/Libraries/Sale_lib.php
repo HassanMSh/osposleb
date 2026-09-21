@@ -67,9 +67,9 @@ class Sale_lib
     public function get_register_mode_options(): array
     {
         return [
-            'sale'         => lang('Sales.receipt'),
-            'sale_invoice' => lang('Sales.invoice'),
-            'return'       => lang('Sales.return'),
+            'sale'       => lang('Sales.receipt'),
+            'sale_quote' => lang('Sales.quote'),
+            'return'     => lang('Sales.return'),
         ];
     }
 
@@ -298,7 +298,7 @@ class Sale_lib
     }
 
     /**
-     * Keeps the removed quote mode disabled after validating the stored mode.
+     * Checks whether the validated stored mode is quote mode.
      */
     public function is_quote_mode(): bool
     {

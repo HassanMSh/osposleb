@@ -403,7 +403,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             <?= form_open("{$controller_name}/cancel", ['id' => 'buttons_form']) ?>
             <div class="form-group" id="buttons_sale">
                 <div class="btn btn-sm btn-default pull-left" id="suspend_sale_button"><span class="glyphicon glyphicon-align-justify">&nbsp;</span><?= lang(ucfirst($controller_name) . '.suspend_sale') ?></div>
-                <?php if (! $pos_mode) { // Invoice mode does not require buyer details.?>
+                <?php if (! $pos_mode) { // Quote mode does not require payment details.?>
                     <div class="btn btn-sm btn-success" id="finish_invoice_button"><span class="glyphicon glyphicon-ok">&nbsp;</span><?= esc($mode_label) ?></div>
                 <?php } ?>
 

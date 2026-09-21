@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Controllers\Sales as SalesController;
 use App\Filters\ShopLockdownFilter;
 use App\Libraries\Sale_lib;
 use App\Models\Sale;
@@ -206,27 +207,44 @@ final class ShopLockdownTest extends CIUnitTestCase
     }
 
     /**
-     * Exposes exactly receipt, invoice, and return register modes.
+     * Exposes exactly receipt, quote, and return register modes.
      */
-    public function testRegisterModesAreExactlyTheAllowedThree(): void
+    public function testRegisterModesAreExactlyReceiptQuoteAndReturn(): void
     {
         $saleLibrary = (new ReflectionClass(Sale_lib::class))->newInstanceWithoutConstructor();
 
         $this->assertSame([
-            'sale'         => lang('Sales.receipt'),
-            'sale_invoice' => lang('Sales.invoice'),
-            'return'       => lang('Sales.return'),
+            'sale'       => lang('Sales.receipt'),
+            'sale_quote' => lang('Sales.quote'),
+            'return'     => lang('Sales.return'),
         ], $saleLibrary->get_register_mode_options());
     }
 
     /**
-     * Falls back when a removed register mode remains in the session.
+     * Pins the completion labels for the supported register modes.
+     */
+    public function testRegisterModeLabelsMatchCompletionActions(): void
+    {
+        $sales  = (new ReflectionClass(SalesController::class))->newInstanceWithoutConstructor();
+        $method = (new ReflectionClass($sales))->getMethod('get_register_mode_label');
+        $method->setAccessible(true);
+
+        $this->assertSame(lang('Sales.receipt'), $method->invoke($sales, 'sale'));
+        $this->assertSame(lang('Sales.quote'), $method->invoke($sales, 'sale_quote'));
+        $this->assertSame(lang('Sales.return'), $method->invoke($sales, 'return'));
+
+        // Unreachable while invoice mode is out of the picker, pinned so a later restore keeps the original label.
+        $this->assertSame(lang('Sales.invoice'), $method->invoke($sales, 'sale_invoice'));
+    }
+
+    /**
+     * Falls back when the removed invoice mode remains in the session.
      */
     public function testRemovedRegisterModeFallsBackToReceipt(): void
     {
         $saleLibrary = (new ReflectionClass(Sale_lib::class))->newInstanceWithoutConstructor();
         $session     = session();
-        $session->set('sales_mode', 'sale_quote');
+        $session->set('sales_mode', 'sale_invoice');
 
         $property = (new ReflectionClass(Sale_lib::class))->getProperty('session');
         $property->setValue($saleLibrary, $session);

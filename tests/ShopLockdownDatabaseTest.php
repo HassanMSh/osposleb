@@ -3,9 +3,14 @@
 namespace Tests;
 
 use App\Controllers\Employees as EmployeesController;
+use App\Controllers\Sales as SalesController;
 use App\Database\Migrations\Migration_shop_lockdown;
+use App\Libraries\Sale_lib;
 use App\Models\Employee;
+use App\Models\Item;
+use App\Models\Item_quantity;
 use App\Models\Module;
+use App\Models\Sale;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\URI;
 use CodeIgniter\HTTP\UserAgent;
@@ -60,6 +65,180 @@ final class ShopLockdownDatabaseTest extends CIUnitTestCase
         $this->database          = null;
         $this->fixture_person_id = null;
         parent::tearDown();
+    }
+
+    /**
+     * Confirms that a quote keeps stock unchanged while a completed sale reduces it.
+     */
+    public function testQuoteLeavesStockUnchangedWhileSaleReducesIt(): void
+    {
+        $fixture  = null;
+        $sale_ids = [];
+
+        try {
+            $fixture      = $this->createStockFixture(10);
+            $sale         = new Sale();
+            $before_quote = $this->getStockQuantity($fixture);
+            $quote_status = SUSPENDED;
+            $quote_items  = $this->makeStockSaleCart($fixture, 2);
+            $quote_taxes  = [[], []];
+            $quote_id     = $sale->save_value(
+                NEW_ENTRY,
+                $quote_status,
+                $quote_items,
+                NEW_ENTRY,
+                1,
+                'Quote stock test',
+                null,
+                null,
+                'Q-' . bin2hex(random_bytes(4)),
+                SALE_TYPE_QUOTE,
+                [],
+                null,
+                $quote_taxes,
+            );
+            $sale_ids[] = $quote_id;
+
+            $this->assertGreaterThan(0, $quote_id);
+            $this->assertSame($before_quote, $this->getStockQuantity($fixture));
+
+            $sale_status = COMPLETED;
+            $sale_items  = $this->makeStockSaleCart($fixture, 2);
+            $sale_taxes  = [[], []];
+            $sale_id     = $sale->save_value(
+                NEW_ENTRY,
+                $sale_status,
+                $sale_items,
+                NEW_ENTRY,
+                1,
+                'Completed stock test',
+                null,
+                null,
+                null,
+                SALE_TYPE_POS,
+                [],
+                null,
+                $sale_taxes,
+            );
+            $sale_ids[] = $sale_id;
+
+            $this->assertGreaterThan(0, $sale_id);
+            $this->assertSame($before_quote - 2.0, $this->getStockQuantity($fixture));
+        } finally {
+            if ($fixture !== null) {
+                $this->removeStockFixture($fixture, $sale_ids);
+            }
+        }
+    }
+
+    /**
+     * Confirms that reloading a held quote and completing it deducts stock once.
+     *
+     * The completed sale intentionally keeps the quote number. The owner
+     * accepted this as known behavior on 2026-09-21.
+     */
+    public function testReloadedQuoteCompletesAsSaleAndDeductsStockOnce(): void
+    {
+        $fixture      = null;
+        $sale_ids     = [];
+        $sale_library = null;
+
+        try {
+            $fixture      = $this->createStockFixture(10);
+            $sale         = new Sale();
+            $sale_library = new Sale_lib();
+            $quote_number = 'Q-' . bin2hex(random_bytes(4));
+            $quote_status = SUSPENDED;
+            $quote_items  = $this->makeStockSaleCart($fixture, 2);
+            $quote_taxes  = [[], []];
+            $quote_id     = $sale->save_value(
+                NEW_ENTRY,
+                $quote_status,
+                $quote_items,
+                NEW_ENTRY,
+                1,
+                'Held quote stock test',
+                null,
+                null,
+                $quote_number,
+                SALE_TYPE_QUOTE,
+                [],
+                null,
+                $quote_taxes,
+            );
+            $sale_ids[] = $quote_id;
+
+            $held_quotes = array_values(array_filter(
+                $sale->get_all_suspended(NEW_ENTRY),
+                static fn (array $held_sale): bool => (int) $held_sale['sale_id'] === $quote_id,
+            ));
+
+            $this->assertCount(1, $held_quotes);
+            $this->assertSame($quote_number, $held_quotes[0]['doc_id']);
+            $this->assertSame(10.0, $this->getStockQuantity($fixture));
+
+            $sale_library->clear_all();
+            $sale_library->copy_entire_sale($quote_id);
+
+            $controller = (new ReflectionClass(SalesController::class))->newInstanceWithoutConstructor();
+            $property   = (new ReflectionClass($controller))->getProperty('sale_lib');
+            $property->setAccessible(true);
+            $property->setValue($controller, $sale_library);
+            $controller->change_register_mode($sale_library->get_sale_type());
+
+            $this->assertSame($quote_id, $sale_library->get_sale_id());
+            $this->assertSame(SALE_TYPE_QUOTE, $sale_library->get_sale_type());
+            $this->assertSame('sale_quote', $sale_library->get_mode());
+            $this->assertSame($quote_number, $sale_library->get_quote_number());
+
+            $sale_library->set_mode('sale');
+
+            $sale_status  = COMPLETED;
+            $sale_items   = $sale_library->get_cart();
+            $sale_taxes   = [[], []];
+            $completed_id = $sale->save_value(
+                $sale_library->get_sale_id(),
+                $sale_status,
+                $sale_items,
+                NEW_ENTRY,
+                1,
+                'Completed held quote test',
+                null,
+                null,
+                $sale_library->get_quote_number(),
+                SALE_TYPE_POS,
+                [],
+                null,
+                $sale_taxes,
+            );
+
+            $this->assertSame($quote_id, $completed_id);
+            $this->assertSame(8.0, $this->getStockQuantity($fixture));
+            $this->assertSame(1, $this->database->table('inventory')
+                ->where('trans_items', $fixture['item_id'])
+                ->where('trans_inventory', -2)
+                ->countAllResults());
+
+            $completed_sale = $this->database->table('sales')
+                ->select('sale_status, sale_type, quote_number')
+                ->where('sale_id', $completed_id)
+                ->get()
+                ->getRow();
+            $this->assertSame(COMPLETED, (int) $completed_sale->sale_status);
+            $this->assertSame(SALE_TYPE_POS, (int) $completed_sale->sale_type);
+            // Known and accepted behavior: converting a quote keeps its quote number.
+            $this->assertSame($quote_number, $completed_sale->quote_number);
+
+            $sale_library->clear_all();
+            $this->assertNull($sale_library->get_quote_number());
+        } finally {
+            if ($sale_library !== null) {
+                $sale_library->clear_all();
+            }
+            if ($fixture !== null) {
+                $this->removeStockFixture($fixture, $sale_ids);
+            }
+        }
     }
 
     /**
@@ -590,6 +769,138 @@ final class ShopLockdownDatabaseTest extends CIUnitTestCase
         }
 
         $this->assertFalse($this->hasSnapshotTables());
+    }
+
+    /**
+     * Creates a temporary stock item and quantity at the first active location.
+     *
+     * @return array{item_id: int, location_id: int, quantity: float}
+     */
+    private function createStockFixture(float $quantity): array
+    {
+        $location = $this->database->table('stock_locations')
+            ->where('deleted', 0)
+            ->orderBy('location_id', 'asc')
+            ->get()
+            ->getRow();
+        if ($location === null) {
+            throw new RuntimeException('The test database has no active stock location.');
+        }
+
+        $item_data = [
+            'name'                  => 'Quote stock fixture',
+            'category'              => 'Test',
+            'supplier_id'           => null,
+            'item_number'           => 'quote-stock-' . bin2hex(random_bytes(4)),
+            'description'           => 'Quote stock fixture',
+            'cost_price'            => '1.00',
+            'unit_price'            => '2.00',
+            'reorder_level'         => 0,
+            'receiving_quantity'    => 1,
+            'allow_alt_description' => 0,
+            'is_serialized'         => 0,
+            'deleted'               => 0,
+            'stock_type'            => HAS_STOCK,
+            'item_type'             => ITEM,
+            'tax_category_id'       => null,
+            'taxable'               => 0,
+            'tax_exemption_reason'  => 'exempt',
+            'pic_filename'          => '',
+            'qty_per_pack'          => 1,
+            'pack_name'             => 'Each',
+            'low_sell_item_id'      => 0,
+            'hsn_code'              => '',
+        ];
+        $item = new Item();
+        if (! $item->save_value($item_data)) {
+            throw new RuntimeException('Unable to create the stock item fixture.');
+        }
+
+        $fixture = [
+            'item_id'     => (int) $item_data['item_id'],
+            'location_id' => (int) $location->location_id,
+            'quantity'    => $quantity,
+        ];
+
+        try {
+            if (! (new Item_quantity())->save_value($fixture, $fixture['item_id'], $fixture['location_id'])) {
+                throw new RuntimeException('Unable to create the stock quantity fixture.');
+            }
+
+            return $fixture;
+        } catch (Throwable $exception) {
+            $this->removeStockFixture($fixture, []);
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * Builds one stock item cart line for a sale model test.
+     *
+     * @param array{item_id: int, location_id: int, quantity: float} $fixture
+     *
+     * @return array<int, array<string, int|string>>
+     */
+    private function makeStockSaleCart(array $fixture, int $quantity): array
+    {
+        return [[
+            'item_id'       => $fixture['item_id'],
+            'line'          => 1,
+            'description'   => 'Quote stock fixture',
+            'serialnumber'  => '',
+            'quantity'      => $quantity,
+            'discount'      => '0.00',
+            'discount_type' => PERCENT,
+            'cost_price'    => '1.00',
+            'price'         => '2.00',
+            'item_location' => $fixture['location_id'],
+            'print_option'  => PRINT_YES,
+        ]];
+    }
+
+    /**
+     * Reads the current quantity for a temporary stock fixture.
+     *
+     * @param array{item_id: int, location_id: int, quantity: float} $fixture
+     */
+    private function getStockQuantity(array $fixture): float
+    {
+        $row = $this->database->table('item_quantities')
+            ->where([
+                'item_id'     => $fixture['item_id'],
+                'location_id' => $fixture['location_id'],
+            ])
+            ->get()
+            ->getRow();
+        if ($row === null) {
+            throw new RuntimeException('The stock quantity fixture is missing.');
+        }
+
+        return (float) $row->quantity;
+    }
+
+    /**
+     * Removes the sales, inventory rows, item quantity, and item created by a stock test.
+     *
+     * @param array{item_id: int, location_id: int, quantity: float} $fixture
+     * @param list<int>                                              $sale_ids
+     */
+    private function removeStockFixture(array $fixture, array $sale_ids): void
+    {
+        $sale_ids = array_values(array_filter($sale_ids, static fn (int $sale_id): bool => $sale_id > 0));
+
+        foreach (['sales_payments', 'sales_items_taxes', 'sales_taxes', 'sales_items', 'sales'] as $table) {
+            if ($sale_ids !== []) {
+                $this->database->table($table)->whereIn('sale_id', $sale_ids)->delete();
+            }
+        }
+
+        $this->database->table('inventory')->where('trans_items', $fixture['item_id'])->delete();
+        $this->database->table('attribute_links')->where('item_id', $fixture['item_id'])->delete();
+        $this->database->table('items_taxes')->where('item_id', $fixture['item_id'])->delete();
+        $this->database->table('item_quantities')->where('item_id', $fixture['item_id'])->delete();
+        $this->database->table('items')->where('item_id', $fixture['item_id'])->delete();
     }
 
     /**

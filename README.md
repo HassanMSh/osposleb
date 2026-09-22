@@ -22,7 +22,12 @@ The latest `3.4` version is a complete overhaul of the original software. It use
 
 ### Fork development
 
-This fork uses `develop` for project work and is based on the stable OSPOS `3.4.1` release. Phase branches are reviewed through pull requests into `develop`, and required checks must pass before merging. GitHub Actions currently checks full-project PHP syntax on PHP 8.1 and 8.2, then validates Composer configuration and coding standards for changed PHP files on PHP 8.2. Application container builds remain disabled until application code changes need them. Automated code scanning is deferred until the production-hardening phase.
+This fork uses `develop` for project work and is based on the stable OSPOS `3.4.1` release.
+Phase branches are reviewed through pull requests into `develop`, and required checks must pass before merging.
+GitHub Actions checks full-project PHP syntax on PHP 8.1 and 8.2, then validates Composer configuration and coding standards for changed PHP files on PHP 8.2.
+The workflow publishes the shop image after all checks pass on `develop`.
+Development still builds locally with `docker-compose.dev.yml`.
+Automated code scanning is deferred until the production-hardening phase.
 
 The features include:
 
@@ -69,6 +74,36 @@ The log in credentials are the same as the regular live demo.
 Please **refrain from creating issues** about installation problems before having read the FAQ and going through existing GitHub issues. We have a build pipeline that checks the sanity of our latest repository commit, and in case the application itself is broken then our build will be as well.
 
 This application can be set up in _many_ different ways and we only support the ones described in [the INSTALL.md file](INSTALL.md).
+
+### Client install
+
+The client install pulls this fork's published image and never builds it.
+
+On Windows, open PowerShell in the repository directory and set the client data directory.
+
+```powershell
+$env:OSPOS_DATA_DIR = 'C:\OSPOS\Client'
+docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml pull
+docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
+```
+
+On Linux, set the client data directory and run the same pull and start commands.
+
+```bash
+export OSPOS_DATA_DIR="$PWD/client-data"
+docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml pull
+docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
+```
+
+See [the client setup steps](docs/backup-and-restore.md#client-installation-setup) for the full procedure.
+
+Set `OSPOS_IMAGE_TAG` to `develop-<sha>` to pin a build, then rerun the same full `up -d` command shown above for your system.
+
+To roll back, set `OSPOS_IMAGE_TAG` to an earlier `develop-<sha>` and rerun the same full `up -d` command shown above for your system.
+
+Keep the checkout on the same `develop` commit as the image tag because a fresh database is seeded from the checkout's tracked schema files.
+
+Development keeps building locally with `docker-compose.dev.yml`.
 
 For more information and recommendations on support hardware, like receipt printers and barcode scanners, read [this page](https://github.com/opensourcepos/opensourcepos/wiki/Supported-hardware-datasheet) on our wiki.
 

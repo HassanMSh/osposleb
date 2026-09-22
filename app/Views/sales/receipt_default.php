@@ -135,7 +135,7 @@
                 <tr>
                     <?php
                     $vat_label_parts = explode('{0}', lang('Sales.vat_included'), 2);
-                    ?>
+                ?>
                     <td colspan="3" class="total-value">
                         <?= esc($vat_label_parts[0]) ?><span dir="ltr"><?= (float) $tax['tax_rate'] ?>%</span><?= esc($vat_label_parts[1] ?? '') ?>
                     </td>

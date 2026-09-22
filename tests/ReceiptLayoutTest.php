@@ -43,7 +43,7 @@ final class ReceiptLayoutTest extends CIUnitTestCase
      */
     public function testReceiptHeadingHasItsOwnModeWordingKey(): void
     {
-        $english = $this->loadSalesLanguage('en');
+        $english  = $this->loadSalesLanguage('en');
         $lebanese = $this->loadSalesLanguage('ar-LB');
         $egyptian = $this->loadSalesLanguage('ar-EG');
 
@@ -55,7 +55,7 @@ final class ReceiptLayoutTest extends CIUnitTestCase
         $this->assertSame('إيصال بيع', $egyptian['receipt']);
 
         $saleLibrary = file_get_contents(APPPATH . 'Libraries/Sale_lib.php');
-        $sales = file_get_contents(APPPATH . 'Controllers/Sales.php');
+        $sales       = file_get_contents(APPPATH . 'Controllers/Sales.php');
 
         $this->assertIsString($saleLibrary);
         $this->assertIsString($sales);
@@ -104,9 +104,9 @@ final class ReceiptLayoutTest extends CIUnitTestCase
                 $request->setLocale($locale);
                 $language->setLocale($locale);
 
-                $data                                  = $this->receiptData('');
+                $data                                 = $this->receiptData('');
                 $data['config']['receipt_show_taxes'] = true;
-                $data['taxes']                          = [
+                $data['taxes']                        = [
                     [
                         'tax_group'       => 'VAT',
                         'tax_rate'        => 11,
@@ -205,9 +205,9 @@ final class ReceiptLayoutTest extends CIUnitTestCase
             ],
         ];
 
-        $output   = view('sales/receipt_default', $data);
-        $cashRow  = $this->rowContaining($output, lang('Sales.cash'));
-        $cardRow  = $this->rowContaining($output, lang('Sales.giftcard'));
+        $output  = view('sales/receipt_default', $data);
+        $cashRow = $this->rowContaining($output, lang('Sales.cash'));
+        $cardRow = $this->rowContaining($output, lang('Sales.giftcard'));
 
         $this->assertNotSame('', $cashRow);
         $this->assertNotSame('', $cardRow);
@@ -259,9 +259,9 @@ final class ReceiptLayoutTest extends CIUnitTestCase
      */
     public function testReceiptPrintsGiftCardBalance(): void
     {
-        $data                      = $this->receiptData('');
+        $data                       = $this->receiptData('');
         $data['cur_giftcard_value'] = 12.5;
-        $data['payments']          = [
+        $data['payments']           = [
             [
                 'payment_type'   => lang('Sales.giftcard') . ':1234',
                 'payment_amount' => 5.0,
@@ -363,11 +363,11 @@ final class ReceiptLayoutTest extends CIUnitTestCase
                 'receipt_show_serialnumber'   => true,
                 'receipt_show_total_discount' => false,
                 'receipt_show_taxes'          => false,
-                'company'                    => 'Test shop',
-                'address'                    => '',
-                'phone'                      => '',
-                'return_policy'              => $returnPolicy,
-                'lbp_exchange_rate'          => '89500',
+                'company'                     => 'Test shop',
+                'address'                     => '',
+                'phone'                       => '',
+                'return_policy'               => $returnPolicy,
+                'lbp_exchange_rate'           => '89500',
             ],
         ];
     }

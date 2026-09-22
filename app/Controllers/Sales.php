@@ -836,8 +836,8 @@ class Sales extends Secure_Controller
             if ($data['sale_id_num'] == NEW_ENTRY) {
                 $data['error_message'] = lang('Sales.transaction_failed');
             } else {
-                $data['barcode']           = $this->barcode_lib->generate_receipt_barcode($data['sale_id']);
-                $data['transaction_time']  = to_receipt_datetime($transaction_timestamp);
+                $data['barcode']          = $this->barcode_lib->generate_receipt_barcode($data['sale_id']);
+                $data['transaction_time'] = to_receipt_datetime($transaction_timestamp);
                 echo view('sales/receipt', $data);
                 $this->sale_lib->clear_all();
             }

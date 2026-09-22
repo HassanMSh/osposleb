@@ -97,11 +97,11 @@ final class AssetIntegrityTest extends CIUnitTestCase
 
         $this->assertMatchesRegularExpression(
             '/\[dir="rtl"\]\s+\[data-notify="container"\]\s*{\s*padding-left:\s*35px;\s*}/',
-            $rtlCss
+            $rtlCss,
         );
         $this->assertMatchesRegularExpression(
             '/\[dir="rtl"\]\s+\[data-notify="container"\]\s+button\.close\[data-notify="dismiss"\]\s*{\s*right:\s*auto\s*!important;\s*left:\s*10px;\s*}/',
-            $rtlCss
+            $rtlCss,
         );
     }
 

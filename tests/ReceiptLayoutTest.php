@@ -166,7 +166,7 @@ final class ReceiptLayoutTest extends CIUnitTestCase
      */
     public function testReceiptLanguagesUseOnlyTheSingleVatWordingKey(): void
     {
-        $old_vat_keys = ['vat_included_' . 'prefix', 'vat_included_' . 'suffix'];
+        $old_vat_keys = ['vat_included_prefix', 'vat_included_suffix'];
 
         foreach (['en', 'ar-LB', 'ar-EG'] as $locale) {
             $sales_language = $this->loadSalesLanguage($locale);
@@ -248,7 +248,7 @@ final class ReceiptLayoutTest extends CIUnitTestCase
      */
     public function testReceiptOmitsEmptyDetailAndSpacerRows(): void
     {
-        $data          = $this->receiptData('');
+        $data           = $this->receiptData('');
         $data['cart'][] = [
             'name'             => 'Test item',
             'attribute_values' => '',

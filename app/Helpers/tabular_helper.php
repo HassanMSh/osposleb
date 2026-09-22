@@ -446,6 +446,7 @@ function get_item_data_row(object $item): array
         $item_tax_info = $item_taxes->get_info($item->item_id);
         $tax_percents  = '';
 
+        // The database returns `percent` from DECIMAL(15,3), so it is always numeric text; keep escaping defensive.
         foreach ($item_tax_info as $tax_info) {
             $tax_percents .= esc(to_tax_decimals($tax_info['percent']) . '%, ');
         }

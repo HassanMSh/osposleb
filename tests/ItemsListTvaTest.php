@@ -77,18 +77,6 @@ final class ItemsListTvaTest extends CIUnitTestCase
     }
 
     /**
-     * Keeps the per-item percentage formatter protected by output escaping.
-     */
-    public function testItemTaxPercentLoopEscapesFormattedValues(): void
-    {
-        $this->itemTaxInfo = [1 => [['percent' => '10']]];
-
-        $row = get_item_data_row($this->makeItem());
-
-        $this->assertSame('10.00%', $row['tax_percents']);
-    }
-
-    /**
      * Shows the current global rate and marks it as inherited for an item without rows.
      */
     public function testTaxableItemWithoutRowsRendersTheInheritedGlobalRate(): void

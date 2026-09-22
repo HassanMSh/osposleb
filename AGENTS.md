@@ -15,6 +15,7 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 - Phase 3 is complete and merged to `develop`: ADR 0005 is accepted, the TVA model and the Lebanese pound presentation are implemented, the migration was rehearsed and rolled back against a real database, and the new screens were verified in Google Chrome in both languages.
 - The shop runs in Arabic (Lebanon) by default, the `admin` account runs in English, and the login page is always English and left to right. Decided 2026-09-20.
 - Phase 4 is waiting for the project owner's hardware to arrive. Do not start model-specific work until the devices are named.
+- Phase 6 production hardening is merged to `develop` (pull request #30, 2026-09-23): ADR 0009 is accepted, and the daily scheduled backup, keep-7 retention, optional USB copy, backup log, `127.0.0.1` binding, and warn-only `composer audit` job are in place, proved on Linux. Phase 6 is not complete: the Windows checks on the shop computer, the clean install and upgrade rehearsal, and automatic database migrations are still open.
 
 ## Code-style gate
 

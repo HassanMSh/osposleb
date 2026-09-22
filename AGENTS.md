@@ -31,7 +31,9 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 
 ## Agent roles
 
-- Hand implementation work to `gpt-5.6-luna`, run through the Codex command line: `codex exec -m gpt-5.6-luna`. Confirmed reachable on 2026-09-20 after an earlier attempt through the subagent interface failed. The Codex default model is `gpt-5.6-sol`, so the `-m` flag is required every time.
+- Hand implementation work to `gpt-6-luna` at `xhigh` reasoning effort, run through the Codex command line: `codex exec -m gpt-6-luna -c model_reasoning_effort=xhigh "<prompt>" </dev/null`. Confirmed reachable on 2026-09-23. The `-m` flag is required every time, because the Codex default model is a different one.
+- Have every implementation result reviewed by `gpt-6-sol` at `high` reasoning effort: `codex exec -m gpt-6-sol -c model_reasoning_effort=high "<review prompt>" </dev/null`. Confirmed reachable on 2026-09-23.
+- Close standard input with `</dev/null` on every background Codex run, or it waits forever. Forbid `ps`, `pgrep`, `pkill`, `kill` and `top` in every delegated prompt, because the implementation agent can match and kill its own process.
 - The coordinating agent keeps audit, decision records, review, Git and GitHub operations, and is responsible for checking whatever the implementation agent returns before it is committed.
 - Name the model that actually ran the work in the phase completion report. Do not record an intended model as if it had been used.
 

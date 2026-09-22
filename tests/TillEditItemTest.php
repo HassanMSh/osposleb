@@ -45,11 +45,11 @@ final class TillEditItemTest extends CIUnitTestCase
     public function testEditingCartLineWithoutDiscountStoresNewQuantity(): void
     {
         [$controller, $saleLibrary, $reloadException] = $this->makeController([
-            'location'    => '1',
-            'item_id'     => '7',
-            'price'       => '12.00',
-            'quantity'    => '2.00',
-            'description' => '',
+            'location'     => '1',
+            'item_id'      => '7',
+            'price'        => '12.00',
+            'quantity'     => '2.00',
+            'description'  => '',
             'serialnumber' => '',
         ]);
 
@@ -68,12 +68,12 @@ final class TillEditItemTest extends CIUnitTestCase
     public function testEditingCartLineWithBlankDiscountStoresZero(): void
     {
         [$controller, $saleLibrary, $reloadException] = $this->makeController([
-            'location'    => '1',
-            'item_id'     => '7',
-            'price'       => '12.00',
-            'quantity'    => '2.00',
-            'discount'   => '',
-            'description' => '',
+            'location'     => '1',
+            'item_id'      => '7',
+            'price'        => '12.00',
+            'quantity'     => '2.00',
+            'discount'     => '',
+            'description'  => '',
             'serialnumber' => '',
         ]);
 
@@ -88,14 +88,14 @@ final class TillEditItemTest extends CIUnitTestCase
     public function testEditingCartLineWithExplicitDiscountAppliesDiscount(): void
     {
         [$controller, $saleLibrary, $reloadException] = $this->makeController([
-            'location'     => '1',
-            'item_id'      => '7',
-            'price'        => '12.00',
-            'quantity'     => '2.00',
-            'discount'     => '1.50',
+            'location'      => '1',
+            'item_id'       => '7',
+            'price'         => '12.00',
+            'quantity'      => '2.00',
+            'discount'      => '1.50',
             'discount_type' => (string) FIXED,
-            'description'  => '',
-            'serialnumber' => '',
+            'description'   => '',
+            'serialnumber'  => '',
         ]);
 
         $this->invokeEditItem($controller, $reloadException);
@@ -113,10 +113,10 @@ final class TillEditItemTest extends CIUnitTestCase
     public function testEditingCartLineWithoutLocationDoesNotThrow(): void
     {
         [$controller, $saleLibrary, $reloadException] = $this->makeController([
-            'item_id'     => '7',
-            'price'       => '12.00',
-            'quantity'    => '2.00',
-            'description' => '',
+            'item_id'      => '7',
+            'price'        => '12.00',
+            'quantity'     => '2.00',
+            'description'  => '',
             'serialnumber' => '',
         ]);
 
@@ -131,11 +131,11 @@ final class TillEditItemTest extends CIUnitTestCase
     public function testEditingCartLineWithBlankLocationDoesNotThrowOrPartiallyEdit(): void
     {
         [$controller, $saleLibrary, $reloadException] = $this->makeController([
-            'location'    => '',
-            'item_id'     => '7',
-            'price'       => '12.00',
-            'quantity'    => '2.00',
-            'description' => '',
+            'location'     => '',
+            'item_id'      => '7',
+            'price'        => '12.00',
+            'quantity'     => '2.00',
+            'description'  => '',
             'serialnumber' => '',
         ]);
 
@@ -156,11 +156,11 @@ final class TillEditItemTest extends CIUnitTestCase
     public function testRegisterRowFieldSetPostsWithoutRemovedInputs(): void
     {
         $post = [
-            'location'    => '1',
-            'item_id'     => '7',
-            'price'       => '12.00',
-            'quantity'    => '2.00',
-            'description' => '',
+            'location'     => '1',
+            'item_id'      => '7',
+            'price'        => '12.00',
+            'quantity'     => '2.00',
+            'description'  => '',
             'serialnumber' => '',
         ];
 
@@ -193,15 +193,15 @@ final class TillEditItemTest extends CIUnitTestCase
         $saleLibrary->method('reset_cash_rounding')->willThrowException($reloadException);
         $saleLibrary->set_cart([
             1 => [
-                'item_id'         => 7,
-                'item_location'   => 1,
-                'description'     => '',
-                'serialnumber'    => '',
-                'quantity'        => '1',
-                'price'           => '10',
-                'discount'        => '0',
-                'discount_type'   => PERCENT,
-                'total'           => '10',
+                'item_id'          => 7,
+                'item_location'    => 1,
+                'description'      => '',
+                'serialnumber'     => '',
+                'quantity'         => '1',
+                'price'            => '10',
+                'discount'         => '0',
+                'discount_type'    => PERCENT,
+                'total'            => '10',
                 'discounted_total' => '10',
             ],
         ]);

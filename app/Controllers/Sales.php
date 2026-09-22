@@ -563,17 +563,17 @@ class Sales extends Secure_Controller
         ];
 
         if ($this->validate($rules)) {
-            $description   = $this->request->getPost('description', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            $serialnumber  = $this->request->getPost('serialnumber', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            $price         = parse_decimals($this->request->getPost('price'));
-            $quantity      = parse_decimals($this->request->getPost('quantity'));
-            $discount_type = $this->request->getPost('discount_type', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            $description    = $this->request->getPost('description', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            $serialnumber   = $this->request->getPost('serialnumber', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            $price          = parse_decimals($this->request->getPost('price'));
+            $quantity       = parse_decimals($this->request->getPost('quantity'));
+            $discount_type  = $this->request->getPost('discount_type', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             $discount_input = $this->request->getPost('discount');
             if ($discount_input === null || $discount_input === '' || (is_string($discount_input) && trim($discount_input) === '')) {
                 $discount_input = '0';
             }
 
-            $discount      = $discount_type
+            $discount = $discount_type
                 ? parse_quantity($discount_input)
                 : parse_decimals($discount_input);
 

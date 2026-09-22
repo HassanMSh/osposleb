@@ -10,9 +10,10 @@ use Throwable;
 class Migration_barcode_generation extends Migration
 {
     private const INDEX_STATE_KEY = '__item_number_index';
+    private const TEMP_INDEX_NAME = 'barcode_generation_item_number';
 
     /**
-     * Preflights barcode conflicts, backfills empty values, enforces uniqueness, and sets barcode defaults.
+     * Preflights barcode conflicts, enforces uniqueness, backfills empty values, and sets barcode defaults.
      *
      * Backfilled barcode values are intentionally not reverted by down().
      *
@@ -20,9 +21,28 @@ class Migration_barcode_generation extends Migration
      */
     public function up(): void
     {
-        $generated_numbers = $this->preflightBarcodeConflicts();
+        $this->preflightBarcodeConflicts();
         $this->createStateTable();
+        $this->normalizeEmptyBarcodes();
+        $this->ensureUniqueBarcodeIndex();
 
+        // Re-check after the unique index is in place so a concurrent write cannot leave a duplicate behind.
+        $generated_numbers = $this->preflightBarcodeConflicts();
+
+        $this->backfillBarcodeNumbers($generated_numbers);
+        $this->setConfigValue('barcode_type', 'C128');
+        $this->setConfigValue('barcode_generate_if_empty', '1');
+    }
+
+    /**
+     * Backfills generated barcode values in one transaction after uniqueness is enforced.
+     *
+     * @param array<int, string> $generated_numbers Generated barcode values keyed by item ID.
+     *
+     * @throws RuntimeException When a database update or transaction operation fails.
+     */
+    private function backfillBarcodeNumbers(array $generated_numbers): void
+    {
         if (! $this->db->transBegin()) {
             throw new RuntimeException('Cannot apply barcode generation migration: could not start the backfill transaction.');
         }
@@ -52,10 +72,6 @@ class Migration_barcode_generation extends Migration
 
             throw $exception;
         }
-
-        $this->ensureUniqueBarcodeIndex();
-        $this->setConfigValue('barcode_type', 'C128');
-        $this->setConfigValue('barcode_generate_if_empty', '1');
     }
 
     /**
@@ -173,6 +189,18 @@ class Migration_barcode_generation extends Migration
     }
 
     /**
+     * Converts empty barcode strings to NULL so the unique index allows unassigned values during the backfill.
+     *
+     * @throws RuntimeException When the empty-value update fails.
+     */
+    private function normalizeEmptyBarcodes(): void
+    {
+        if (! $this->db->table('items')->where('item_number', '')->update(['item_number' => null])) {
+            throw new RuntimeException('Cannot apply barcode generation migration: failed to normalize empty barcodes.');
+        }
+    }
+
+    /**
      * Creates the temporary migration state table used to make down() restore only changed settings and indexes.
      */
     private function createStateTable(): void
@@ -190,48 +218,94 @@ class Migration_barcode_generation extends Migration
     }
 
     /**
-     * Adds a unique barcode index while keeping the old index until the new index exists.
+     * Establishes the unique barcode index and resumes safely from an earlier temporary-index state.
      */
     private function ensureUniqueBarcodeIndex(): void
     {
         $table_name = $this->db->prefixTable('items');
-        $unique     = $this->findBarcodeIndex(true);
+        $indexes    = $this->findBarcodeIndexes();
+        $temporary  = null;
+        $unique     = null;
+        $existing   = null;
+
+        foreach ($indexes as $index) {
+            if ($index['index_name'] === self::TEMP_INDEX_NAME && (int) $index['non_unique'] === 0) {
+                $temporary = $index;
+            } elseif ((int) $index['non_unique'] === 0 && $unique === null) {
+                $unique = $index;
+            } elseif ((int) $index['non_unique'] === 1 && $existing === null) {
+                $existing = $index;
+            }
+        }
+
+        if ($temporary !== null) {
+            $this->saveState(
+                self::INDEX_STATE_KEY,
+                $existing === null ? null : json_encode($existing, JSON_THROW_ON_ERROR),
+                $existing !== null,
+            );
+
+            $temporary_name = $this->quoteIndexName((string) $temporary['index_name']);
+
+            if ($existing !== null) {
+                $old_index = $this->quoteIndexName((string) $existing['index_name']);
+                $this->db->query(
+                    'ALTER TABLE ' . $table_name
+                    . ' DROP INDEX ' . $old_index
+                    . ', RENAME INDEX ' . $temporary_name . ' TO `item_number`',
+                );
+            } elseif ($temporary['index_name'] !== 'item_number') {
+                $this->db->query(
+                    'ALTER TABLE ' . $table_name
+                    . ' RENAME INDEX ' . $temporary_name . ' TO `item_number`',
+                );
+            }
+
+            return;
+        }
 
         if ($unique !== null) {
             return;
         }
 
-        $existing = $this->findBarcodeIndex(false);
-        $this->saveState(self::INDEX_STATE_KEY, $existing === null ? null : json_encode($existing, JSON_THROW_ON_ERROR), $existing !== null);
-
         if ($existing === null) {
+            $this->saveState(self::INDEX_STATE_KEY, null, false);
             $this->db->query('ALTER TABLE ' . $table_name . ' ADD UNIQUE KEY `item_number` (`item_number`)');
 
             return;
         }
 
-        $old_index = str_replace('`', '``', (string) $existing['index_name']);
-        $this->db->query('ALTER TABLE ' . $table_name . ' ADD UNIQUE KEY `barcode_generation_item_number` (`item_number`)');
+        $old_index = $this->quoteIndexName((string) $existing['index_name']);
+        $this->saveState(self::INDEX_STATE_KEY, json_encode($existing, JSON_THROW_ON_ERROR), true);
         $this->db->query(
             'ALTER TABLE ' . $table_name
-            . ' DROP INDEX `' . $old_index . '`'
-            . ', RENAME INDEX `barcode_generation_item_number` TO `item_number`',
+            . ' DROP INDEX ' . $old_index
+            . ', ADD UNIQUE KEY `item_number` (`item_number`)',
         );
     }
 
     /**
-     * Finds a single-column item-number index with the requested uniqueness.
+     * Quotes an index name for use in a migration ALTER TABLE statement.
      */
-    private function findBarcodeIndex(bool $unique): ?array
+    private function quoteIndexName(string $index_name): string
+    {
+        return '`' . str_replace('`', '``', $index_name) . '`';
+    }
+
+    /**
+     * Finds all single-column indexes on item_number, including temporary migration indexes.
+     *
+     * @return array<int, array{index_name: string, non_unique: int, columns: array<int, string>}>
+     */
+    private function findBarcodeIndexes(): array
     {
         $rows = $this->db->query(
             'SELECT INDEX_NAME AS index_name, NON_UNIQUE AS non_unique, SEQ_IN_INDEX AS sequence_number, COLUMN_NAME AS column_name
              FROM information_schema.statistics
              WHERE TABLE_SCHEMA = DATABASE()
              AND TABLE_NAME = ?
-             AND NON_UNIQUE = ?
              ORDER BY INDEX_NAME, SEQ_IN_INDEX',
-            [$this->db->prefixTable('items'), $unique ? 0 : 1],
+            [$this->db->prefixTable('items')],
         )->getResultArray();
         $indexes = [];
 
@@ -245,16 +319,10 @@ class Migration_barcode_generation extends Migration
             $indexes[$index_name]['columns'][] = (string) $row['column_name'];
         }
 
-        foreach ($indexes as $index) {
-            if ($index['columns'] === ['item_number']) {
-                return [
-                    'index_name' => $index['index_name'],
-                    'non_unique' => $index['non_unique'],
-                ];
-            }
-        }
-
-        return null;
+        return array_values(array_filter(
+            $indexes,
+            static fn (array $index): bool => $index['columns'] === ['item_number'],
+        ));
     }
 
     /**
@@ -310,22 +378,47 @@ class Migration_barcode_generation extends Migration
      */
     private function restoreBarcodeIndex(array $state): void
     {
-        $current = $this->findBarcodeIndex(true);
+        $table_name       = $this->db->prefixTable('items');
+        $current_indexes  = $this->findBarcodeIndexes();
+        $drop_indexes     = [];
+        $add_previous     = false;
+        $previous         = null;
+        $previous_present = (int) $state['was_present'] === 1;
 
-        if ($current !== null) {
-            $table_name   = $this->db->prefixTable('items');
-            $current_name = str_replace('`', '``', (string) $current['index_name']);
-            $this->db->query('ALTER TABLE ' . $table_name . ' DROP INDEX `' . $current_name . '`');
+        if ($previous_present) {
+            $previous = json_decode((string) $state['previous_value'], true, 512, JSON_THROW_ON_ERROR);
         }
 
-        if ((int) $state['was_present'] !== 1) {
-            return;
+        foreach ($current_indexes as $index) {
+            if (! $previous_present || (int) $index['non_unique'] === 0) {
+                $drop_indexes[] = $index['index_name'];
+            }
         }
 
-        $previous   = json_decode((string) $state['previous_value'], true, 512, JSON_THROW_ON_ERROR);
-        $index_name = str_replace('`', '``', (string) $previous['index_name']);
-        $table_name = $this->db->prefixTable('items');
+        if ($previous_present) {
+            $add_previous = true;
 
-        $this->db->query('ALTER TABLE ' . $table_name . ' ADD KEY `' . $index_name . '` (`item_number`)');
+            foreach ($current_indexes as $index) {
+                if ((int) $index['non_unique'] === 1 && $index['index_name'] === $previous['index_name']) {
+                    $add_previous = false;
+
+                    break;
+                }
+            }
+        }
+
+        $clauses = [];
+
+        foreach (array_unique($drop_indexes) as $index_name) {
+            $clauses[] = 'DROP INDEX ' . $this->quoteIndexName((string) $index_name);
+        }
+
+        if ($add_previous) {
+            $clauses[] = 'ADD KEY ' . $this->quoteIndexName((string) $previous['index_name']) . ' (`item_number`)';
+        }
+
+        if ($clauses !== []) {
+            $this->db->query('ALTER TABLE ' . $table_name . ' ' . implode(', ', $clauses));
+        }
     }
 }

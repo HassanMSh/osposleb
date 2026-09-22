@@ -789,10 +789,18 @@ class Items extends Secure_Controller
                 echo json_encode(['success' => false, 'message' => $message, 'id' => $item_id]);
             }
         } else {
-            $existing_item = null;
+            $existing_item    = null;
+            $duplicate_number = $item_data['item_number'] ?? null;
 
-            if ($item_data['item_number'] !== null && $item_data['item_number'] !== '') {
-                $existing_item = $this->item->get_item_number_owner((string) $item_data['item_number'], (string) $item_id);
+            if (($duplicate_number === null || $duplicate_number === '')
+                && ($this->config['barcode_generate_if_empty'] ?? '0') == '1'
+                && isset($item_data['item_id'])
+                && (int) $item_data['item_id'] > 0) {
+                $duplicate_number = $this->item->generate_item_number((int) $item_data['item_id']);
+            }
+
+            if ($duplicate_number !== null && $duplicate_number !== '') {
+                $existing_item = $this->item->get_item_number_owner((string) $duplicate_number, (string) $item_id);
             }
 
             $message = $existing_item === null
@@ -1100,13 +1108,23 @@ class Items extends Secure_Controller
                             $item_data = array_merge($item_data, get_object_vars($this->item->get_info_by_id_or_number($item_id)));
                         }
                     } else {
+                        $duplicate_number = $item_data['item_number'] ?? null;
+
+                        if (($duplicate_number === null || $duplicate_number === '')
+                            && ($this->config['barcode_generate_if_empty'] ?? '0') == '1'
+                            && isset($item_data['item_id'])
+                            && (int) $item_data['item_id'] > 0) {
+                            $duplicate_number = $this->item->generate_item_number((int) $item_data['item_id']);
+                            $duplicate_item   = $this->item->get_item_number_owner($duplicate_number, (string) $item_id);
+                        }
+
                         $failed_row        = $key + 2;
                         $failCodes[]       = $failed_row;
                         $failure_details[] = $duplicate_item === null
                             ? (string) $failed_row
                             : lang('Items.csv_import_barcode_duplicate', [
                                 $failed_row,
-                                $item_data['item_number'],
+                                $duplicate_number,
                                 $duplicate_item->name,
                             ]);
                         log_message('error', "CSV Item import failed on line {$failed_row}. This item was not imported.");

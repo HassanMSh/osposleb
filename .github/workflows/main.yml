@@ -19,6 +19,31 @@ permissions:
   contents: read
 
 jobs:
+  # Warn-only by owner decision; this job never blocks a merge.
+  dependency-audit:
+    name: Composer Audit
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Audit locked dependencies
+        run: |
+          if composer audit --locked --no-interaction; then
+            exit 0
+          else
+            echo "::warning title=composer audit::Composer audit reported advisories or could not complete."
+            exit 0
+          fi
+
   syntax:
     name: PHP ${{ matrix.php-version }} Syntax
     runs-on: ubuntu-22.04

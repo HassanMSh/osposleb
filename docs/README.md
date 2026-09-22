@@ -8,9 +8,11 @@ Upstream files outside this directory are left as the original developers wrote 
 
 ## Layout
 
-- `backup-and-restore.md` — the manual backup and restore procedure for the shop, Windows first, then Linux.
+- `backup-and-restore.md` — daily backups, manual backups, and restore steps for Windows and Linux.
+- `operations-runbook.md` — startup, checks, updates, support logs, and install tasks.
+- `test-plan.md` — critical workflow checks and recorded hardening proofs.
 
-Later phases add hardware setup and operations notes to this directory.
+Later phases may add hardware setup notes to this directory.
 
 ## Internal records
 

@@ -1,6 +1,9 @@
 services:
     ospos:
         environment: !reset []
+        # The till runs on this computer only; other shop devices cannot reach it.
+        ports: !override
+            - "127.0.0.1:${OSPOS_HTTP_PORT:-80}:80"
         volumes:
             - ${OSPOS_DATA_DIR}/secrets/app.env:/app/.env:ro
             - ${OSPOS_DATA_DIR}/uploads:/app/public/uploads

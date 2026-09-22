@@ -154,6 +154,12 @@ EOF
 cat > "$data_dir/ospos.conf" <<EOF
 OSPOS_DATA_DIR='$host_data_dir'
 OSPOS_BACKUP_DESTINATION='backups'
+# Keep the newest seven backup archives.
+OSPOS_BACKUP_KEEP=7
+# Leave empty to skip a USB backup copy.
+OSPOS_BACKUP_COPY_TO=''
+# Open the till only on this computer using this port.
+OSPOS_HTTP_PORT=80
 EOF
 
 if [[ $platform == linux ]]; then

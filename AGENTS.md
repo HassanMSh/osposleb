@@ -36,6 +36,7 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 - Pass `-m` and the reasoning effort every time. The local Codex default is `gpt-6-luna` at medium effort, so leaving them out silently runs the wrong model or a weaker setting.
 - Close standard input (`< /dev/null`) or `codex exec` waits forever.
 - Moved from `gpt-5.6-luna` and `gpt-5.6-sol` on 2026-09-23 at the project owner's request. Earlier reports and briefs that name the 5.6 models record what actually ran at the time and stay as they are.
+- Forbid `ps`, `pgrep`, `pkill`, `kill` and `top` in every delegated prompt, because the implementation agent can match and kill its own process.
 - The coordinating agent keeps audit, decision records, review, Git and GitHub operations, and is responsible for checking whatever the implementation agent returns before it is committed.
 - Name the model that actually ran the work in the phase completion report. Do not record an intended model as if it had been used.
 

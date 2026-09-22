@@ -202,6 +202,16 @@
 
 /* -------------------------------------------------------- modal, alert --- */
 
+[dir="rtl"] [data-notify="container"] {
+    padding-left: 35px;
+}
+
+/* bootstrap-notify sets right inline, so RTL must override it. */
+[dir="rtl"] [data-notify="container"] button.close[data-notify="dismiss"] {
+    right: auto !important;
+    left: 10px;
+}
+
 [dir="rtl"] .modal-header .close {
     float: left;
 }

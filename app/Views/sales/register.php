@@ -111,7 +111,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     <label for="item" class="control-label"><?= lang(ucfirst($controller_name) . '.find_or_scan_item_or_receipt') ?></label>
                 </li>
                 <li class="pull-left">
-                    <?= form_input(['name' => 'item', 'id' => 'item', 'class' => 'form-control input-sm', 'size' => '50', 'tabindex' => ++$tabindex]) ?>
+                    <?= form_input(['name' => 'item', 'id' => 'item', 'class' => 'form-control input-sm', 'size' => '50', 'tabindex' => ++$tabindex, 'placeholder' => lang(ucfirst($controller_name) . '.start_typing_item_name')]) ?>
                     <span class="ui-helper-hidden-accessible" role="status"></span>
                 </li>
                 <li class="pull-right">
@@ -464,189 +464,283 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             window.location.href = "<?= site_url('sales'); ?>";
         };
 
-        $(".delete_item_button").click(function() {
-            const item_id = $(this).data('item-id');
-            $.post("<?= site_url('sales/deleteItem/'); ?>" + item_id, redirect);
-        });
+        let addItemInFlight = false;
+        const pendingItemScans = [];
 
-        $(".delete_payment_button").click(function() {
-            const item_id = $(this).data('payment-id');
-            $.post("<?= site_url('sales/deletePayment/'); ?>" + item_id, redirect);
-        });
+        /**
+         * Renders the register fragments returned by the existing add-item AJAX request.
+         */
+        const renderAddItemResponse = function(response) {
+            const scanBuffer = $('#item').val();
+            const responseDocument = document.implementation.createHTMLDocument('register-response');
+            responseDocument.documentElement.innerHTML = response;
+            const $response = $(responseDocument);
+            const $register = $response.find('#register_wrapper');
+            const $sale = $response.find('#overall_sale');
+            const $message = $response.find('.alert-danger, .alert-warning, .alert-success').first();
+            const totalMatch = response.match(/let changeHelperTotal = ([^;]+);/);
 
-        $("input[name='item_number']").each(function() {
-            $(this).data('saved-item-number', $(this).val());
-        });
-
-        $("input[name='item_number']").change(function() {
-            var $input              = $(this);
-            var item_id             = $input.parents('tr').find("input[name='item_id']").val();
-            var item_number         = $input.val();
-            var previous_item_number = $input.data('saved-item-number');
-            $.ajax({
-                url: "<?= site_url('sales/changeItemNumber') ?>",
-                method: 'post',
-                data: {
-                    'item_id': item_id,
-                    'item_number': item_number,
-                },
-                dataType: 'json',
-                success: function(response) {
-                    $.notify({
-                        message: response.message
-                    }, {
-                        type: response.success ? 'success' : 'danger'
-                    });
-
-                    if (response.success) {
-                        $input.val(response.item_number);
-                        $input.data('saved-item-number', response.item_number);
-                    } else {
-                        $input.val(previous_item_number);
-                    }
-                },
-                error: function() {
-                    $input.val(previous_item_number);
-                }
-            });
-        });
-
-        $("input[name='name']").change(function() {
-            var item_id = $(this).parents('tr').find("input[name='item_id']").val();
-            var item_name = $(this).val();
-            $.ajax({
-                url: "<?= site_url('sales/changeItemName') ?>",
-                method: 'post',
-                data: {
-                    'item_id': item_id,
-                    'item_name': item_name,
-                },
-                dataType: 'json'
-            });
-        });
-
-        $("input[name='item_description']").change(function() {
-            var item_id = $(this).parents('tr').find("input[name='item_id']").val();
-            var item_description = $(this).val();
-            $.ajax({
-                url: "<?= site_url('sales/changeItemDescription') ?>",
-                method: 'post',
-                data: {
-                    'item_id': item_id,
-                    'item_description': item_description,
-                },
-                dataType: 'json'
-            });
-        });
-
-        $('#item').focus();
-
-        $('#item').blur(function() {
-            $(this).val("<?= lang(ucfirst($controller_name) . '.start_typing_item_name') ?>");
-        });
-
-        $('#item').autocomplete({
-            source: "<?= esc("{$controller_name}/itemSearch") ?>",
-            minChars: 0,
-            autoFocus: false,
-            delay: 500,
-            select: function(a, ui) {
-                $(this).val(ui.item.value);
-                $('#add_item_form').submit();
-                return false;
+            $('#register_wrapper').prevAll('.alert').remove();
+            if ($message.length) {
+                $('#register_wrapper').before($message.clone());
             }
-        });
-
-        $('#item').keypress(function(e) {
-            if (e.which == 13) {
-                $('#add_item_form').submit();
-                return false;
+            if ($register.length) {
+                $('#register_wrapper').replaceWith($register);
             }
-        });
-
-        var clear_fields = function() {
-            if ($(this).val().match("<?= lang(ucfirst($controller_name) . '.start_typing_item_name') ?>")) {
-                $(this).val('');
+            if ($sale.length) {
+                $('#overall_sale').replaceWith($sale);
             }
+            if (totalMatch) {
+                changeHelperTotal = Number(totalMatch[1]);
+            }
+
+            bindRegisterHandlers();
+            $('#item').val(scanBuffer).focus();
         };
 
-        $('#item').click(clear_fields).dblclick(function(event) {
-            $(this).autocomplete('search');
-        });
+        /**
+         * Sends one scan through the register AJAX path and queues scans already in flight.
+         */
+        const submitItemScan = function(item, scanBuffer = '') {
+            const itemValue = String(item).trim();
+            if (itemValue === '') {
+                return;
+            }
 
-        $('#comment').keyup(function() {
-            $.post("<?= esc(site_url("{$controller_name}/setComment")) ?>", {
-                comment: $('#comment').val()
+            if (addItemInFlight) {
+                pendingItemScans.push(itemValue);
+                $('#item').val('');
+
+                return;
+            }
+
+            addItemInFlight = true;
+            const $form = $('#add_item_form');
+            const $input = $('#item');
+            $input.val(itemValue);
+            $form.ajaxSubmit({
+                dataType: 'html',
+                beforeSubmit: function() {
+                    $input.val(scanBuffer);
+                },
+                success: function(response) {
+                    renderAddItemResponse(response);
+                },
+                error: function() {
+                    $.notify({
+                        message: "<?= lang(ucfirst($controller_name) . '.unable_to_add_item') ?>"
+                    }, {
+                        type: 'danger'
+                    });
+                },
+                complete: function() {
+                    addItemInFlight = false;
+                    if (pendingItemScans.length > 0) {
+                        const nextScan = pendingItemScans.shift();
+                        const nextScanBuffer = $('#item').val();
+                        submitItemScan(nextScan, nextScanBuffer);
+                    } else {
+                        $('#item').focus();
+                    }
+                }
             });
-        });
+        };
 
-        <?php if ($config['invoice_enable']) { ?>
-            $('#sales_invoice_number').keyup(function() {
-                $.post("<?= esc(site_url("{$controller_name}/setInvoiceNumber")) ?>", {
-                    sales_invoice_number: $('#sales_invoice_number').val()
+        /**
+         * Rebinds controls after an AJAX response replaces the register fragments.
+         */
+        const bindRegisterHandlers = function() {
+            $(".delete_item_button").off('click.register').on('click.register', function() {
+                const item_id = $(this).data('item-id');
+                $.post("<?= site_url('sales/deleteItem/'); ?>" + item_id, redirect);
+            });
+
+            $(".delete_payment_button").off('click.register').on('click.register', function() {
+                const item_id = $(this).data('payment-id');
+                $.post("<?= site_url('sales/deletePayment/'); ?>" + item_id, redirect);
+            });
+
+            $("input[name='item_number']").each(function() {
+                $(this).data('saved-item-number', $(this).val());
+            });
+
+            $("input[name='item_number']").off('change.register').on('change.register', function() {
+                var $input              = $(this);
+                var item_id             = $input.parents('tr').find("input[name='item_id']").val();
+                var item_number         = $input.val();
+                var previous_item_number = $input.data('saved-item-number');
+                $.ajax({
+                    url: "<?= site_url('sales/changeItemNumber') ?>",
+                    method: 'post',
+                    data: {
+                        'item_id': item_id,
+                        'item_number': item_number,
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        $.notify({
+                            message: response.message
+                        }, {
+                            type: response.success ? 'success' : 'danger'
+                        });
+
+                        if (response.success) {
+                            $input.val(response.item_number);
+                            $input.data('saved-item-number', response.item_number);
+                        } else {
+                            $input.val(previous_item_number);
+                        }
+                    },
+                    error: function() {
+                        $input.val(previous_item_number);
+                    }
                 });
             });
 
-        <?php } ?>
-
-        $('#sales_print_after_sale').change(function() {
-            $.post("<?= esc(site_url("{$controller_name}/setPrintAfterSale")) ?>", {
-                sales_print_after_sale: $(this).is(':checked')
+            $("input[name='name']").off('change.register').on('change.register', function() {
+                var item_id = $(this).parents('tr').find("input[name='item_id']").val();
+                var item_name = $(this).val();
+                $.ajax({
+                    url: "<?= site_url('sales/changeItemName') ?>",
+                    method: 'post',
+                    data: {
+                        'item_id': item_id,
+                        'item_name': item_name,
+                    },
+                    dataType: 'json'
+                });
             });
-        });
 
-        $('#finish_sale_button').click(function() {
-            $('#buttons_form').attr('action', "<?= "{$controller_name}/complete" ?>");
-            $('#buttons_form').submit();
-        });
+            $("input[name='item_description']").off('change.register').on('change.register', function() {
+                var item_id = $(this).parents('tr').find("input[name='item_id']").val();
+                var item_description = $(this).val();
+                $.ajax({
+                    url: "<?= site_url('sales/changeItemDescription') ?>",
+                    method: 'post',
+                    data: {
+                        'item_id': item_id,
+                        'item_description': item_description,
+                    },
+                    dataType: 'json'
+                });
+            });
 
-        $('#finish_invoice_button').click(function() {
-            $('#buttons_form').attr('action', "<?= "{$controller_name}/complete" ?>");
-            $('#buttons_form').submit();
-        });
+            $('#add_item_form').off('submit.register').on('submit.register', function(event) {
+                event.preventDefault();
+                submitItemScan($('#item').val());
 
-        $('#suspend_sale_button').click(function() {
-            $('#buttons_form').attr('action', "<?= site_url("{$controller_name}/suspend") ?>");
-            $('#buttons_form').submit();
-        });
+                return false;
+            });
 
-        $('#cancel_sale_button').click(function() {
-            if (confirm("<?= lang(ucfirst($controller_name) . '.confirm_cancel_sale') ?>")) {
-                $('#buttons_form').attr('action', "<?= site_url("{$controller_name}/cancel") ?>");
+            $('#item').autocomplete({
+                source: "<?= esc("{$controller_name}/itemSearch") ?>",
+                minLength: 3,
+                autoFocus: false,
+                delay: 500,
+                select: function(a, ui) {
+                    $(this).val(ui.item.value);
+                    submitItemScan($(this).val());
+
+                    return false;
+                }
+            });
+
+            $('#item').off('keypress.register').on('keypress.register', function(event) {
+                if (event.which == 13) {
+                    submitItemScan($(this).val());
+
+                    return false;
+                }
+            });
+
+            $('#item').off('dblclick.register').on('dblclick.register', function() {
+                $(this).autocomplete('search');
+            });
+
+            $('#comment').off('keyup.register').on('keyup.register', function() {
+                $.post("<?= esc(site_url("{$controller_name}/setComment")) ?>", {
+                    comment: $('#comment').val()
+                });
+            });
+
+            <?php if ($config['invoice_enable']) { ?>
+                $('#sales_invoice_number').off('keyup.register').on('keyup.register', function() {
+                    $.post("<?= esc(site_url("{$controller_name}/setInvoiceNumber")) ?>", {
+                        sales_invoice_number: $('#sales_invoice_number').val()
+                    });
+                });
+
+            <?php } ?>
+
+            $('#sales_print_after_sale').off('change.register').on('change.register', function() {
+                $.post("<?= esc(site_url("{$controller_name}/setPrintAfterSale")) ?>", {
+                    sales_print_after_sale: $(this).is(':checked')
+                });
+            });
+
+            $('#finish_sale_button').off('click.register').on('click.register', function() {
+                $('#buttons_form').attr('action', "<?= "{$controller_name}/complete" ?>");
                 $('#buttons_form').submit();
-            }
-        });
+            });
 
-        $('#add_payment_button').click(function() {
-            $('#add_payment_form').submit();
-        });
+            $('#finish_invoice_button').off('click.register').on('click.register', function() {
+                $('#buttons_form').attr('action', "<?= "{$controller_name}/complete" ?>");
+                $('#buttons_form').submit();
+            });
 
-        $('#cart_contents input').keypress(function(event) {
-            if (event.which == 13) {
-                $(this).parents('tr').prevAll('form:first').submit();
-            }
-        });
+            $('#suspend_sale_button').off('click.register').on('click.register', function() {
+                $('#buttons_form').attr('action', "<?= site_url("{$controller_name}/suspend") ?>");
+                $('#buttons_form').submit();
+            });
 
-        $('#amount_tendered').keypress(function(event) {
-            if (event.which == 13) {
+            $('#cancel_sale_button').off('click.register').on('click.register', function() {
+                if (confirm("<?= lang(ucfirst($controller_name) . '.confirm_cancel_sale') ?>")) {
+                    $('#buttons_form').attr('action', "<?= site_url("{$controller_name}/cancel") ?>");
+                    $('#buttons_form').submit();
+                }
+            });
+
+            $('#add_payment_button').off('click.register').on('click.register', function() {
                 $('#add_payment_form').submit();
-            }
-        });
+            });
 
-        $('#finish_sale_button').keypress(function(event) {
-            if (event.which == 13) {
-                $('#finish_sale_form').submit();
-            }
-        });
+            $('#cart_contents input').off('keypress.register').on('keypress.register', function(event) {
+                if (event.which == 13) {
+                    $(this).parents('tr').prevAll('form:first').submit();
+                }
+            });
 
-        dialog_support.init('a.modal-dlg, button.modal-dlg');
+            $('#amount_tendered').off('keypress.register').on('keypress.register', function(event) {
+                if (event.which == 13) {
+                    $('#add_payment_form').submit();
+                }
+            });
+
+            $('#finish_sale_button').off('keypress.register').on('keypress.register', function(event) {
+                if (event.which == 13) {
+                    $('#finish_sale_form').submit();
+                }
+            });
+
+            $('[name="price"],[name="quantity"],[name="description"],[name="serialnumber"],[name="discounted_total"]')
+                .off('change.register')
+                .on('change.register', function() {
+                    $(this).parents('tr').prevAll('form:first').submit();
+                });
+
+            $('#change_helper_amount, #change_helper_currency')
+                .off('input.register change.register')
+                .on('input.register change.register', updateChangeHelper);
+            updateChangeHelper();
+            dialog_support.init('a.modal-dlg, button.modal-dlg');
+        };
 
         table_support.handle_submit = function(resource, response, stay_open) {
             $.notify({
                 message: response.message
             }, {
                 type: response.success ? 'success' : 'danger'
-            })
+            });
 
             if (response.success) {
                 var $stock_location = $("select[name='stock_location']").val();
@@ -658,14 +752,10 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     $('#add_item_form').submit();
                 }
             }
-        }
+        };
 
-        $('[name="price"],[name="quantity"],[name="description"],[name="serialnumber"],[name="discounted_total"]').change(function() {
-            $(this).parents('tr').prevAll('form:first').submit()
-        });
-
-        $('#change_helper_amount, #change_helper_currency').on('input change', updateChangeHelper);
-        updateChangeHelper();
+        bindRegisterHandlers();
+        $('#item').focus();
     });
 
     let changeHelperTotal = <?= json_encode((float) $total) ?>;

@@ -285,7 +285,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Returns the completion label for a supported register mode.
+     * Returns the till completion label for a supported register mode.
      *
      * Invoice mode is no longer in the register picker, so get_mode() normalises
      * it to sale and this arm is unreachable today. It keeps the original
@@ -298,7 +298,7 @@ class Sales extends Secure_Controller
             'sale_quote'   => lang('Sales.quote'),
             'return'       => lang('Sales.return'),
             'sale_invoice' => lang('Sales.invoice'),
-            default        => lang('Sales.receipt'),
+            default        => lang('Sales.mode_sale'),
         };
     }
 
@@ -620,6 +620,7 @@ class Sales extends Secure_Controller
 
     /**
      * Completes a cash-only sale without buyer data. Used in app/Views/sales/register.php.
+     * Builds a day-first timestamp when the completed sale is rendered as a receipt.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -633,9 +634,9 @@ class Sales extends Secure_Controller
         $data['cart'] = $this->sale_lib->get_cart();
 
         $data['include_hsn']          = (bool) $this->config['include_hsn'];
-        $__time                       = time();
-        $data['transaction_time']     = to_datetime($__time);
-        $data['transaction_date']     = to_date($__time);
+        $transaction_timestamp        = time();
+        $data['transaction_time']     = to_datetime($transaction_timestamp);
+        $data['transaction_date']     = to_date($transaction_timestamp);
         $data['show_stock_locations'] = $this->stock_location->show_locations('sales');
         $data['comments']             = $this->sale_lib->get_comment();
         $employee_id                  = $this->employee->get_logged_in_employee_info()->person_id;
@@ -835,7 +836,8 @@ class Sales extends Secure_Controller
             if ($data['sale_id_num'] == NEW_ENTRY) {
                 $data['error_message'] = lang('Sales.transaction_failed');
             } else {
-                $data['barcode'] = $this->barcode_lib->generate_receipt_barcode($data['sale_id']);
+                $data['barcode']          = $this->barcode_lib->generate_receipt_barcode($data['sale_id']);
+                $data['transaction_time'] = to_receipt_datetime($transaction_timestamp);
                 echo view('sales/receipt', $data);
                 $this->sale_lib->clear_all();
             }
@@ -843,13 +845,13 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Email PDF invoice to customer. Used in app/Views/sales/form.php, invoice.php, quote.php, tax_invoice.php and work_order.php
+     * Emails a sales document PDF to a customer, using day-first dates for receipt output.
      *
      * @noinspection PhpUnused
      */
     public function getSendPdf(int $sale_id, string $type = 'invoice'): bool
     {
-        $sale_data = $this->_load_sale_data($sale_id);
+        $sale_data = $this->_load_sale_data($sale_id, $type === 'receipt');
 
         $result  = false;
         $message = lang('Sales.invoice_no_email');
@@ -896,7 +898,7 @@ class Sales extends Secure_Controller
      */
     public function getSendReceipt(int $sale_id): bool
     {
-        $sale_data = $this->_load_sale_data($sale_id);
+        $sale_data = $this->_load_sale_data($sale_id, true);
 
         $result  = false;
         $message = lang('Sales.receipt_no_email');
@@ -984,7 +986,15 @@ class Sales extends Secure_Controller
         return $customer_info;
     }
 
-    private function _load_sale_data($sale_id): array    // TODO: Hungarian notation
+    /**
+     * Loads an existing sale and optionally uses the day-first timestamp for receipt views.
+     *
+     * @param int  $sale_id          Sale identifier.
+     * @param bool $receipt_datetime Whether to use the receipt date format.
+     *
+     * @return array<string, mixed> Sale data for the selected view.
+     */
+    private function _load_sale_data(int $sale_id, bool $receipt_datetime = false): array    // TODO: Hungarian notation
     {
         $this->sale_lib->clear_all();
         $cash_rounding         = $this->sale_lib->reset_cash_rounding();
@@ -1000,8 +1010,9 @@ class Sales extends Secure_Controller
         $tax_details                  = $this->tax_lib->get_taxes($data['cart'], $sale_id);
         $data['taxes']                = $this->sale->get_sales_taxes($sale_id);
         $data['discount']             = $this->sale_lib->get_discount();
-        $data['transaction_time']     = to_datetime(strtotime($sale_info['sale_time']));
-        $data['transaction_date']     = to_date(strtotime($sale_info['sale_time']));
+        $sale_timestamp               = strtotime($sale_info['sale_time']);
+        $data['transaction_time']     = $receipt_datetime ? to_receipt_datetime($sale_timestamp) : to_datetime($sale_timestamp);
+        $data['transaction_date']     = to_date($sale_timestamp);
         $data['show_stock_locations'] = $this->stock_location->show_locations('sales');
 
         $data['include_hsn'] = (bool) $this->config['include_hsn'];
@@ -1157,7 +1168,7 @@ class Sales extends Secure_Controller
      */
     public function getReceipt(int $sale_id): void
     {
-        $data = $this->_load_sale_data($sale_id);
+        $data = $this->_load_sale_data($sale_id, true);
         echo view('sales/receipt', $data);
         $this->sale_lib->clear_all();
     }

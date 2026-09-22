@@ -48,7 +48,7 @@ $language_code = current_language_code();
         <link rel="stylesheet" href="resources/css/ospos_print-bf10c1438b.css">
         <link rel="stylesheet" href="resources/css/ospos-28f7f540a3.css">
         <link rel="stylesheet" href="resources/css/popupbox-57d45cb822.css">
-        <link rel="stylesheet" href="resources/css/receipt-0606f1c54e.css">
+        <link rel="stylesheet" href="resources/css/receipt-0ff726ceaf.css">
         <link rel="stylesheet" href="resources/css/register-a6a6cc948d.css">
         <link rel="stylesheet" href="resources/css/reports-ace7faf688.css">
         <link rel="stylesheet" href="resources/css/ospos_rtl-1a576fa08e.css">
@@ -91,7 +91,7 @@ $language_code = current_language_code();
         <!-- endinject -->
     <?php else : ?>
         <!--inject:prod:css -->
-        <link rel="stylesheet" href="resources/opensourcepos-d68d923d5f.min.css">
+        <link rel="stylesheet" href="resources/opensourcepos-389f0cce81.min.css">
         <!-- endinject -->
 
         <!-- Tweaks to the UI for a particular theme should drop here  -->

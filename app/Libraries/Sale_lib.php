@@ -60,14 +60,14 @@ class Sale_lib
     }
 
     /**
-     * Returns the three sale modes supported by the shop register.
+     * Returns the three sale modes supported by the shop register with their till labels.
      *
      * @return array<string, string>
      */
     public function get_register_mode_options(): array
     {
         return [
-            'sale'       => lang('Sales.receipt'),
+            'sale'       => lang('Sales.mode_sale'),
             'sale_quote' => lang('Sales.quote'),
             'return'     => lang('Sales.return'),
         ];

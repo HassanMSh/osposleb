@@ -16,6 +16,8 @@ The owner must keep a separate copy of the `secrets` directory somewhere other t
 
 The shop secrets file `secrets/app.env` holds the application encryption key.
 
+Back up the shop before running `docker compose pull` on it, because a new image can migrate the database once automatic migrations land.
+
 Backups deliberately exclude the secrets files, including the encryption key.
 
 Losing the encryption key makes stored email and messaging credentials unreadable.
@@ -56,6 +58,7 @@ Set the one client-directory variable before using Compose or a launcher.
 
 ```powershell
 $env:OSPOS_DATA_DIR = 'C:\OSPOS\Client'
+docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml pull
 docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
 ```
 
@@ -85,8 +88,21 @@ Set `OSPOS_DATA_DIR` and start the stack with the same client override.
 
 ```bash
 export OSPOS_DATA_DIR="$PWD/client-data"
+docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml pull
 docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
 ```
+
+### Pin or roll back the client image
+
+Set `OSPOS_IMAGE_TAG` to `develop-<sha>` in the shell or `ospos.conf` to pin a specific build.
+
+On Windows, set `$env:OSPOS_IMAGE_TAG = 'develop-<sha>'` in PowerShell; on Linux, run `export OSPOS_IMAGE_TAG=develop-<sha>`.
+
+After setting the tag, rerun the same full `up -d` command shown above for your system.
+
+To roll back, set `OSPOS_IMAGE_TAG` to an earlier `develop-<sha>` and rerun the same full `up -d` command shown above for your system.
+
+Keep this repository checkout on the same `develop` commit as the image tag because a fresh database is seeded from the checkout's tracked `tables.sql` and `constraints.sql` files.
 
 ### Client backups and moves
 

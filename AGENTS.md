@@ -31,7 +31,11 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 
 ## Agent roles
 
-- Hand implementation work to `gpt-5.6-luna`, run through the Codex command line: `codex exec -m gpt-5.6-luna`. Confirmed reachable on 2026-09-20 after an earlier attempt through the subagent interface failed. The Codex default model is `gpt-5.6-sol`, so the `-m` flag is required every time.
+- Hand implementation work to `gpt-6-luna`, run through the Codex command line: `codex exec -m gpt-6-luna -c model_reasoning_effort="xhigh"`.
+- Hand review work to `gpt-6-sol`: `codex exec -m gpt-6-sol -c model_reasoning_effort="high"`.
+- Pass `-m` and the reasoning effort every time. The local Codex default is `gpt-6-luna` at medium effort, so leaving them out silently runs the wrong model or a weaker setting.
+- Close standard input (`< /dev/null`) or `codex exec` waits forever.
+- Moved from `gpt-5.6-luna` and `gpt-5.6-sol` on 2026-09-23 at the project owner's request. Earlier reports and briefs that name the 5.6 models record what actually ran at the time and stay as they are.
 - The coordinating agent keeps audit, decision records, review, Git and GitHub operations, and is responsible for checking whatever the implementation agent returns before it is committed.
 - Name the model that actually ran the work in the phase completion report. Do not record an intended model as if it had been used.
 
@@ -173,9 +177,13 @@ Suggested branch prefixes:
 ## Docker images
 
 - The shop image is published to Docker Hub as `hassanshamseddine/osposlb`. The local Docker client is already logged in to that account.
+- Publishing is live: the `publish` job in `.github/workflows/main.yml` runs only on pushes to `develop` after all checks pass.
+- The job pushes `hassanshamseddine/osposlb:develop`, which follows the newest `develop` commit, and `hassanshamseddine/osposlb:develop-<short sha>`, which stays fixed for pinning and rollback.
+- Client machines pull the published image and never build it.
+- Development still builds the image locally with `docker-compose.dev.yml`.
 - Never build and push the image from a developer machine. Image publishing belongs to GitHub Actions only, so every published tag comes from a reviewed commit.
 - The workflow authenticates with the repository secrets `DOCKER_HUB_USER` (the Docker Hub username) and `DOCKER_HUB` (the Docker Hub access token). Do not put either value in the repository, in a compose file, or in an ADR.
-- Local Docker use is limited to building and running throwaway images for testing.
+- Local Docker use is limited to building and running throwaway images for testing, and to the local development build.
 - When a local test container bind-mounts a worktree over `/app`, the mount hides the installed dependencies that live inside the image. Add a separate `/app/vendor` volume to the service so the image's dependencies stay visible, or the command line tool and the web entry point both fail to start.
 
 ## Dependencies

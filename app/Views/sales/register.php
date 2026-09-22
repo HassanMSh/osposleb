@@ -466,11 +466,65 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
 
         let addItemInFlight = false;
         const pendingItemScans = [];
+        const maxPendingItemScans = 20;
+        const registerRecoveryNoticeKey = 'ospos_register_recovery_notice';
+        let registerRecoveryInProgress = false;
+        const itemAddFailureMessage = <?= json_encode(lang(ucfirst($controller_name) . '.unable_to_add_item')) ?>;
 
         /**
-         * Renders the register fragments returned by the existing add-item AJAX request.
+         * Reloads the register after an uncertain add and tells the cashier which queued scans were dropped.
+         */
+        const recoverRegister = function(message, additionalDiscardedScans = 0) {
+            if (registerRecoveryInProgress) {
+                return;
+            }
+
+            registerRecoveryInProgress = true;
+            const discardedScanCount = pendingItemScans.length + additionalDiscardedScans;
+            pendingItemScans.length = 0;
+            const queuedScanMessage = discardedScanCount > 0
+                ? ` ${discardedScanCount} queued scan${discardedScanCount === 1 ? '' : 's'} were not submitted; scan them again.`
+                : '';
+            const recoveryMessage = `${message} The register was reloaded. Scan the item again if it is missing.${queuedScanMessage}`;
+
+            try {
+                sessionStorage.setItem(registerRecoveryNoticeKey, recoveryMessage);
+            } catch (error) {
+                // The visible notification below still warns the cashier if storage is unavailable.
+            }
+
+            $.notify({ message: recoveryMessage }, { type: 'danger' });
+            window.location.replace("<?= site_url('sales'); ?>");
+        };
+
+        /**
+         * Shows the recovery warning saved before the last authoritative register reload.
+         */
+        const showRecoveryNotice = function() {
+            let recoveryMessage = null;
+
+            try {
+                recoveryMessage = sessionStorage.getItem(registerRecoveryNoticeKey);
+                sessionStorage.removeItem(registerRecoveryNoticeKey);
+            } catch (error) {
+                return;
+            }
+
+            if (recoveryMessage) {
+                $.notify({ message: recoveryMessage }, { type: 'danger' });
+            }
+        };
+
+        /**
+         * Validates and renders both register fragments returned by the add-item AJAX request.
          */
         const renderAddItemResponse = function(response) {
+            if (typeof response !== 'string') {
+                recoverRegister(itemAddFailureMessage);
+
+                return false;
+            }
+
             const scanBuffer = $('#item').val();
             const responseDocument = document.implementation.createHTMLDocument('register-response');
             responseDocument.documentElement.innerHTML = response;
@@ -480,22 +534,26 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             const $message = $response.find('.alert-danger, .alert-warning, .alert-success').first();
             const totalMatch = response.match(/let changeHelperTotal = ([^;]+);/);
 
+            if ($register.length !== 1 || $sale.length !== 1) {
+                recoverRegister(itemAddFailureMessage);
+
+                return false;
+            }
+
             $('#register_wrapper').prevAll('.alert').remove();
             if ($message.length) {
                 $('#register_wrapper').before($message.clone());
             }
-            if ($register.length) {
-                $('#register_wrapper').replaceWith($register);
-            }
-            if ($sale.length) {
-                $('#overall_sale').replaceWith($sale);
-            }
+            $('#register_wrapper').replaceWith($register);
+            $('#overall_sale').replaceWith($sale);
             if (totalMatch) {
                 changeHelperTotal = Number(totalMatch[1]);
             }
 
             bindRegisterHandlers();
             $('#item').val(scanBuffer).focus();
+
+            return true;
         };
 
         /**
@@ -508,6 +566,12 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             }
 
             if (addItemInFlight) {
+                if (pendingItemScans.length >= maxPendingItemScans) {
+                    recoverRegister(itemAddFailureMessage, 1);
+
+                    return;
+                }
+
                 pendingItemScans.push(itemValue);
                 $('#item').val('');
 
@@ -520,6 +584,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             $input.val(itemValue);
             $form.ajaxSubmit({
                 dataType: 'html',
+                timeout: 10000,
                 beforeSubmit: function() {
                     $input.val(scanBuffer);
                 },
@@ -527,13 +592,13 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     renderAddItemResponse(response);
                 },
                 error: function() {
-                    $.notify({
-                        message: "<?= lang(ucfirst($controller_name) . '.unable_to_add_item') ?>"
-                    }, {
-                        type: 'danger'
-                    });
+                    recoverRegister(itemAddFailureMessage);
                 },
                 complete: function() {
+                    if (registerRecoveryInProgress) {
+                        return;
+                    }
+
                     addItemInFlight = false;
                     if (pendingItemScans.length > 0) {
                         const nextScan = pendingItemScans.shift();
@@ -634,7 +699,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
 
             $('#item').autocomplete({
                 source: "<?= esc("{$controller_name}/itemSearch") ?>",
-                minLength: 3,
+                minLength: 1,
                 autoFocus: false,
                 delay: 500,
                 select: function(a, ui) {
@@ -735,6 +800,9 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             dialog_support.init('a.modal-dlg, button.modal-dlg');
         };
 
+        /**
+         * Adds a newly created item through the same queued register path as scanner input.
+         */
         table_support.handle_submit = function(resource, response, stay_open) {
             $.notify({
                 message: response.message
@@ -745,15 +813,11 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             if (response.success) {
                 var $stock_location = $("select[name='stock_location']").val();
                 $('#item_location').val($stock_location);
-                $('#item').val(response.id);
-                if (stay_open) {
-                    $('#add_item_form').ajaxSubmit();
-                } else {
-                    $('#add_item_form').submit();
-                }
+                submitItemScan(response.id, $('#item').val());
             }
         };
 
+        showRecoveryNotice();
         bindRegisterHandlers();
         $('#item').focus();
     });

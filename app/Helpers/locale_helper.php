@@ -364,6 +364,20 @@ function to_datetime(int $datetime = DEFAULT_DATETIME): string
     return date($config['dateformat'] . ' ' . $config['timeformat'], $datetime);
 }
 
+/**
+ * Formats a timestamp for a sales receipt with a day-first date and shop time.
+ *
+ * @param int $datetime Unix timestamp to format.
+ *
+ * @return string Day-first receipt date and configured time.
+ */
+function to_receipt_datetime(int $datetime = DEFAULT_DATETIME): string
+{
+    $config = config(OSPOS::class)->settings;
+
+    return date('d/m/Y ' . $config['timeformat'], $datetime);
+}
+
 function to_currency(?string $number): string
 {
     return to_decimals($number, 'currency_decimals', NumberFormatter::CURRENCY);

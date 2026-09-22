@@ -11,6 +11,17 @@ use App\Models\Employee;
 
 <?= view('partial/header') ?>
 
+<style media="print">
+    @page {
+        margin: 0;
+    }
+
+    #receipt_wrapper {
+        padding: 3mm;
+        box-sizing: border-box;
+    }
+</style>
+
 <?php
 if (isset($error_message)) {
     echo '<div class="alert alert-dismissible alert-danger">' . $error_message . '</div>';

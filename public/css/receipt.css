@@ -4,6 +4,7 @@
 
 #receipt_header {
     text-align: center;
+    margin-bottom: 5px;
 }
 
 #company_name {
@@ -17,31 +18,37 @@
 }
 
 #company_phone {
-    margin-bottom: 15px;
-
+    margin-bottom: 5px;
 }
 
 #sale_time {
     margin-bottom: 5px;
 }
 
+#receipt_general_info {
+    margin-bottom: 5px;
+    text-align: center;
+}
+
 #receipt_items {
     position: relative;
     border-collapse: collapse;
-    margin-top: 15px;
-    margin-bottom: 15px;
+    margin-top: 5px;
+    margin-bottom: 5px;
     width: 100%;
+}
+
+#receipt_items th:not(.total-value) {
+    text-align: start;
+}
+
+#receipt_items td:not(.total-value):not(.receipt-label) {
+    text-align: start;
 }
 
 #receipt_items td {
     position: relative;
-    padding: 3px;
-    margin-bottom: 5px;
-
-}
-
-#receipt_items tr {
-    margin-bottom: 5px;
+    padding: 2px 3px;
 }
 
 #sale_return_policy {
@@ -51,12 +58,21 @@
 }
 
 #receipt_wrapper #barcode {
-    margin-top: 10px;
+    margin-top: 5px;
     text-align: center;
 }
 
 .total-value {
     text-align: right;
+    white-space: nowrap;
+}
+
+.receipt-label {
+    text-align: right;
+}
+
+.receipt-border-top {
+    border-top: 2px solid #000000;
 }
 
 .discount {

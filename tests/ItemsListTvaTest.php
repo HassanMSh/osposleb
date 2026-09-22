@@ -8,8 +8,10 @@ use App\Models\Item_taxes;
 use App\Models\Tax_category;
 use CodeIgniter\Config\Factories;
 use CodeIgniter\Test\CIUnitTestCase;
+use Config\Database;
 use Config\OSPOS;
 use ReflectionClass;
+use Throwable;
 
 /**
  * Covers the display-only TVA states shown in the items list.
@@ -196,9 +198,19 @@ final class ItemsListTvaTest extends CIUnitTestCase
 
     /**
      * Ensures item searches return the taxability fields needed by the list formatter.
+     *
+     * Skips the database-backed check when the test database is unavailable.
      */
     public function testItemSearchReturnsTaxabilityFieldsForListRows(): void
     {
+        try {
+            $database = Database::connect('tests');
+            $database->initialize();
+            $database->query('SELECT 1');
+        } catch (Throwable $exception) {
+            $this->markTestSkipped('The test database is unavailable: ' . $exception->getMessage());
+        }
+
         $filters = [
             'start_date'        => '2000-01-01',
             'end_date'          => '2100-01-01',

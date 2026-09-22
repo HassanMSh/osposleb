@@ -415,7 +415,7 @@ function get_items_manage_table_headers(): string
     if ($config['use_destination_based_tax']) {
         $headers[] = ['tax_percents' => lang('Items.tax_category'), 'sortable' => false];
     } else {
-        $headers[] = ['tax_percents' => lang('Items.tax_percents'), 'sortable' => false];
+        $headers[] = ['tax_percents' => lang('Items.tax_percents'), 'sortable' => false, 'escape' => false];
     }
 
     $headers[] = ['item_pic' => lang('Items.image'), 'sortable' => false];
@@ -431,7 +431,7 @@ function get_items_manage_table_headers(): string
 }
 
 /**
- * Get the html data row for the item
+ * Builds the item table row, including inherited, unset, or exempt tax labels.
  */
 function get_item_data_row(object $item): array
 {
@@ -456,7 +456,23 @@ function get_item_data_row(object $item): array
 
         // Remove ', ' from last item
         $tax_percents = substr($tax_percents, 0, -2);
-        $tax_percents = !$tax_percents ? '-' : $tax_percents;
+
+        if (! $tax_percents) {
+            if (($item->taxable ?? 1) == 1) {    // TODO: === ?
+                $global_rate = $config['default_tax_1_rate'] ?? '';
+
+                if ($global_rate !== '' && is_numeric($global_rate)) {
+                    $global_name = $config['default_tax_1_name'] ?? '';
+                    $global_name = $global_name !== '' ? $global_name : lang('Items.sales_tax_1');
+                    $global_rate = '<span dir="ltr">' . esc(to_tax_decimals($global_rate) . '%') . '</span>';
+                    $tax_percents = lang('Items.tax_mode_inherited', [esc($global_name), $global_rate]);
+                } else {
+                    $tax_percents = lang('Items.tax_mode_inherit_none');
+                }
+            } else {
+                $tax_percents = format_tax_group_label($item->tax_exemption_reason ?? 'exempt');
+            }
+        }
     }
 
     $controller = get_controller();
@@ -576,8 +592,8 @@ function item_kit_headers(): array
         ['item_kit_number'  => lang('Item_kits.item_kit_number')],
         ['name'             => lang('Item_kits.name')],
         ['description'      => lang('Item_kits.description')],
-        ['total_cost_price' => lang('Items.cost_price'), 'sortable' => FALSE],
-        ['total_unit_price' => lang('Items.unit_price'), 'sortable' => FALSE]
+        ['total_cost_price' => lang('Items.cost_price'), 'sortable' => false],
+        ['total_unit_price' => lang('Items.unit_price'), 'sortable' => false]
     ];
 }
 

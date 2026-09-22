@@ -131,7 +131,7 @@ class Item extends Model
     }
 
     /**
-     * Perform a search on items
+     * Performs an item search and includes the item's taxability fields in each result.
      */
     public function search(string $search, array $filters, ?int $rows = 0, ?int $limit_from = 0, ?string $sort = 'items.name', ?string $order = 'asc', ?bool $count_only = false)
     {
@@ -174,6 +174,8 @@ class Item extends Model
             $builder->select('MAX(items.is_serialized) AS is_serialized');
             $builder->select('MAX(items.pack_name) AS pack_name');
             $builder->select('MAX(items.tax_category_id) AS tax_category_id');
+            $builder->select('MAX(items.taxable) AS taxable');
+            $builder->select('MAX(items.tax_exemption_reason) AS tax_exemption_reason');
             $builder->select('MAX(items.deleted) AS deleted');
 
             $builder->select('MAX(suppliers.person_id) AS person_id');

@@ -221,8 +221,6 @@ final class TillEditItemTest extends CIUnitTestCase
     /**
      * Builds a controller with a real cart edit and stops before the register reload.
      *
-     * @param int|null $cartLineLocation
-     * @param int $saleLocation
      * @return array{0: SalesController, 1: Sale_lib, 2: RuntimeException}
      */
     private function makeController(array $post, ?int $cartLineLocation = 1, int $saleLocation = 1): array

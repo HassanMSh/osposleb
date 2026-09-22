@@ -474,9 +474,15 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             $.post("<?= site_url('sales/deletePayment/'); ?>" + item_id, redirect);
         });
 
+        $("input[name='item_number']").each(function() {
+            $(this).data('saved-item-number', $(this).val());
+        });
+
         $("input[name='item_number']").change(function() {
-            var item_id = $(this).parents('tr').find("input[name='item_id']").val();
-            var item_number = $(this).val();
+            var $input              = $(this);
+            var item_id             = $input.parents('tr').find("input[name='item_id']").val();
+            var item_number         = $input.val();
+            var previous_item_number = $input.data('saved-item-number');
             $.ajax({
                 url: "<?= site_url('sales/changeItemNumber') ?>",
                 method: 'post',
@@ -484,7 +490,24 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     'item_id': item_id,
                     'item_number': item_number,
                 },
-                dataType: 'json'
+                dataType: 'json',
+                success: function(response) {
+                    $.notify({
+                        message: response.message
+                    }, {
+                        type: response.success ? 'success' : 'danger'
+                    });
+
+                    if (response.success) {
+                        $input.val(response.item_number);
+                        $input.data('saved-item-number', response.item_number);
+                    } else {
+                        $input.val(previous_item_number);
+                    }
+                },
+                error: function() {
+                    $input.val(previous_item_number);
+                }
             });
         });
 

@@ -4,7 +4,6 @@ return [
     'address'                                   => 'عنوان الشركة',
     'address_required'                          => 'عنوان الشركة مطلوب.',
     'all_set'                                   => 'صلاحيات الملفات مضبطة بالطريقه الصحيحه!',
-    'allow_duplicate_barcodes'                  => 'السماح بتشابة الباركود',
     'apostrophe'                                => 'الفاصلة',
     'backup_button'                             => 'نسخ إحتياطى',
     'backup_database'                           => 'نسخ إحتياطى لقاعدة البيانات',

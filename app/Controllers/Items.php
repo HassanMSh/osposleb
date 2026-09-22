@@ -471,10 +471,15 @@ class Items extends Secure_Controller
         $data['barcode_config'] = $this->barcode_lib->get_barcode_config();
 
         foreach ($result as &$item) {
-            if (isset($item['item_number']) && empty($item['item_number']) && $this->config['barcode_generate_if_empty']) {
-                if (isset($item['item_id'])) {
-                    $save_item = ['item_number' => $item['item_number']];
-                    $this->item->save_value($save_item, $item['item_id']);
+            if (($item['item_number'] ?? null) !== null && ($item['item_number'] ?? null) !== '') {
+                continue;
+            }
+
+            if ($this->config['barcode_generate_if_empty'] && isset($item['item_id'])) {
+                $save_item = ['item_number' => $item['item_number'] ?? null];
+
+                if ($this->item->save_value($save_item, $item['item_id'])) {
+                    $item['item_number'] = $save_item['item_number'];
                 }
             }
         }
@@ -581,7 +586,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Validates and saves item data, including the selected legacy-path TVA mode.
+     * Validates and saves item data, including duplicate barcode errors and the selected legacy-path TVA mode.
      *
      * @throws ReflectionException
      */
@@ -679,7 +684,7 @@ class Items extends Secure_Controller
             'item_type'             => $item_type,
             'stock_type'            => $this->request->getPost('stock_type') === null ? HAS_STOCK : (int) ($this->request->getPost('stock_type')),
             'supplier_id'           => empty($this->request->getPost('supplier_id')) ? null : (int) ($this->request->getPost('supplier_id')),
-            'item_number'           => empty($this->request->getPost('item_number')) ? null : $this->request->getPost('item_number'),
+            'item_number'           => $this->request->getPost('item_number'),
             'cost_price'            => $cost_price,
             'unit_price'            => $unit_price,
             'reorder_level'         => $reorder_level,
@@ -711,6 +716,17 @@ class Items extends Secure_Controller
 
         if (! empty($upload_data['orig_name']) && $upload_data['raw_name']) {
             $item_data['pic_filename'] = $upload_data['raw_name'] . '.' . $upload_data['file_ext'];
+        }
+
+        if ($item_data['item_number'] !== null && $item_data['item_number'] !== '') {
+            $existing_item = $this->item->get_item_number_owner((string) $item_data['item_number'], (string) $item_id);
+
+            if ($existing_item !== null) {
+                $message = lang('Items.item_number_duplicate', [$existing_item->name]);
+                echo json_encode(['success' => false, 'message' => $message, 'id' => $item_id]);
+
+                return;
+            }
         }
 
         $employee_id = $this->employee->get_logged_in_employee_info()->person_id;
@@ -773,7 +789,23 @@ class Items extends Secure_Controller
                 echo json_encode(['success' => false, 'message' => $message, 'id' => $item_id]);
             }
         } else {
-            $message = lang('Items.error_adding_updating') . ' ' . $item_data['name'];
+            $existing_item    = null;
+            $duplicate_number = $item_data['item_number'] ?? null;
+
+            if (($duplicate_number === null || $duplicate_number === '')
+                && ($this->config['barcode_generate_if_empty'] ?? '0') == '1'
+                && isset($item_data['item_id'])
+                && (int) $item_data['item_id'] > 0) {
+                $duplicate_number = $this->item->generate_item_number((int) $item_data['item_id']);
+            }
+
+            if ($duplicate_number !== null && $duplicate_number !== '') {
+                $existing_item = $this->item->get_item_number_owner((string) $duplicate_number, (string) $item_id);
+            }
+
+            $message = $existing_item === null
+                ? lang('Items.error_adding_updating') . ' ' . $item_data['name']
+                : lang('Items.item_number_duplicate', [$existing_item->name]);
 
             echo json_encode(['success' => false, 'message' => $message, 'id' => NEW_ENTRY]);
         }
@@ -823,16 +855,23 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Ajax call to check to see if the item number, a.k.a. barcode, is already used by another item
-     * If it exists then that is an error condition so return true for "error found"
+     * Returns a JSON validation result or a localized duplicate-barcode message naming the existing item.
      *
      * @noinspection PhpUnused
      */
     public function postCheckItemNumber(): void
     {
-        $exists = $this->item->item_number_exists($this->request->getPost('item_number'), $this->request->getPost('item_id'));
+        $item_number = $this->request->getPost('item_number');
 
-        echo ! $exists ? 'true' : 'false';
+        if ($item_number === null || $item_number === '') {
+            echo json_encode(true);
+
+            return;
+        }
+
+        $existing_item = $this->item->get_item_number_owner($item_number, $this->request->getPost('item_id'));
+
+        echo json_encode($existing_item === null ? true : lang('Items.item_number_duplicate', [$existing_item->name]));
     }
 
     /**
@@ -982,7 +1021,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Imports items from CSV formatted file.
+     * Imports items from CSV formatted file and reports localized duplicate-barcode details.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -997,6 +1036,7 @@ class Items extends Secure_Controller
                 set_time_limit(240);
 
                 $failCodes                  = [];
+                $failure_details            = [];
                 $csv_rows                   = get_csv_file($_FILES['file_path']['tmp_name']);
                 $employee_id                = $this->employee->get_logged_in_employee_info()->person_id;
                 $allowed_stock_locations    = $this->stock_location->get_allowed_locations();
@@ -1017,10 +1057,11 @@ class Items extends Secure_Controller
                 $db->transBegin();    // TODO: This section needs to be reworked so that the data array is being created then passed to the Item model because $db doesn't exist in the controller without being instantiated, but database operations should be restricted to the model
 
                 foreach ($csv_rows as $key => $row) {
-                    $is_failed_row = false;
-                    $item_id       = (int) $row['Id'];
-                    $is_update     = ($item_id > 0);
-                    $item_data     = [
+                    $is_failed_row  = false;
+                    $duplicate_item = null;
+                    $item_id        = (int) $row['Id'];
+                    $is_update      = ($item_id > 0);
+                    $item_data      = [
                         'item_id'       => $item_id,
                         'name'          => $row['Item Name'],
                         'description'   => $row['Description'],
@@ -1045,9 +1086,10 @@ class Items extends Secure_Controller
                         $item_data['is_serialized']         = empty($row['Item has Serial Number']) ? '0' : '1';
                     }
 
-                    if (! empty($row['Barcode']) && ! $is_update) {
+                    if ($row['Barcode'] !== null && $row['Barcode'] !== '' && ! $is_update) {
                         $item_data['item_number'] = $row['Barcode'];
-                        $is_failed_row            = $this->item->item_number_exists($item_data['item_number']);
+                        $duplicate_item           = $this->item->get_item_number_owner($item_data['item_number']);
+                        $is_failed_row            = $duplicate_item !== null;
                     }
 
                     if (! $is_failed_row) {
@@ -1066,8 +1108,25 @@ class Items extends Secure_Controller
                             $item_data = array_merge($item_data, get_object_vars($this->item->get_info_by_id_or_number($item_id)));
                         }
                     } else {
-                        $failed_row  = $key + 2;
-                        $failCodes[] = $failed_row;
+                        $duplicate_number = $item_data['item_number'] ?? null;
+
+                        if (($duplicate_number === null || $duplicate_number === '')
+                            && ($this->config['barcode_generate_if_empty'] ?? '0') == '1'
+                            && isset($item_data['item_id'])
+                            && (int) $item_data['item_id'] > 0) {
+                            $duplicate_number = $this->item->generate_item_number((int) $item_data['item_id']);
+                            $duplicate_item   = $this->item->get_item_number_owner($duplicate_number, (string) $item_id);
+                        }
+
+                        $failed_row        = $key + 2;
+                        $failCodes[]       = $failed_row;
+                        $failure_details[] = $duplicate_item === null
+                            ? (string) $failed_row
+                            : lang('Items.csv_import_barcode_duplicate', [
+                                $failed_row,
+                                $duplicate_number,
+                                $duplicate_item->name,
+                            ]);
                         log_message('error', "CSV Item import failed on line {$failed_row}. This item was not imported.");
                     }
 
@@ -1078,6 +1137,11 @@ class Items extends Secure_Controller
 
                 if (count($failCodes) > 0) {
                     $message = lang('Items.csv_import_partially_failed', [count($failCodes), implode(', ', $failCodes)]);
+
+                    if ($failure_details !== []) {
+                        $message .= ' ' . implode(' ', $failure_details);
+                    }
+
                     $db->transRollback();
                     echo json_encode(['success' => false, 'message' => $message]);
                 } else {

@@ -4,7 +4,6 @@ return [
     'address'                                   => 'Company Address',
     'address_required'                          => 'Company address is a required field.',
     'all_set'                                   => 'All file permissions are set correctly!',
-    'allow_duplicate_barcodes'                  => 'Allow Duplicate Barcodes',
     'apostrophe'                                => 'apostrophe',
     'backup_button'                             => 'Backup',
     'backup_database'                           => 'Backup Database',

@@ -470,6 +470,8 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         const registerRecoveryNoticeKey = 'ospos_register_recovery_notice';
         let registerRecoveryInProgress = false;
         const itemAddFailureMessage = <?= json_encode(lang(ucfirst($controller_name) . '.unable_to_add_item')) ?>;
+        const registerReloadedMessage = <?= json_encode(lang(ucfirst($controller_name) . '.register_reloaded_scan_again')) ?>;
+        const queuedScansMessageTemplate = <?= json_encode(lang(ucfirst($controller_name) . '.queued_scans_not_submitted')) ?>;
 
         /**
          * Reloads the register after an uncertain add and tells the cashier which queued scans were dropped.
@@ -483,9 +485,9 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             const discardedScanCount = pendingItemScans.length + additionalDiscardedScans;
             pendingItemScans.length = 0;
             const queuedScanMessage = discardedScanCount > 0
-                ? ` ${discardedScanCount} queued scan${discardedScanCount === 1 ? '' : 's'} were not submitted; scan them again.`
+                ? ` ${queuedScansMessageTemplate.replace('{0}', discardedScanCount)}`
                 : '';
-            const recoveryMessage = `${message} The register was reloaded. Scan the item again if it is missing.${queuedScanMessage}`;
+            const recoveryMessage = `${message} ${registerReloadedMessage}${queuedScanMessage}`;
 
             try {
                 sessionStorage.setItem(registerRecoveryNoticeKey, recoveryMessage);

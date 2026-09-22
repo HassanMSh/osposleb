@@ -123,6 +123,7 @@ docker_args+=(
     --uploads "/uploads-parent/$uploads_name"
     --env /client.env
     --db-host "$db_host"
+    --platform linux
 )
 
 if (( database_option_set == 1 )); then

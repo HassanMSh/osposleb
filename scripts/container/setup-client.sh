@@ -89,6 +89,7 @@ print_layout() {
     printf 'Created: %s\n' "$host_data_dir/secrets/mysql.env"
     printf 'Created: %s\n' "$host_data_dir/secrets/db.env"
     printf 'Created: %s\n' "$host_data_dir/uploads"
+    printf 'Created: %s\n' "$host_data_dir/uploads/item_pics"
     printf 'Created: %s\n' "$host_data_dir/backups"
     if [[ $platform == linux ]]; then
         printf 'Protected secrets: secrets directory mode 700 (app.env mode 644, mysql.env mode 600, db.env mode 600)\n'
@@ -111,9 +112,9 @@ else
 fi
 
 if (( prepared_directory == 1 )); then
-    mkdir -p "$data_dir/uploads" "$data_dir/backups"
+    mkdir -p "$data_dir/uploads" "$data_dir/uploads/item_pics" "$data_dir/backups"
 else
-    mkdir -p "$data_dir/secrets" "$data_dir/uploads" "$data_dir/backups"
+    mkdir -p "$data_dir/secrets" "$data_dir/uploads" "$data_dir/uploads/item_pics" "$data_dir/backups"
 fi
 
 root_password=$(generate_secret)
@@ -167,7 +168,7 @@ if [[ $platform == linux ]]; then
     chmod 644 "$data_dir/secrets/app.env"
     chmod 600 "$data_dir/secrets/mysql.env"
     chmod 600 "$data_dir/secrets/db.env"
-    chmod 777 "$data_dir/uploads"
+    chmod 777 "$data_dir/uploads" "$data_dir/uploads/item_pics"
 fi
 
 print_layout

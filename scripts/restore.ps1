@@ -95,7 +95,8 @@ $dockerArgs = @(
     '--archive', "/archive-parent/$archiveName",
     '--uploads', "/uploads-parent/$uploadsName",
     '--env', '/client.env',
-    '--db-host', $dbHost
+    '--db-host', $dbHost,
+    '--platform', 'windows'
 )
 
 if ($databaseSet) { $dockerArgs += @('--database', $databaseArg) }

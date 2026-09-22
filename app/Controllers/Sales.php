@@ -547,6 +547,9 @@ class Sales extends Secure_Controller
     /**
      * Edit an item in the sale. Used in app/Views/sales/register.php
      *
+     * Tolerates the removed discount and optional location fields being absent
+     * from the register row form.
+     *
      * @noinspection PhpUnused
      */
     public function postEditItem(string $line): void
@@ -565,11 +568,12 @@ class Sales extends Secure_Controller
             $price         = parse_decimals($this->request->getPost('price'));
             $quantity      = parse_decimals($this->request->getPost('quantity'));
             $discount_type = $this->request->getPost('discount_type', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            $discount      = $this->request->getPost('discount') ?? '0';
             $discount      = $discount_type
-                ? parse_quantity($this->request->getPost('discount'))
-                : parse_decimals($this->request->getPost('discount'));
+                ? parse_quantity($discount)
+                : parse_decimals($discount);
 
-            $item_location    = $this->request->getPost('location', FILTER_SANITIZE_NUMBER_INT);
+            $item_location    = $this->request->getPost('location', FILTER_SANITIZE_NUMBER_INT) ?? 0;
             $discounted_total = $this->request->getPost('discounted_total') != ''
                 ? parse_decimals($this->request->getPost('discounted_total') ?? '')
                 : null;

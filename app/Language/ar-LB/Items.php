@@ -59,7 +59,7 @@ return [
     'item'                               => 'صنف',
     'item_id'                            => '',
     'item_number'                        => 'الباركود UPC/EAN/ISBN',
-    'item_number_duplicate'              => 'رقم الصنف موجود فى قاعدة البيانات من قبل.',
+    'item_number_duplicate'              => 'الباركود مستخدم بالفعل للصنف: {0}.',
     'kit'                                => 'مجموعة اصناف',
     'location'                           => 'مكان',
     'low_inventory_items'                => 'الأصناف التى لا يوجد لها مخزون',

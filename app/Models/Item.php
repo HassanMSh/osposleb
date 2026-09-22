@@ -61,28 +61,45 @@ class Item extends Model
     }
 
     /**
-     * Determines if a given item_number exists
+     * Determines if a given item_number exists on another item.
      */
     public function item_number_exists(string $item_number, string $item_id = ''): bool
     {
-        $config = config(OSPOS::class)->settings;
+        return $this->get_item_number_owner($item_number, $item_id) !== null;
+    }
 
-        if ($config['allow_duplicate_barcodes']) {
-            return false;
-        }
-
+    /**
+     * Returns the item that already owns a barcode, excluding an optional item ID.
+     */
+    public function get_item_number_owner(string $item_number, string $item_id = ''): ?object
+    {
         $builder = $this->db->table('items');
+        $builder->select('item_id, name');
         $builder->where('item_number', $item_number);
-        $builder->where('deleted !=', 1);
-        $builder->where('item_id !=', (int) $item_id);
 
-        // Check if $item_id is a number and not a string starting with 0
-        // because cases like 00012345 will be seen as a number where it is a barcode
-        if (ctype_digit($item_id) && ! str_starts_with($item_id, '0')) {
+        if ($item_id !== '') {
             $builder->where('item_id !=', (int) $item_id);
         }
 
-        return $builder->get()->getNumRows() >= 1;
+        return $builder->get()->getRow();
+    }
+
+    /**
+     * Builds the shop-internal EAN-13 barcode for a permanent item ID.
+     */
+    public function generate_item_number(int $item_id): string
+    {
+        $item_number = '20' . str_pad((string) $item_id, 10, '0', STR_PAD_LEFT);
+        $sum         = 0;
+
+        for ($position = 0; $position < 12; $position++) {
+            $weight = $position % 2 === 0 ? 1 : 3;
+            $sum += (int) $item_number[$position] * $weight;
+        }
+
+        $check_digit = (10 - ($sum % 10)) % 10;
+
+        return $item_number . $check_digit;
     }
 
     /**
@@ -415,13 +432,22 @@ class Item extends Model
     }
 
     /**
-     * Inserts or updates an item
+     * Inserts or updates an item, enforcing barcode uniqueness and generating an EAN-13 when enabled.
      */
     public function save_value(array &$item_data, int $item_id = NEW_ENTRY): bool    // TODO: need to bring this in line with parent or change the name
     {
-        $builder = $this->db->table('items');
+        $builder           = $this->db->table('items');
+        $config            = config(OSPOS::class)->settings;
+        $generate_if_empty = ($config['barcode_generate_if_empty'] ?? '0') == '1';
 
         if ($item_id < 1 || ! $this->exists($item_id, true)) {
+            if (array_key_exists('item_number', $item_data)
+                && $item_data['item_number'] !== null
+                && $item_data['item_number'] !== ''
+                && $this->item_number_exists((string) $item_data['item_number'])) {
+                return false;
+            }
+
             if ($builder->insert($item_data)) {
                 $item_data['item_id'] = (int) $this->db->insertID();
                 if ($item_id < 1) {
@@ -430,12 +456,50 @@ class Item extends Model
                     $builder->update(['low_sell_item_id' => $item_data['item_id']]);
                 }
 
+                if ($generate_if_empty
+                    && (! array_key_exists('item_number', $item_data)
+                        || $item_data['item_number'] === null
+                        || $item_data['item_number'] === '')) {
+                    $item_number = $this->generate_item_number($item_data['item_id']);
+
+                    if ($this->item_number_exists($item_number, (string) $item_data['item_id'])) {
+                        return false;
+                    }
+
+                    $builder = $this->db->table('items');
+                    $builder->where('item_id', $item_data['item_id']);
+
+                    if (! $builder->update(['item_number' => $item_number])) {
+                        return false;
+                    }
+
+                    $item_data['item_number'] = $item_number;
+                }
+
                 return true;
             }
 
             return false;
         }
         $item_data['item_id'] = $item_id;
+
+        if (array_key_exists('item_number', $item_data)) {
+            if ($item_data['item_number'] !== null
+                && $item_data['item_number'] !== ''
+                && $this->item_number_exists((string) $item_data['item_number'], (string) $item_id)) {
+                return false;
+            }
+
+            if ($generate_if_empty && ($item_data['item_number'] === null || $item_data['item_number'] === '')) {
+                $item_number = $this->generate_item_number($item_id);
+
+                if ($this->item_number_exists($item_number, (string) $item_id)) {
+                    return false;
+                }
+
+                $item_data['item_number'] = $item_number;
+            }
+        }
 
         $builder = $this->db->table('items');
         $builder->where('item_id', $item_id);

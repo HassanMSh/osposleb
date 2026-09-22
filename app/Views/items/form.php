@@ -571,6 +571,8 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
             return value.match(/(\||_)/g) == null;
         }, "<?= lang('Attributes.attribute_value_invalid_chars') ?>");
 
+        var item_number_duplicate_message = "<?= esc(lang('Items.item_number_duplicate'), 'js') ?>";
+
         var init_validation = function() {
             $('#item_form').validate($.extend({
                 submitHandler: function(form, event) { // Event is not used as a parameter here
@@ -608,6 +610,17 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                             data: {
                                 'item_id': "<?= $item_info->item_id ?>"
                                 // item_number should be passed into the function by default
+                            },
+                            dataFilter: function(data) {
+                                var response = JSON.parse(data);
+
+                                if (response === true) {
+                                    return 'true';
+                                }
+
+                                item_number_duplicate_message = response;
+
+                                return 'false';
                             }
                         }
                     },
@@ -641,7 +654,11 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
 
                 messages: {
                     name: "<?= lang('Items.name_required') ?>",
-                    item_number: "<?= lang('Items.item_number_duplicate') ?>",
+                    item_number: {
+                        remote: function() {
+                            return item_number_duplicate_message;
+                        }
+                    },
                     category: "<?= lang('Items.category_required') ?>",
                     cost_price: {
                         required: "<?= lang('Items.cost_price_required') ?>",

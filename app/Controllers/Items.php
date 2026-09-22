@@ -250,7 +250,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Loads the item form and resolves its inherit, own-rate, or no-TVA state.
+     * Loads the item form, including the global TVA details used by its inherit option.
      */
     public function getView(int $item_id = NEW_ENTRY): void    // TODO: Long function. Perhaps we need to refactor out some methods.
     {
@@ -262,7 +262,8 @@ class Items extends Secure_Controller
 
         $data['allow_temp_item']      = $this->session->get('allow_temp_items'); // allow_temp_items is set in the index function of items.php or sales.php
         $data['item_tax_info']        = $this->item_taxes->get_info($item_id);
-        $data['default_tax_1_rate']   = '';
+        $data['default_tax_1_rate']   = $this->config['default_tax_1_rate'] ?? '';
+        $data['default_tax_1_name']   = $this->config['default_tax_1_name'] ?? '';
         $data['default_tax_2_rate']   = '';
         $data['tax_mode']             = 'inherit';
         $data['tax_exemption_reason'] = 'exempt';
@@ -292,7 +293,6 @@ class Items extends Secure_Controller
         }
 
         if ($item_id === NEW_ENTRY) {
-            $data['default_tax_1_rate'] = $this->config['default_tax_1_rate'];
             $data['default_tax_2_rate'] = $this->config['default_tax_2_rate'];
 
             $item_info->receiving_quantity   = 1;

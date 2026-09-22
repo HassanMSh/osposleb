@@ -63,6 +63,26 @@ final class TillEditItemTest extends CIUnitTestCase
     }
 
     /**
+     * Stores zero when the removed discount input is posted blank.
+     */
+    public function testEditingCartLineWithBlankDiscountStoresZero(): void
+    {
+        [$controller, $saleLibrary, $reloadException] = $this->makeController([
+            'location'    => '1',
+            'item_id'     => '7',
+            'price'       => '12.00',
+            'quantity'    => '2.00',
+            'discount'   => '',
+            'description' => '',
+            'serialnumber' => '',
+        ]);
+
+        $this->invokeEditItem($controller, $reloadException);
+
+        $this->assertSame('0', $saleLibrary->get_cart()[1]['discount']);
+    }
+
+    /**
      * Keeps an explicitly posted discount when the legacy input is present.
      */
     public function testEditingCartLineWithExplicitDiscountAppliesDiscount(): void
@@ -88,7 +108,7 @@ final class TillEditItemTest extends CIUnitTestCase
     }
 
     /**
-     * Uses a safe integer default when a hand-built request omits the location.
+     * Uses the cart line location when a hand-built request omits the location.
      */
     public function testEditingCartLineWithoutLocationDoesNotThrow(): void
     {
@@ -103,6 +123,31 @@ final class TillEditItemTest extends CIUnitTestCase
         $this->invokeEditItem($controller, $reloadException);
 
         $this->assertSame('2', $saleLibrary->get_cart()[1]['quantity']);
+    }
+
+    /**
+     * Treats a blank location as absent and completes the cart edit.
+     */
+    public function testEditingCartLineWithBlankLocationDoesNotThrowOrPartiallyEdit(): void
+    {
+        [$controller, $saleLibrary, $reloadException] = $this->makeController([
+            'location'    => '',
+            'item_id'     => '7',
+            'price'       => '12.00',
+            'quantity'    => '2.00',
+            'description' => '',
+            'serialnumber' => '',
+        ]);
+
+        $this->invokeEditItem($controller, $reloadException);
+
+        $cart = $saleLibrary->get_cart();
+
+        $this->assertSame('2', $cart[1]['quantity']);
+        $this->assertSame('12', $cart[1]['price']);
+        $this->assertSame('0', $cart[1]['discount']);
+        $this->assertSame('24', $cart[1]['total']);
+        $this->assertSame('24', $cart[1]['discounted_total']);
     }
 
     /**
@@ -140,7 +185,7 @@ final class TillEditItemTest extends CIUnitTestCase
             ->onlyMethods(['out_of_stock', 'reset_cash_rounding'])
             ->getMock();
 
-        $expectedLocation = (int) ($post['location'] ?? 0);
+        $expectedLocation = 1;
         $saleLibrary->expects($this->once())
             ->method('out_of_stock')
             ->with(7, $expectedLocation)

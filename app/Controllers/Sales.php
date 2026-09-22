@@ -547,8 +547,8 @@ class Sales extends Secure_Controller
     /**
      * Edit an item in the sale. Used in app/Views/sales/register.php
      *
-     * Tolerates the removed discount and optional location fields being absent
-     * from the register row form.
+     * Normalizes absent or blank discount and location fields from the register
+     * row form, using the cart line or sale location for stock checks.
      *
      * @noinspection PhpUnused
      */
@@ -568,12 +568,21 @@ class Sales extends Secure_Controller
             $price         = parse_decimals($this->request->getPost('price'));
             $quantity      = parse_decimals($this->request->getPost('quantity'));
             $discount_type = $this->request->getPost('discount_type', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            $discount      = $this->request->getPost('discount') ?? '0';
-            $discount      = $discount_type
-                ? parse_quantity($discount)
-                : parse_decimals($discount);
+            $discount_input = $this->request->getPost('discount');
+            if ($discount_input === null || $discount_input === '' || (is_string($discount_input) && trim($discount_input) === '')) {
+                $discount_input = '0';
+            }
 
-            $item_location    = $this->request->getPost('location', FILTER_SANITIZE_NUMBER_INT) ?? 0;
+            $discount      = $discount_type
+                ? parse_quantity($discount_input)
+                : parse_decimals($discount_input);
+
+            $item_location = $this->request->getPost('location', FILTER_SANITIZE_NUMBER_INT);
+            if ($item_location === null || $item_location === '' || (is_string($item_location) && trim($item_location) === '')) {
+                $cart          = $this->sale_lib->get_cart();
+                $item_location = $cart[$line]['item_location'] ?? $this->sale_lib->get_sale_location();
+            }
+
             $discounted_total = $this->request->getPost('discounted_total') != ''
                 ? parse_decimals($this->request->getPost('discounted_total') ?? '')
                 : null;

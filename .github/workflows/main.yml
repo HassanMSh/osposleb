@@ -152,10 +152,8 @@ jobs:
       - name: Install dependencies
         run: composer install --ansi --no-interaction --no-progress
 
-      # The built front-end assets are gitignored, but the tracked page header
-      # references them by content hash. A bare checkout therefore has none of
-      # them, and AssetIntegrityTest fails. Building here keeps that test
-      # meaningful and proves the asset build itself still works on every change.
+      # The generated front-end assets are gitignored, so build them before
+      # AssetIntegrityTest checks the generated header partial and its files.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

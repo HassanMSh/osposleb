@@ -1,82 +1,45 @@
 # Building OSPOS
 
-## For Developers and Hobbyists Only
+## Development assets
 
-If you are a developer and need to add unique features to OSPOS, you can download the raw code from the github repository and make changes.  If it's a really cool change that might benefit others, we ask that you consider contributing it to the project.
+The front-end build uses Node.js 22 and npm.
+The asset build does not need PHP or Composer.
+The development Docker stack runs the one-shot `assets` service before it starts the app.
+The service runs `npm ci` when dependencies are missing or the package lock changed.
+It then runs `npm run build` in the project checkout.
+To start the development stack, set `USERID` and `GROUPID` to your host user and group IDs.
+Run `docker compose -f docker-compose.dev.yml up` from the project root.
+To build assets by hand, run `npm ci` and then `npm run build` from the project root.
+The two GitHub-hosted npm packages use commit-pinned archive URLs, so this build does not need Git.
+The build writes content-hashed files under `public/resources`.
+It copies `app/Views/partial/header_assets.template.php` to the ignored `header_assets.php` file before it injects asset names.
+The build does not change the tracked `app/Views/partial/header.php` file.
+The `build-database` task still creates `app/Database/database.sql` for release archives.
+The development database loads `tables.sql` and `constraints.sql` directly.
 
-After you've made your changes, you will need to do a "BUILD" on it to add all necessary components that OSPOS needs to be a fully functional application.
+## License files
 
-This documents the "How to Build" process.
+The default asset build does not run Composer or update license files.
+The Docker image build runs `npx gulp update-licenses` with Composer and PHP in its build stage.
+The final image includes the generated Composer, npm, and project license files under `public/license`.
 
-The goal here is to set up and configure the build process so that the actual build is as simple as possible.
+## Running OSPOS outside Docker
 
-The build process uses the build tools "npm" and "gulp" to piece everything together.
+Install the PHP packages with `composer install` when you run OSPOS outside Docker.
+Run `npm ci` and `npm run build` to make the front-end assets.
+Some PHP packages need extensions such as `intl`, so enable the required PHP extensions in `php.ini`.
+Copy a configured `.env` file into the project root before starting the app.
+Use the standard installation guide if you need to create or upgrade a database.
 
-The asset hashes committed in `app/Views/partial/header.php` are a build snapshot, not permanent filenames.
+## Windows
 
-Running `npm run build` rewrites `app/Views/partial/header.php` in place with the fresh asset hashes.
+Run `build.ps1` for a full build and optional `.env` restore.
+Run `build-steps.ps1` to build the main asset groups one step at a time.
+`build-steps.ps1` skips the Bootstrap 5 copy, the module icons and the database file, so use `build.ps1` when you need a complete build.
+Both scripts must run from the project root.
 
-The Docker image installs the Node dependencies and builds the front-end assets itself, then copies the built assets and matching header into the application image.
+## Asset checks
 
-A development or review checkout must run the asset build itself before it is served, because `docker-compose.dev.yml` bind-mounts the checkout over `/app` and the checkout supplies the page header.
-
-The built asset directories are deliberately not restored from the image through a volume: the asset filenames are content hashes that must match the header injected beside them, and serving image assets against a checkout header brings back the 404s this setup exists to prevent.
-
-`AssetIntegrityTest` fails with the list of missing files whenever a checkout has not been built, so a bare checkout reports the problem instead of silently rendering an unstyled page.
-
-## Prerequisites
-
-- Install the latest version of NPM (tested using version 9.4.2)
-- Install the latest version of Composer (tested using composer 2.5.1)
-
-## The Workflow
-
-1. Download the code from the master branch found at https://github.com/opensourcepos/opensourcepos/tree/master.
-2. Unzip it and copy the contents into the working folder.
-3. Start a terminal session from the root of your working folder. For example, I normally open up the working folder in PHPStorm and run the commands from the Terminal provided by the IDE.
-4. Enter the following three commands in sequence:
-    - `composer install`
-    - `npm install`
-    - `npm run build`
-
-That's all there is to it.
-
-Note: If you receive messages similar to 'codeigniter4/framework v4.3.1 requires ext-intl', this is an indicator that you do not have intl enabled in php.ini
-
-After the build tasks are complete, if you have the database set up and a preconfigured copy of .env, just drop the .env file into the root of the working folder. You should be ready to go.
-
-If you do not have an existing (and upgraded) database, then you will need to continue from this point forward with the standard installation instructions, but at this point you have a runnable version of OSPOS.
-
-### Windows Platform
-
-Using an `.env` file is a convenient approach to store OSPOS configuration.
-
-I've added the following Powershell scripts to make my life a bit easier, which I share with you.
-
-* `build.ps1` - Which runs the build but also restores the .env from a backup I make of it in a specifically placed folder. I place a copy of the configured .env file in a folder that has the following path from the working folder: `../env/<working-folder-name>/.env`
-
-### Containerized setup
-Development using docker has the advantage that all the application's dependencies are contained within the docker environment. During development we want to have a live version of the code in the container when we edit it. This is accomplished by mounting the application folder within the /app of the docker container. 
-
-The file permissions for the repository in the container should be the same as on the host. That's why we have to startthe PHP process in docker with the host current uid. 
-
-```
-export USERID=$(id -u)
-export GROUPID=$(id -g)
-docker-compose -f docker-compose.dev.yml up
-```
-
-The development stack generates its own encryption key on first use and needs no developer setup.
-A real shop gets its encryption key from the client setup script instead.
-
-## The Result
-
-The build creates a developer version of a runnable instance of OSPOS.  It contains a ton of developer stuff that **should not be deployed to a production environment**.
-
-Again, the results of this build is NOT something that should be used for production.
-
-However, the zip and tar files, found in the root `dist` folder, are created as part of the build process and can be used for deploying a ***trial production*** instance of OSPOS.
-
-Only official releases should be used for real production.  There is significant risk of failure should you chose to deploy a development branch or even a master branch that the development team hasn't signed off on.
-
-Good luck with your build. Please report any issues you encounter.
+`AssetIntegrityTest` checks the generated header partial and the files it names.
+Build the assets before running that test.
+If `header_assets.php` is missing, the app shows a developer notice and the test explains how to build it.

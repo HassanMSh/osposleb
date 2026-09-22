@@ -182,6 +182,7 @@ Suggested branch prefixes:
 
 ## Docker images
 
+- The development stack builds assets itself through the one-shot `assets` service.
 - The shop image is published to Docker Hub as `hassanshamseddine/osposlb`. The local Docker client is already logged in to that account.
 - Publishing is live: the `publish` job in `.github/workflows/main.yml` runs only on pushes to `develop` after all checks pass.
 - The job pushes `hassanshamseddine/osposlb:develop`, which follows the newest `develop` commit, and `hassanshamseddine/osposlb:develop-<short sha>`, which stays fixed for pinning and rollback.

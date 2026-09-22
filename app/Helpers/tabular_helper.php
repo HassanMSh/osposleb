@@ -426,7 +426,7 @@ function get_items_manage_table_headers(): string
 }
 
 /**
- * Builds the item table row, including inherited, unset, or exempt tax labels.
+ * Builds the item table row, escaping stored tax labels and including inherited, unset, or exempt tax labels.
  */
 function get_item_data_row(object $item): array
 {
@@ -440,7 +440,7 @@ function get_item_data_row(object $item): array
             $tax_percents = '-';
         } else {
             $tax_category_info = $tax_category->get_info($item->tax_category_id);
-            $tax_percents      = $tax_category_info->tax_category;
+            $tax_percents      = esc($tax_category_info->tax_category);
         }
     } else {
         $item_tax_info = $item_taxes->get_info($item->item_id);

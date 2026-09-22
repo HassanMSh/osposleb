@@ -19,6 +19,7 @@ use ReflectionClass;
 final class ItemsListTvaTest extends CIUnitTestCase
 {
     private array $itemTaxInfo = [];
+    private array $taxCategoryInfo = [];
 
     /**
      * Loads the item-list helpers and replaces tax-row lookups with test data.
@@ -40,6 +41,11 @@ final class ItemsListTvaTest extends CIUnitTestCase
         );
 
         $taxCategory = $this->createMock(Tax_category::class);
+        $taxCategory->method('get_info')->willReturnCallback(
+            fn (int $tax_category_id): object => (object) [
+                'tax_category' => $this->taxCategoryInfo[$tax_category_id] ?? '',
+            ],
+        );
 
         Factories::injectMock('models', Attribute::class, $attribute);
         Factories::injectMock('models', Item_taxes::class, $itemTaxes);
@@ -68,6 +74,20 @@ final class ItemsListTvaTest extends CIUnitTestCase
         $row = get_item_data_row($this->makeItem());
 
         $this->assertSame('10.00%', $row['tax_percents']);
+    }
+
+    /**
+     * Keeps the per-item percentage formatter protected by output escaping.
+     */
+    public function testItemTaxPercentLoopEscapesFormattedValues(): void
+    {
+        $source = file_get_contents(APPPATH . 'Helpers/tabular_helper.php');
+
+        $this->assertIsString($source);
+        $this->assertStringContainsString(
+            '$tax_percents .= esc(to_tax_decimals($tax_info[\'percent\']) . \'%, \');',
+            $source,
+        );
     }
 
     /**
@@ -128,6 +148,22 @@ final class ItemsListTvaTest extends CIUnitTestCase
     }
 
     /**
+     * Escapes a stored destination tax-category name before returning the item-list cell.
+     */
+    public function testDestinationTaxCategoryEscapesStoredName(): void
+    {
+        $category = '<img src=x onerror=alert(document.domain)>';
+
+        $this->taxCategoryInfo = [7 => $category];
+        $this->setSettings('11', true);
+
+        $row = get_item_data_row($this->makeItem(1, 'exempt', 7));
+
+        $this->assertSame('&lt;img src=x onerror=alert(document.domain)&gt;', $row['tax_percents']);
+        $this->assertStringNotContainsString($category, $row['tax_percents']);
+    }
+
+    /**
      * Keeps HTML enabled for the item tax column so inherited rates retain their direction markup.
      */
     public function testItemTaxColumnKeepsHtmlEnabled(): void
@@ -171,7 +207,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
     /**
      * Creates an item record with the fields used by the table-row formatter.
      */
-    private function makeItem(int $taxable = 1, string $taxExemptionReason = 'exempt'): object
+    private function makeItem(int $taxable = 1, string $taxExemptionReason = 'exempt', ?int $taxCategoryId = null): object
     {
         return (object) [
             'category'             => '',
@@ -183,6 +219,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
             'pack_name'            => 'Each',
             'pic_filename'         => null,
             'quantity'             => '1',
+            'tax_category_id'     => $taxCategoryId,
             'tax_exemption_reason' => $taxExemptionReason,
             'taxable'              => $taxable,
             'unit_price'           => '2.00',
@@ -192,7 +229,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
     /**
      * Injects the settings needed by the item row and number formatters.
      */
-    private function setSettings(string $globalRate): void
+    private function setSettings(string $globalRate, bool $useDestinationBasedTax = false): void
     {
         $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
         $ospos->settings = [
@@ -207,7 +244,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
             'tax_decimals'              => '2',
             'tax_included'              => true,
             'thousands_separator'       => '1',
-            'use_destination_based_tax' => false,
+            'use_destination_based_tax' => $useDestinationBasedTax,
         ];
         Factories::injectMock('config', OSPOS::class, $ospos);
     }

@@ -122,7 +122,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
 
         $this->assertStringContainsString(
             '&lt;img src=x onerror=alert(document.domain)&gt;',
-            $row['tax_percents']
+            $row['tax_percents'],
         );
         $this->assertStringNotContainsString($reason, $row['tax_percents']);
     }
@@ -132,10 +132,10 @@ final class ItemsListTvaTest extends CIUnitTestCase
      */
     public function testItemTaxColumnKeepsHtmlEnabled(): void
     {
-        $headers = json_decode(get_items_manage_table_headers(), true, 512, JSON_THROW_ON_ERROR);
+        $headers    = json_decode(get_items_manage_table_headers(), true, 512, JSON_THROW_ON_ERROR);
         $taxHeaders = array_values(array_filter(
             $headers,
-            fn (array $header): bool => $header['field'] === 'tax_percents'
+            static fn (array $header): bool => $header['field'] === 'tax_percents',
         ));
 
         $this->assertCount(1, $taxHeaders);
@@ -174,18 +174,18 @@ final class ItemsListTvaTest extends CIUnitTestCase
     private function makeItem(int $taxable = 1, string $taxExemptionReason = 'exempt'): object
     {
         return (object) [
-            'category'              => '',
-            'company_name'          => '',
-            'cost_price'            => '1.00',
-            'item_id'               => 1,
-            'item_number'           => '',
-            'name'                  => 'Coffee',
-            'pack_name'             => 'Each',
-            'pic_filename'          => null,
-            'quantity'              => '1',
-            'tax_exemption_reason'  => $taxExemptionReason,
-            'taxable'               => $taxable,
-            'unit_price'            => '2.00',
+            'category'             => '',
+            'company_name'         => '',
+            'cost_price'           => '1.00',
+            'item_id'              => 1,
+            'item_number'          => '',
+            'name'                 => 'Coffee',
+            'pack_name'            => 'Each',
+            'pic_filename'         => null,
+            'quantity'             => '1',
+            'tax_exemption_reason' => $taxExemptionReason,
+            'taxable'              => $taxable,
+            'unit_price'           => '2.00',
         ];
     }
 
@@ -196,17 +196,17 @@ final class ItemsListTvaTest extends CIUnitTestCase
     {
         $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
         $ospos->settings = [
-            'currency_decimals'       => '2',
-            'currency_symbol'         => '$',
-            'date_or_time_format'     => '',
-            'default_tax_1_name'      => 'TVA',
-            'default_tax_1_rate'      => $globalRate,
-            'multi_pack_enabled'      => false,
-            'number_locale'           => 'en_US',
-            'quantity_decimals'       => '0',
-            'tax_decimals'            => '2',
-            'tax_included'            => true,
-            'thousands_separator'     => '1',
+            'currency_decimals'         => '2',
+            'currency_symbol'           => '$',
+            'date_or_time_format'       => '',
+            'default_tax_1_name'        => 'TVA',
+            'default_tax_1_rate'        => $globalRate,
+            'multi_pack_enabled'        => false,
+            'number_locale'             => 'en_US',
+            'quantity_decimals'         => '0',
+            'tax_decimals'              => '2',
+            'tax_included'              => true,
+            'thousands_separator'       => '1',
             'use_destination_based_tax' => false,
         ];
         Factories::injectMock('config', OSPOS::class, $ospos);

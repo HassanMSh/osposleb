@@ -7,7 +7,7 @@ RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --ign
 FROM node:22-bookworm-slim AS frontend-build
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates git php-cli unzip \
+    && apt-get install -y --no-install-recommends ca-certificates php-cli unzip \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=php-dependencies /usr/bin/composer /usr/local/bin/composer
@@ -18,8 +18,8 @@ RUN npm ci
 COPY --from=php-dependencies /app/vendor ./vendor
 COPY . .
 
-# gulp default starts with update-licenses, so provide Composer and vendor here; the application image only receives built assets.
-RUN npm run build
+# Generate license files separately from the default asset build.
+RUN npx gulp update-licenses && npm run build
 
 FROM php:8.2-apache AS ospos
 LABEL maintainer="jekkos"
@@ -34,7 +34,8 @@ COPY . /app
 COPY --from=php-dependencies /app/vendor /app/vendor
 COPY --from=frontend-build /app/public/resources /app/public/resources
 COPY --from=frontend-build /app/public/images/menubar /app/public/images/menubar
-COPY --from=frontend-build /app/app/Views/partial/header.php /app/app/Views/partial/header.php
+COPY --from=frontend-build /app/app/Views/partial/header_assets.php /app/app/Views/partial/header_assets.php
+COPY --from=frontend-build /app/public/license /app/public/license
 RUN ln -s /app/*[^public] /var/www && rm -rf /var/www/html && ln -nsf /app/public /var/www/html
 RUN chmod -R 770 /app/writable/uploads /app/writable/logs /app/writable/cache && chown -R www-data:www-data /app
 

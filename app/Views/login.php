@@ -32,6 +32,7 @@
 </head>
 
 <body class="bg-secondary-subtle d-flex flex-column">
+    <?= view('partial/assets_not_built_notice') ?>
     <main class="d-flex justify-content-around align-items-center flex-grow-1">
         <div class="container-login container-fluid d-flex flex-column flex-md-row bg-body shadow rounded m-3 p-4 p-md-0">
             <div class="box-logo d-flex flex-column justify-content-center align-items-center border-end border-secondary-subtle px-4 pb-3 p-md-4">

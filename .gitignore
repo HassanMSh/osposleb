@@ -6,6 +6,7 @@ public/images/menubar/*
 !public/images/menubar/.gitkeep
 public/license/*
 !public/license/.gitkeep
+app/Views/partial/header_assets.php
 app/Config/email.php
 npm-debug.log*
 

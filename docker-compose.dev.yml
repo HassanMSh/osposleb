@@ -13,6 +13,22 @@ networks:
 
 
 services:
+    assets:
+        image: node:22-bookworm-slim
+        working_dir: /app
+        user: "${USERID}:${GROUPID}"
+        restart: "no"
+        volumes:
+            - .:/app
+        environment:
+            HOME: /tmp
+            npm_config_cache: /tmp/npm-cache
+        command:
+            - sh
+            - -c
+            - >-
+                if [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ] ||
+                [ package-lock.json -nt node_modules/.package-lock.json ]; then npm ci; fi && npm run build
     mysql:
         image: mariadb:10.5
         container_name: mysql
@@ -22,7 +38,8 @@ services:
         networks:
             - app_net
         volumes:
-            - ./app/Database/database.sql:/docker-entrypoint-initdb.d/database.sql
+            - ./app/Database/tables.sql:/docker-entrypoint-initdb.d/01-tables.sql:ro
+            - ./app/Database/constraints.sql:/docker-entrypoint-initdb.d/02-constraints.sql:ro
             - mysql:/var/lib/mysql:rw
         environment:
             - MYSQL_ROOT_PASSWORD=pointofsale
@@ -40,7 +57,10 @@ services:
         restart: always
         user: "${USERID}:${GROUPID}"
         depends_on:
-            - mysql
+            assets:
+                condition: service_completed_successfully
+            mysql:
+                condition: service_started
         ports:
             - "80:80"
         networks:
@@ -48,12 +68,8 @@ services:
         volumes:
             - .:/app
             # The dependency directory is restored from the image because the bind
-            # mount above hides it. The built asset directories are deliberately NOT
-            # restored this way: their filenames are content hashes that must match
-            # the injected header, and the header comes from the bind mount. Serving
-            # image assets against a checkout header reintroduces the 404s this
-            # setup exists to prevent. Run "npm install && npm run build" in the
-            # checkout instead; AssetIntegrityTest fails loudly when you have not.
+            # mount above hides it. The assets service builds matching assets and
+            # the generated header partial into the checkout before this starts.
             - vendor:/app/vendor
         environment:
             - CI_ENVIRONMENT=development

@@ -14,9 +14,10 @@ import header from 'gulp-header'
 import tar from 'gulp-tar'
 import gzip from 'gulp-gzip'
 import zip from 'gulp-zip'
-import run from 'gulp-run'
 
 import { Stream } from 'readable-stream'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, statSync, writeFileSync } from 'node:fs'
 const {finished, pipeline} = Stream.promises
 
 
@@ -38,10 +39,19 @@ gulp.task('compress', function() {
 });
 
 
+// Generate package license files and wait for each command to finish.
 gulp.task('update-licenses', function() {
-    run('composer licenses --format=json --no-dev > public/license/composer.LICENSES').exec();
-    run('npx license-report --only=prod --output=json --fields=name --fields=author --fields=homepage --fields=installedVersion --fields=licenseType > public/license/npm-prod.LICENSES').exec();
-    run('npx license-report --only=dev --output=json --fields=name --fields=author --fields=homepage --fields=installedVersion --fields=licenseType > public/license/npm-dev.LICENSES').exec();
+    mkdirSync('public/license', {recursive: true});
+    writeFileSync('public/license/composer.LICENSES', execFileSync('composer', ['licenses', '--format=json', '--no-dev']));
+    writeFileSync('public/license/npm-prod.LICENSES', execFileSync('npx', ['license-report', '--only=prod', '--output=json', '--fields=name', '--fields=author', '--fields=homepage', '--fields=installedVersion', '--fields=licenseType']));
+    writeFileSync('public/license/npm-dev.LICENSES', execFileSync('npx', ['license-report', '--only=dev', '--output=json', '--fields=name', '--fields=author', '--fields=homepage', '--fields=installedVersion', '--fields=licenseType']));
+
+    for (const licenseFile of ['public/license/composer.LICENSES', 'public/license/npm-prod.LICENSES', 'public/license/npm-dev.LICENSES']) {
+        if (statSync(licenseFile).size === 0) {
+            throw new Error(`The license report ${licenseFile} is empty.`);
+        }
+    }
+
     return pipeline(gulp.src('LICENSE'),gulp.dest('public/license'));
 });
 
@@ -96,6 +106,15 @@ gulp.task('copy-bootstrap', function() {
 // /public/resources/[css/js] - contains the unpacked versions to be used in development mode
 // /public/resources - contains the packed opensourcepos.min.[css/js] and the jquery.min.js
 
+// Copy the tracked template into the generated partial used by the inject tasks.
+gulp.task('copy-header-assets', function() {
+    return pipeline(
+        gulp.src('./app/Views/partial/header_assets.template.php'),
+        rename('header_assets.php'),
+        gulp.dest('./app/Views/partial')
+    );
+});
+
 // Copy JavaScript into a folder which will be used as the source to create opensourcepos.min.js (except for jquery.mn.js)
 
 // Inject will be in the sequence of the files in the stream.  So make sure dependencies are in their proper order
@@ -136,7 +155,7 @@ gulp.task('debug-js', function() {
         './public/js/imgpreview.full.jquery.js',
         './public/js/manage_tables.js',
         './public/js/nominatim.autocomplete.js']).pipe(rev()).pipe(gulp.dest('public/resources/js'));
-    return gulp.src('./app/Views/partial/header.php').pipe(inject(debugjs,{addRootSlash: false, ignorePath: '/public/', starttag: '<!-- inject:debug:js -->'})).pipe(gulp.dest('./app/Views/partial'));
+    return gulp.src('./app/Views/partial/header_assets.php').pipe(inject(debugjs,{addRootSlash: false, ignorePath: '/public/', starttag: '<!-- inject:debug:js -->'})).pipe(gulp.dest('./app/Views/partial'));
 });
 
 gulp.task('prod-js', function() {
@@ -184,7 +203,7 @@ gulp.task('prod-js', function() {
         .pipe(rev())
         .pipe(gulp.dest('./public/resources/'));
 
-    return gulp.src('./app/Views/partial/header.php').pipe(inject(
+    return gulp.src('./app/Views/partial/header_assets.php').pipe(inject(
         series(prod0js, prod1js), {addRootSlash: false, ignorePath: '/public/', starttag: '<!-- inject:prod:js -->'})).pipe(gulp.dest('./app/Views/partial'));
 
 });
@@ -214,7 +233,7 @@ gulp.task('debug-css', function() {
         './public/css/reports.css',
         './public/css/ospos_rtl.css'
     ]).pipe(rev()).pipe(gulp.dest('public/resources/css'));
-    return gulp.src('./app/Views/partial/header.php').pipe(inject(debugcss,{addRootSlash: false, ignorePath: '/public/', starttag: '<!-- inject:debug:css -->'})).pipe(gulp.dest('./app/Views/partial'));
+    return gulp.src('./app/Views/partial/header_assets.php').pipe(inject(debugcss,{addRootSlash: false, ignorePath: '/public/', starttag: '<!-- inject:debug:css -->'})).pipe(gulp.dest('./app/Views/partial'));
 });
 
 
@@ -251,7 +270,7 @@ gulp.task('prod-css', function() {
         .pipe(concat('opensourcepos.min.css')).pipe(rev()).pipe(gulp.dest('public/resources'));
 
 
-    return gulp.src('./app/Views/partial/header.php').pipe(inject(prodcss,{addRootSlash: false, ignorePath: '/public/', starttag: '<!-- inject:prod:css -->'})).pipe(gulp.dest('./app/Views/partial'));
+    return gulp.src('./app/Views/partial/header_assets.php').pipe(inject(prodcss,{addRootSlash: false, ignorePath: '/public/', starttag: '<!-- inject:prod:css -->'})).pipe(gulp.dest('./app/Views/partial'));
 });
 
 
@@ -293,10 +312,10 @@ gulp.task('build-database', function() {
 // Run all required tasks
 gulp.task('default',
     gulp.series('clean',
-        'update-licenses',
         'copy-bootswatch',
         'copy-bootswatch5',
         'copy-bootstrap',
+        'copy-header-assets',
         'debug-js',
         'prod-js',
         'debug-css',

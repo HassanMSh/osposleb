@@ -26,7 +26,8 @@ This fork uses `develop` for project work and is based on the stable OSPOS `3.4.
 Phase branches are reviewed through pull requests into `develop`, and required checks must pass before merging.
 GitHub Actions checks full-project PHP syntax on PHP 8.1 and 8.2, then validates Composer configuration and coding standards for changed PHP files on PHP 8.2.
 The workflow publishes the shop image after all checks pass on `develop`.
-Development still builds locally with `docker-compose.dev.yml`.
+The development stack uses a one-shot `assets` service to build front-end assets before the app starts.
+The asset build needs no host Node.js, PHP, or Composer installation.
 Automated code scanning is deferred until the production-hardening phase.
 
 The features include:
@@ -103,7 +104,7 @@ To roll back, set `OSPOS_IMAGE_TAG` to an earlier `develop-<sha>` and rerun the 
 
 Keep the checkout on the same `develop` commit as the image tag because a fresh database is seeded from the checkout's tracked schema files.
 
-Development keeps building locally with `docker-compose.dev.yml`.
+The development stack builds its assets through the one-shot `assets` service in `docker-compose.dev.yml`.
 
 For more information and recommendations on support hardware, like receipt printers and barcode scanners, read [this page](https://github.com/opensourcepos/opensourcepos/wiki/Supported-hardware-datasheet) on our wiki.
 

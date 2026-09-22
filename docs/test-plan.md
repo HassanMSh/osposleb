@@ -37,6 +37,7 @@ The Linux results for ADR 0009 are listed below and recorded in the local eviden
 - 2026-09-23 same-second clash: pass; a run that stopped because an archive with its timestamp already existed kept that archive and logged the failure; the version before the fix deleted it; see `10-same-second-archive.txt`.
 - 2026-09-23 review fixes: pass; a missing `ospos.conf` logged a failure line from both launchers, a container failure with an unusual exit code logged exactly one line and exited 1, and both PowerShell scripts parsed; see `11-fix-round.txt` and `12-coordinator-final-fixes.txt`.
 - 2026-09-23 fix round: pass; client override archives use the configured client log, no-client runs log beside the archive, launcher failures add one line, container start failures record the exit code, read-only logs stop before retention, keep seven preserved three unrelated items, and a failed success-log append warned and kept its archive; Bash syntax, ShellCheck, both PowerShell parses, and workflow YAML parsing passed; see `11-fix-round.txt`.
+- 2026-09-23 client pictures folder (D-011): pass; a fresh client setup created `uploads/item_pics/`, Settings returned HTTP 200, an item picture and its thumbnail loaded, restoring an archive without `item_pics` recreated it, restoring an archive with pictures kept them readable, and no hidden restore folders were left; see `qa-evidence/d011-item-pics-2026-09-23/`.
 
 ### Windows
 
@@ -44,3 +45,4 @@ The Linux results for ADR 0009 are listed below and recorded in the local eviden
 - Windows backup launcher, Docker wait, and host failure logging: expected until tested on the shop computer.
 - USB copy with Docker Desktop file sharing: expected until tested with the shop drive.
 - Windows restore drill and recovery time: expected until tested on the shop computer.
+- Windows client setup and restore creating `uploads/item_pics/`: expected until tested on the shop computer.

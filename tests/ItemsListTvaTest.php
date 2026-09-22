@@ -79,7 +79,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
     }
 
     /**
-     * Shows the current global rate and marks it as inherited for an item without rows.
+     * Shows the inherited global rate as one left-to-right group for an item without rows.
      */
     public function testTaxableItemWithoutRowsRendersTheInheritedGlobalRate(): void
     {
@@ -92,9 +92,26 @@ final class ItemsListTvaTest extends CIUnitTestCase
         $secondRow = get_item_data_row($this->makeItem());
 
         $this->assertStringContainsString('Inherited global rate', $firstRow['tax_percents']);
-        $this->assertStringContainsString('<span dir="ltr">11.00%</span>', $firstRow['tax_percents']);
-        $this->assertStringContainsString('<span dir="ltr">12.00%</span>', $secondRow['tax_percents']);
+        $this->assertStringContainsString('<span dir="ltr" class="text-nowrap">(TVA 11.00%)</span>', $firstRow['tax_percents']);
+        $this->assertStringContainsString('<span dir="ltr" class="text-nowrap">(TVA 12.00%)</span>', $secondRow['tax_percents']);
         $this->assertNotSame($firstRow['tax_percents'], $secondRow['tax_percents']);
+    }
+
+    /**
+     * Escapes a stored global rate name exactly once inside the inherited rate group.
+     */
+    public function testInheritedGlobalRateEscapesNameOnce(): void
+    {
+        $this->setSettings('11', false, 'TVA & <Local>');
+
+        $row = get_item_data_row($this->makeItem());
+
+        $this->assertStringContainsString(
+            '<span dir="ltr" class="text-nowrap">(TVA &amp; &lt;Local&gt; 11.00%)</span>',
+            $row['tax_percents'],
+        );
+        $this->assertStringNotContainsString('TVA & <Local>', $row['tax_percents']);
+        $this->assertStringNotContainsString('&amp;amp;', $row['tax_percents']);
     }
 
     /**
@@ -255,16 +272,16 @@ final class ItemsListTvaTest extends CIUnitTestCase
     }
 
     /**
-     * Injects the settings needed by the item row and number formatters.
+     * Injects the tax, display, and number settings needed by the item row formatter.
      */
-    private function setSettings(string $globalRate, bool $useDestinationBasedTax = false): void
+    private function setSettings(string $globalRate, bool $useDestinationBasedTax = false, string $globalName = 'TVA'): void
     {
         $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
         $ospos->settings = [
             'currency_decimals'         => '2',
             'currency_symbol'           => '$',
             'date_or_time_format'       => '',
-            'default_tax_1_name'        => 'TVA',
+            'default_tax_1_name'        => $globalName,
             'default_tax_1_rate'        => $globalRate,
             'multi_pack_enabled'        => false,
             'number_locale'             => 'en_US',

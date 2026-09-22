@@ -426,7 +426,7 @@ function get_items_manage_table_headers(): string
 }
 
 /**
- * Builds the item table row, escaping stored tax labels and including inherited, unset, or exempt tax labels.
+ * Builds the item table row, keeping inherited rate labels together and left to right.
  */
 function get_item_data_row(object $item): array
 {
@@ -461,8 +461,9 @@ function get_item_data_row(object $item): array
                 if ($global_rate !== '' && is_numeric($global_rate)) {
                     $global_name  = $config['default_tax_1_name'] ?? '';
                     $global_name  = $global_name !== '' ? $global_name : lang('Items.sales_tax_1');
-                    $global_rate  = '<span dir="ltr">' . esc(to_tax_decimals($global_rate) . '%') . '</span>';
-                    $tax_percents = lang('Items.tax_mode_inherited', [esc($global_name), $global_rate]);
+                    $global_rate  = esc(to_tax_decimals($global_rate) . '%');
+                    $rate_group   = '<span dir="ltr" class="text-nowrap">(' . esc($global_name) . ' ' . $global_rate . ')</span>';
+                    $tax_percents = lang('Items.tax_mode_inherited', [$rate_group]);
                 } else {
                     $tax_percents = lang('Items.tax_mode_inherit_none');
                 }

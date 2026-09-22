@@ -6,6 +6,7 @@ use CodeIgniter\Database\ResultInterface;
 use CodeIgniter\Model;
 use Config\OSPOS;
 use stdClass;
+use Throwable;
 
 /**
  * Item class
@@ -432,7 +433,7 @@ class Item extends Model
     }
 
     /**
-     * Inserts or updates an item, enforcing barcode uniqueness and generating an EAN-13 when enabled.
+     * Inserts or updates an item with checked barcode uniqueness and atomic empty-barcode generation.
      */
     public function save_value(array &$item_data, int $item_id = NEW_ENTRY): bool    // TODO: need to bring this in line with parent or change the name
     {
@@ -448,12 +449,30 @@ class Item extends Model
                 return false;
             }
 
-            if ($builder->insert($item_data)) {
+            $transaction_depth = $this->beginItemSaveTransaction();
+
+            if ($transaction_depth === false) {
+                return false;
+            }
+
+            try {
+                if (! $builder->insert($item_data)) {
+                    $this->rollbackItemSaveTransaction($transaction_depth);
+
+                    return false;
+                }
+
                 $item_data['item_id'] = (int) $this->db->insertID();
+
                 if ($item_id < 1) {
                     $builder = $this->db->table('items');
                     $builder->where('item_id', $item_data['item_id']);
-                    $builder->update(['low_sell_item_id' => $item_data['item_id']]);
+
+                    if (! $builder->update(['low_sell_item_id' => $item_data['item_id']])) {
+                        $this->rollbackItemSaveTransaction($transaction_depth);
+
+                        return false;
+                    }
                 }
 
                 if ($generate_if_empty
@@ -463,6 +482,8 @@ class Item extends Model
                     $item_number = $this->generate_item_number($item_data['item_id']);
 
                     if ($this->item_number_exists($item_number, (string) $item_data['item_id'])) {
+                        $this->rollbackItemSaveTransaction($transaction_depth);
+
                         return false;
                     }
 
@@ -470,16 +491,26 @@ class Item extends Model
                     $builder->where('item_id', $item_data['item_id']);
 
                     if (! $builder->update(['item_number' => $item_number])) {
+                        $this->rollbackItemSaveTransaction($transaction_depth);
+
                         return false;
                     }
 
                     $item_data['item_number'] = $item_number;
                 }
 
-                return true;
-            }
+                if (! $this->finishItemSaveTransaction($transaction_depth)) {
+                    $this->rollbackItemSaveTransaction($transaction_depth);
 
-            return false;
+                    return false;
+                }
+
+                return true;
+            } catch (Throwable) {
+                $this->rollbackItemSaveTransaction($transaction_depth);
+
+                return false;
+            }
         }
         $item_data['item_id'] = $item_id;
 
@@ -504,7 +535,52 @@ class Item extends Model
         $builder = $this->db->table('items');
         $builder->where('item_id', $item_id);
 
-        return $builder->update($item_data);
+        try {
+            return $builder->update($item_data);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Starts an item save transaction or savepoint and returns the prior transaction depth.
+     */
+    private function beginItemSaveTransaction(): false|int
+    {
+        $transaction_depth = $this->db->transDepth;
+
+        if ($transaction_depth === 0) {
+            return $this->db->transBegin() ? 0 : false;
+        }
+
+        return $this->db->query('SAVEPOINT item_save_value') ? $transaction_depth : false;
+    }
+
+    /**
+     * Commits an item save transaction or releases its savepoint.
+     */
+    private function finishItemSaveTransaction(int $transaction_depth): bool
+    {
+        if ($transaction_depth === 0) {
+            return $this->db->transCommit();
+        }
+
+        return (bool) $this->db->query('RELEASE SAVEPOINT item_save_value');
+    }
+
+    /**
+     * Rolls back an item save transaction or its savepoint after any failed write.
+     */
+    private function rollbackItemSaveTransaction(int $transaction_depth): void
+    {
+        if ($transaction_depth === 0) {
+            $this->db->transRollback();
+
+            return;
+        }
+
+        $this->db->query('ROLLBACK TO SAVEPOINT item_save_value');
+        $this->db->query('RELEASE SAVEPOINT item_save_value');
     }
 
     /**

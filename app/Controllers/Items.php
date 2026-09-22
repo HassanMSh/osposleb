@@ -1013,7 +1013,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Imports items from CSV formatted file.
+     * Imports items from CSV formatted file and reports localized duplicate-barcode details.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -1028,6 +1028,7 @@ class Items extends Secure_Controller
                 set_time_limit(240);
 
                 $failCodes                  = [];
+                $failure_details            = [];
                 $csv_rows                   = get_csv_file($_FILES['file_path']['tmp_name']);
                 $employee_id                = $this->employee->get_logged_in_employee_info()->person_id;
                 $allowed_stock_locations    = $this->stock_location->get_allowed_locations();
@@ -1048,10 +1049,11 @@ class Items extends Secure_Controller
                 $db->transBegin();    // TODO: This section needs to be reworked so that the data array is being created then passed to the Item model because $db doesn't exist in the controller without being instantiated, but database operations should be restricted to the model
 
                 foreach ($csv_rows as $key => $row) {
-                    $is_failed_row = false;
-                    $item_id       = (int) $row['Id'];
-                    $is_update     = ($item_id > 0);
-                    $item_data     = [
+                    $is_failed_row  = false;
+                    $duplicate_item = null;
+                    $item_id        = (int) $row['Id'];
+                    $is_update      = ($item_id > 0);
+                    $item_data      = [
                         'item_id'       => $item_id,
                         'name'          => $row['Item Name'],
                         'description'   => $row['Description'],
@@ -1078,7 +1080,8 @@ class Items extends Secure_Controller
 
                     if ($row['Barcode'] !== null && $row['Barcode'] !== '' && ! $is_update) {
                         $item_data['item_number'] = $row['Barcode'];
-                        $is_failed_row            = $this->item->item_number_exists($item_data['item_number']);
+                        $duplicate_item           = $this->item->get_item_number_owner($item_data['item_number']);
+                        $is_failed_row            = $duplicate_item !== null;
                     }
 
                     if (! $is_failed_row) {
@@ -1097,8 +1100,15 @@ class Items extends Secure_Controller
                             $item_data = array_merge($item_data, get_object_vars($this->item->get_info_by_id_or_number($item_id)));
                         }
                     } else {
-                        $failed_row  = $key + 2;
-                        $failCodes[] = $failed_row;
+                        $failed_row        = $key + 2;
+                        $failCodes[]       = $failed_row;
+                        $failure_details[] = $duplicate_item === null
+                            ? (string) $failed_row
+                            : lang('Items.csv_import_barcode_duplicate', [
+                                $failed_row,
+                                $item_data['item_number'],
+                                $duplicate_item->name,
+                            ]);
                         log_message('error', "CSV Item import failed on line {$failed_row}. This item was not imported.");
                     }
 
@@ -1109,6 +1119,11 @@ class Items extends Secure_Controller
 
                 if (count($failCodes) > 0) {
                     $message = lang('Items.csv_import_partially_failed', [count($failCodes), implode(', ', $failCodes)]);
+
+                    if ($failure_details !== []) {
+                        $message .= ' ' . implode(' ', $failure_details);
+                    }
+
                     $db->transRollback();
                     echo json_encode(['success' => false, 'message' => $message]);
                 } else {

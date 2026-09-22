@@ -33,7 +33,7 @@ The features include:
 - Expenses logging
 - Cash up function
 - Printing and emailing of receipts, invoices and quotations
-- Barcode generation and printing, including automatic internal barcodes for blank item numbers
+- Barcode generation and printing, including automatic internal EAN-13 barcodes for blank item numbers; manually entered barcodes are preserved byte for byte and duplicates are rejected
 - Database of customers and suppliers
 - Multiuser with permission control
 - Reporting on sales, orders, expenses, inventory status and more

@@ -1552,21 +1552,44 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Update the item number in the register. Used in app/Views/sales/register.php
+     * Checks and updates the register barcode, returning localized JSON and preserving posted bytes.
      *
      * @noinspection PhpUnused
      */
     public function postChangeItemNumber(): void
     {
-        $item_id     = $this->request->getPost('item_id', FILTER_SANITIZE_NUMBER_INT);
-        $item_number = $this->request->getPost('item_number', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        $this->item->update_item_number($item_id, $item_number);
-        $cart = $this->sale_lib->get_cart();
-        $x    = $this->search_cart_for_item_id($item_id, $cart);
-        if ($x != null) {
+        $item_id     = (int) $this->request->getPost('item_id', FILTER_SANITIZE_NUMBER_INT);
+        $item_number = $this->request->getPost('item_number');
+        $item_data   = ['item_number' => $item_number];
+
+        if (! $this->item->save_value($item_data, $item_id)) {
+            $duplicate_number = $item_number;
+
+            if (($duplicate_number === null || $duplicate_number === '')
+                && ($this->config['barcode_generate_if_empty'] ?? '0') == '1') {
+                $duplicate_number = $this->item->generate_item_number($item_id);
+            }
+
+            $existing_item = $duplicate_number === null || $duplicate_number === ''
+                ? null
+                : $this->item->get_item_number_owner((string) $duplicate_number, (string) $item_id);
+            $message = $existing_item === null
+                ? lang('Items.error_adding_updating')
+                : lang('Items.item_number_duplicate', [$existing_item->name]);
+
+            echo json_encode(['success' => false, 'message' => $message]);
+
+            return;
+        }
+
+        $item_number = $item_data['item_number'];
+        $cart        = $this->sale_lib->get_cart();
+        $x           = $this->search_cart_for_item_id($item_id, $cart);
+        if ($x !== null) {
             $cart[$x]['item_number'] = $item_number;
         }
         $this->sale_lib->set_cart($cart);
+        echo json_encode(['success' => true, 'message' => lang('Items.successful_updating'), 'item_number' => $item_number]);
     }
 
     /**

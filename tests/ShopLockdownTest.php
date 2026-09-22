@@ -214,7 +214,7 @@ final class ShopLockdownTest extends CIUnitTestCase
         $saleLibrary = (new ReflectionClass(Sale_lib::class))->newInstanceWithoutConstructor();
 
         $this->assertSame([
-            'sale'       => lang('Sales.receipt'),
+            'sale'       => lang('Sales.mode_sale'),
             'sale_quote' => lang('Sales.quote'),
             'return'     => lang('Sales.return'),
         ], $saleLibrary->get_register_mode_options());
@@ -229,7 +229,7 @@ final class ShopLockdownTest extends CIUnitTestCase
         $method = (new ReflectionClass($sales))->getMethod('get_register_mode_label');
         $method->setAccessible(true);
 
-        $this->assertSame(lang('Sales.receipt'), $method->invoke($sales, 'sale'));
+        $this->assertSame(lang('Sales.mode_sale'), $method->invoke($sales, 'sale'));
         $this->assertSame(lang('Sales.quote'), $method->invoke($sales, 'sale_quote'));
         $this->assertSame(lang('Sales.return'), $method->invoke($sales, 'return'));
 

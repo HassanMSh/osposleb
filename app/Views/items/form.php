@@ -1,30 +1,40 @@
 <?php
 /**
- * @var object $item_info
- * @var array  $categories
- * @var int    $selected_category
- * @var bool   $standard_item_locked
- * @var bool   $item_kit_disabled
- * @var int    $allow_temp_item
- * @var array  $suppliers
- * @var int    $selected_supplier
- * @var bool   $use_destination_based_tax
- * @var float  $default_tax_1_rate
- * @var float  $default_tax_2_rate
- * @var string $tax_mode
- * @var string $tax_exemption_reason
- * @var string $tax_category
- * @var int    $tax_category_id
- * @var bool   $include_hsn
- * @var string $hsn_code
- * @var array  $stock_locations
- * @var bool   $logo_exists
- * @var string $image_path
- * @var string $selected_low_sell_item
- * @var int    $selected_low_sell_item_id
- * @var string $controller_name
- * @var array  $config
+ * @var object       $item_info
+ * @var array        $categories
+ * @var int          $selected_category
+ * @var bool         $standard_item_locked
+ * @var bool         $item_kit_disabled
+ * @var int          $allow_temp_item
+ * @var array        $suppliers
+ * @var int          $selected_supplier
+ * @var bool         $use_destination_based_tax
+ * @var float|string $default_tax_1_rate
+ * @var string       $default_tax_1_name
+ * @var float        $default_tax_2_rate
+ * @var string       $tax_mode
+ * @var string       $tax_exemption_reason
+ * @var string       $tax_category
+ * @var int          $tax_category_id
+ * @var bool         $include_hsn
+ * @var string       $hsn_code
+ * @var array        $stock_locations
+ * @var bool         $logo_exists
+ * @var string       $image_path
+ * @var string       $selected_low_sell_item
+ * @var int          $selected_low_sell_item_id
+ * @var string       $controller_name
+ * @var array        $config
  */
+?>
+
+<?php
+$tax_mode_inherit_label = $default_tax_1_rate !== ''
+    ? lang('Items.tax_mode_inherit_rate', [
+        $default_tax_1_name !== '' ? $default_tax_1_name : lang('Items.sales_tax_1'),
+        (string) $default_tax_1_rate,
+    ])
+    : lang('Items.tax_mode_inherit_none');
 ?>
 
 <div id="required_fields_message"><?= lang('Common.fields_required_message') ?></div>
@@ -228,7 +238,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                             'id'      => 'tax_mode_inherit',
                             'value'   => 'inherit',
                             'checked' => $tax_mode === 'inherit',
-                        ]) ?> <?= lang('Items.tax_mode_inherit') ?>
+                        ]) ?> <?= esc($tax_mode_inherit_label) ?>
                     </label>
                     <label class="radio-inline">
                         <?= form_radio([

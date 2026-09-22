@@ -32,9 +32,9 @@ final class TvaModelTest extends CIUnitTestCase
     }
 
     /**
-     * An inheriting item follows the current global rate.
+     * An inheriting item uses the current global rate and name.
      */
-    public function testInheritingItemUsesAndTracksTheGlobalRate(): void
+    public function testInheritingItemUsesTheGlobalRateAndName(): void
     {
         $taxLib = $this->makeTaxLibrary(
             ['default_tax_1_rate' => '11'],
@@ -42,7 +42,22 @@ final class TvaModelTest extends CIUnitTestCase
         );
         $cart = [$this->makeCartLine(1, 100)];
 
-        $this->assertSame(11.0, $this->firstTax($taxLib->get_taxes($cart))['sale_tax_amount']);
+        $tax = $this->firstTax($taxLib->get_taxes($cart));
+
+        $this->assertSame('VAT', $tax['tax_group']);
+        $this->assertSame('11', $tax['tax_rate']);
+        $this->assertSame(11.0, $tax['sale_tax_amount']);
+    }
+
+    /**
+     * A changed global rate is used by the next inheriting calculation.
+     */
+    public function testInheritingItemUsesTheChangedGlobalRate(): void
+    {
+        $taxLib = $this->makeTaxLibrary(
+            ['default_tax_1_rate' => '11'],
+            [1 => ['taxable' => 1]],
+        );
 
         $this->writePrivateProperty($taxLib, 'config', array_merge(
             $this->readPrivateProperty($taxLib, 'config'),

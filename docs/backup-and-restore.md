@@ -1,8 +1,8 @@
-# Manual backup and restore
+# Automatic backups and restore
 
-This is a manual command-line process for the shop.
+The shop takes one automatic backup each day at the scheduled time.
 
-The shop has no automatic backup yet.
+You can also take a manual backup before an upgrade or major change.
 
 The Windows procedure comes first because the shop computer is Windows.
 
@@ -67,6 +67,26 @@ It leaves the database in the named `mysql` volume.
 
 The setup command refuses to run when the target directory already exists.
 
+### Backup settings for older client installs
+
+Older `ospos.conf` files still work when they do not contain the new settings.
+
+The defaults are keep seven archives, no USB copy, and web port 80.
+
+Add these lines to `ospos.conf` to set them yourself.
+
+```text
+OSPOS_BACKUP_KEEP=7
+OSPOS_BACKUP_COPY_TO=''
+OSPOS_HTTP_PORT=80
+```
+
+Set `OSPOS_BACKUP_KEEP=0` to keep every archive.
+
+Set `OSPOS_BACKUP_COPY_TO` to an absolute host folder path to copy backups to a USB drive.
+
+In Docker Desktop, enable file sharing for the USB drive or its backup folder.
+
 The separate MariaDB root password, application database password, and application encryption key are made inside the setup container, so the host does not need OpenSSL or a PowerShell secret generator.
 
 ### Linux setup
@@ -92,7 +112,7 @@ docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f 
 
 With `OSPOS_DATA_DIR` set, the backup command with no arguments reads `OSPOS_BACKUP_DESTINATION` from `ospos.conf` and writes the archive to that directory.
 
-An explicit `--destination` still wins over the configured destination.
+An explicit `--destination` sets the archive location and overrides the configured destination.
 
 ```powershell
 .\scripts\backup.ps1
@@ -105,6 +125,14 @@ An explicit `--destination` still wins over the configured destination.
 ```
 
 The default destination is the client `backups\` or `backups/` directory.
+
+Without `--destination`, the archive and log use the destination in `ospos.conf`.
+
+With a client directory, `--destination` moves the archive only; the log stays in `backup.log` under the configured destination in `ospos.conf`.
+
+Without a client directory, the log is `backup.log` beside the `--destination` archive.
+
+If `ospos.conf` is missing or its backup destination is invalid, the error goes to `<client>/backups/backup.log` when that folder exists; a missing client directory can only print an error.
 
 The backup does not contain `.env`, `app.env`, `mysql.env`, or `db.env` at any archive depth.
 
@@ -124,6 +152,66 @@ export OSPOS_DATA_DIR="$PWD/client-data"
 ./scripts/restore.sh --archive /media/shop-backup/ospos-backup-YYYYMMDD-HHMMSS.tar.gz --yes
 ```
 
+## Automatic daily backups
+
+The Windows task runs once a day at the time you choose and keeps the newest seven archives.
+
+Set `OSPOS_BACKUP_KEEP` in `ospos.conf` to change the count; `0` keeps all archives.
+
+Set `OSPOS_BACKUP_COPY_TO` to an absolute USB folder path to add a verified copy with the same retention count.
+
+An empty `OSPOS_BACKUP_COPY_TO` disables the copy without a warning.
+
+If the USB folder is missing, the backup still succeeds and the log records `copy=missing`.
+
+If the copy cannot be written or checked, the backup still succeeds and the log records `copy=failed`.
+
+Enable Docker Desktop file sharing for the USB drive or folder before using it, or the whole backup can fail, not only the copy.
+
+Schedule the Windows task from PowerShell with a time you choose.
+
+```powershell
+.\scripts\schedule-backup.ps1 --time 23:30
+```
+
+Run the command again with a new time to change the schedule.
+
+Remove the scheduled task with `--remove`.
+
+The task runs only while the shop account is logged in.
+
+It runs after logon if the computer missed the scheduled time while it was off.
+
+Do not start two manual backups at the same time; the scheduled task ignores a new run while one is active.
+
+On Linux, add a crontab entry with the client directory and repository path.
+
+```cron
+30 23 * * * OSPOS_DATA_DIR=/path/to/client /path/to/osposleb/scripts/backup.sh
+```
+
+The log file is plain text with one `key=value` line per run.
+
+Each line records the UTC time, result, archive, size, deleted archive count, copy result, copy deleted count, and message.
+
+For client runs, `backup.log` stays under the configured destination in `ospos.conf`, usually `<client>/backups/backup.log`.
+
+A backup that fails deletes no old archive and removes only its own temporary or unverified files.
+
+If the backup succeeds but its log line cannot be written, for example on a full disk, the old archives may already be trimmed; the run then reports an error so the problem is noticed.
+
+Manual backups in the same destination also count toward the keep-seven limit.
+
+Copy a pre-upgrade backup to another safe folder if you want to keep it longer.
+
+Archive names and log times use UTC; Beirut is UTC+2 in winter and UTC+3 in summer.
+
+The client Compose file binds the web page to `127.0.0.1` on this computer only.
+
+Set `OSPOS_HTTP_PORT` in `ospos.conf` to change the local port from 80.
+
+Open the till at `http://localhost/` or `http://localhost:<port>/` when using another port.
+
 ## Windows operator procedure
 
 ### Before the first backup
@@ -132,11 +220,11 @@ Install Docker Desktop and start it before running a launcher.
 
 Keep the OSPOS repository on the shop computer.
 
-Connect the external drive and create a backup folder such as `E:\OSPOS-Backups`.
+Connect an optional external drive and create a backup folder such as `E:\OSPOS-Backups`.
 
-In Docker Desktop, open Settings, open Resources, open File Sharing, add the external drive or the folder containing `E:\OSPOS-Backups`, and select Apply and Restart.
+To use the optional USB copy, open Docker Desktop Settings, open Resources, open File Sharing, add the external drive or its backup folder, and select Apply and Restart.
 
-Without this Docker Desktop access, the launcher usually fails with an unhelpful permission error.
+Without this Docker Desktop access, Docker may refuse to start the backup container, so the whole backup fails and the log records `result=failed`.
 
 The external drive must have enough free space for the database and uploads.
 
@@ -393,15 +481,11 @@ Remove the scratch database and scratch uploads directory after the drill.
 
 ### How often to do this
 
-Take a backup at the end of every trading day.
+The automatic task takes one backup each day at its scheduled time.
 
 Take another backup before every upgrade, migration, or major configuration change.
 
-The shop currently has no scheduled or automatic backup.
-
-The owner must copy the archive to an external drive and keep a separate safe copy.
-
-Automated backups, retention, and managed off-machine copies remain Phase 6 work.
+Use the automatic task and check `backup.log` once a week.
 
 ## What the backup contains
 
@@ -431,7 +515,7 @@ Keep the repository or deployment files available with the backup and keep the d
 
 ## Testing status for this change
 
-The scripts were checked with `bash -n`; `shellcheck` was not available in this environment.
+For ADR 0009, `bash -n` and ShellCheck passed on Linux on 2026-09-23.
 
 The Linux path was verified against the running MariaDB 10.5 stack on 2026-09-20.
 
@@ -449,9 +533,11 @@ The tool container was verified not to have access to the Docker socket.
 
 The Linux verification used the test-only network `ospos-baseline-verify_verify_net` and container `ospos-baseline-verify-mysql-1`; those names are not operator defaults.
 
-The Windows launchers and Windows restore drill remain expected, not verified, until the project owner tests them on the shop computer.
+ADR 0009 Linux proofs are recorded in `docs/test-plan.md`.
 
-Restore into a live production shop has not been rehearsed and remains Phase 6 work.
+Windows scheduling, backup, USB copy, and restore remain expected until the project owner tests them on the shop computer.
+
+Restore into a live production shop has not been rehearsed.
 
 The scripts use temporary files and atomic archive renaming so an interrupted backup does not look complete.
 

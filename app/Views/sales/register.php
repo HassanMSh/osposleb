@@ -559,7 +559,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         };
 
         /**
-         * Sends one scan through the register AJAX path and queues scans already in flight.
+         * Queues an item add from scanner input or a newly created item through the register AJAX path.
          */
         const submitItemScan = function(item, scanBuffer = '') {
             const itemValue = String(item).trim();

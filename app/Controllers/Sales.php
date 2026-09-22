@@ -547,8 +547,8 @@ class Sales extends Secure_Controller
     /**
      * Edit an item in the sale. Used in app/Views/sales/register.php
      *
-     * Normalizes absent or blank discount and location fields from the register
-     * row form, using the cart line or sale location for stock checks.
+     * Normalizes absent or blank discount fields and resolves invalid location
+     * fields from the cart line or sale location for stock checks.
      *
      * @noinspection PhpUnused
      */
@@ -577,8 +577,8 @@ class Sales extends Secure_Controller
                 ? parse_quantity($discount_input)
                 : parse_decimals($discount_input);
 
-            $item_location = $this->request->getPost('location', FILTER_SANITIZE_NUMBER_INT);
-            if ($item_location === null || $item_location === '' || (is_string($item_location) && trim($item_location) === '')) {
+            $item_location = $this->request->getPost('location', FILTER_VALIDATE_INT);
+            if (! is_int($item_location)) {
                 $cart          = $this->sale_lib->get_cart();
                 $item_location = $cart[$line]['item_location'] ?? $this->sale_lib->get_sale_location();
             }

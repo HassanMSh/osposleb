@@ -14,6 +14,8 @@ use ReflectionClass;
  */
 final class ReceiptLayoutTest extends CIUnitTestCase
 {
+    private const RECEIPT_VIEWS = ['sales/receipt_default', 'sales/receipt_short'];
+
     /**
      * Loads the receipt helpers with the minimum display settings they need.
      */
@@ -39,7 +41,7 @@ final class ReceiptLayoutTest extends CIUnitTestCase
     }
 
     /**
-     * Keeps the register wording separate from the printed receipt heading.
+     * Keeps the register wording separate and renders the same receipt heading.
      */
     public function testReceiptHeadingHasItsOwnModeWordingKey(): void
     {
@@ -62,6 +64,27 @@ final class ReceiptLayoutTest extends CIUnitTestCase
         $this->assertStringContainsString("'sale'       => lang('Sales.mode_sale')", $saleLibrary);
         $this->assertStringContainsString("default        => lang('Sales.mode_sale')", $sales);
         $this->assertStringContainsString('$subject = lang(\'Sales.receipt\')', $sales);
+
+        $request  = service('request');
+        $language = service('language');
+
+        try {
+            foreach (['en', 'ar-LB', 'ar-EG'] as $locale) {
+                $request->setLocale($locale);
+                $language->setLocale($locale);
+                $expected_heading = $this->loadSalesLanguage($locale)['receipt'];
+
+                foreach (self::RECEIPT_VIEWS as $receipt_view) {
+                    $output = view($receipt_view, $this->receiptData(''));
+
+                    $this->assertStringContainsString('<div id="sale_receipt">' . $expected_heading . '</div>', $output, "{$receipt_view} ({$locale})");
+                    $this->assertStringContainsString('<div id="sale_time">21/09/2026 14:12:15</div>', $output, "{$receipt_view} ({$locale})");
+                }
+            }
+        } finally {
+            $request->setLocale('en');
+            $language->setLocale('en');
+        }
     }
 
     /**
@@ -92,7 +115,7 @@ final class ReceiptLayoutTest extends CIUnitTestCase
     }
 
     /**
-     * Keeps the tax wording on one line and the rate left to right.
+     * Keeps one-line tax wording, rate, and amount in both receipt templates.
      */
     public function testReceiptUsesOneLineTaxLabel(): void
     {
@@ -114,21 +137,23 @@ final class ReceiptLayoutTest extends CIUnitTestCase
                     ],
                 ];
 
-                $output = view('sales/receipt_default', $data);
+                foreach (self::RECEIPT_VIEWS as $receipt_view) {
+                    $output   = view($receipt_view, $data);
+                    $vat_rows = [];
 
-                preg_match_all('/<td colspan="3" class="total-value">\s*(.*?)\s*<\/td>/s', $output, $matches);
-                $vat_lines = [];
+                    preg_match_all('/<tr>(.*?)<\/tr>/s', $output, $receipt_rows);
 
-                foreach ($matches[1] ?? [] as $line) {
-                    if (str_contains($line, '<span dir="ltr">11')) {
-                        $vat_lines[] = $line;
+                    foreach ($receipt_rows[1] ?? [] as $row) {
+                        if (str_contains($row, '<span dir="ltr">11%</span>')) {
+                            $vat_rows[] = $row;
+                        }
                     }
-                }
 
-                $this->assertCount(1, $vat_lines, $locale);
-                $this->assertSame(1, substr_count($vat_lines[0], '%'), $locale);
-                $this->assertStringContainsString('<span dir="ltr">11%', $vat_lines[0]);
-                $this->assertStringContainsString('*', strip_tags($vat_lines[0]));
+                    $this->assertCount(1, $vat_rows, "{$receipt_view} ({$locale})");
+                    $this->assertSame(1, substr_count($vat_rows[0], '%'), "{$receipt_view} ({$locale})");
+                    $this->assertStringContainsString('*', strip_tags($vat_rows[0]), "{$receipt_view} ({$locale})");
+                    $this->assertStringContainsString(to_currency(1.10), $vat_rows[0], "{$receipt_view} ({$locale})");
+                }
             }
         } finally {
             $request->setLocale('en');
@@ -137,22 +162,124 @@ final class ReceiptLayoutTest extends CIUnitTestCase
     }
 
     /**
-     * Prints change due when the customer pays more than the sale total.
+     * Removes the old split VAT wording keys from the active receipt languages.
+     */
+    public function testReceiptLanguagesUseOnlyTheSingleVatWordingKey(): void
+    {
+        $old_vat_keys = ['vat_included_' . 'prefix', 'vat_included_' . 'suffix'];
+
+        foreach (['en', 'ar-LB', 'ar-EG'] as $locale) {
+            $sales_language = $this->loadSalesLanguage($locale);
+
+            $this->assertArrayHasKey('vat_included', $sales_language, $locale);
+
+            foreach ($old_vat_keys as $old_vat_key) {
+                $this->assertArrayNotHasKey($old_vat_key, $sales_language, $locale);
+            }
+        }
+
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $view_source = file_get_contents(APPPATH . 'Views/' . $receipt_view . '.php');
+
+            $this->assertIsString($view_source);
+
+            foreach ($old_vat_keys as $old_vat_key) {
+                $this->assertStringNotContainsString($old_vat_key, $view_source, $receipt_view);
+            }
+        }
+    }
+
+    /**
+     * Escapes transaction times in both printed receipt templates.
+     */
+    public function testReceiptEscapesTransactionTime(): void
+    {
+        $data                     = $this->receiptData('');
+        $data['transaction_time'] = '21/09/2026 <script>alert("receipt")</script>';
+
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $data);
+
+            $this->assertStringNotContainsString('<script>', $output, $receipt_view);
+            $this->assertStringContainsString('&lt;script&gt;', $output, $receipt_view);
+        }
+    }
+
+    /**
+     * Keeps the pound amount and LL marker inside one no-wrap amount cell.
+     */
+    public function testReceiptKeepsPoundAmountAndMarkerOnOneLine(): void
+    {
+        $data          = $this->receiptData('');
+        $data['total'] = 10.0;
+        $pound_amount  = esc(format_lbp(to_lbp($data['total'])));
+        $stylesheet    = file_get_contents(ROOTPATH . 'public/css/receipt.css');
+
+        $this->assertIsString($stylesheet);
+        $this->assertMatchesRegularExpression('/\.total-value\s*\{[^}]*white-space:\s*nowrap;/s', $stylesheet);
+
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $data);
+            $row    = $this->rowContaining($output, $pound_amount);
+
+            $this->assertNotSame('', $row, $receipt_view);
+            $this->assertStringContainsString('<td class="total-value"><span dir="ltr">' . $pound_amount . '</span></td>', $row, $receipt_view);
+        }
+    }
+
+    /**
+     * Skips empty item detail and spacer rows in both receipt templates.
+     */
+    public function testReceiptOmitsEmptyDetailAndSpacerRows(): void
+    {
+        $data          = $this->receiptData('');
+        $data['cart'][] = [
+            'name'             => 'Test item',
+            'attribute_values' => '',
+            'taxed_flag'       => null,
+            'print_option'     => PRINT_YES,
+            'quantity'         => 1,
+            'price'            => 10.0,
+            'total'            => 10.0,
+            'discounted_total' => 10.0,
+            'discount'         => 0.0,
+            'discount_type'    => FIXED,
+            'description'      => '',
+            'serialnumber'     => '',
+        ];
+
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $data);
+
+            $this->assertDoesNotMatchRegularExpression('/<tr>\s*<\/tr>/s', $output, $receipt_view);
+
+            preg_match_all('/<tr>(.*?)<\/tr>/s', $output, $receipt_rows);
+
+            foreach ($receipt_rows[1] ?? [] as $row) {
+                $this->assertNotSame('', trim(strip_tags($row)), $receipt_view);
+            }
+        }
+    }
+
+    /**
+     * Prints change due when the customer overpays in either receipt template.
      */
     public function testReceiptPrintsChangeDueForOverpayment(): void
     {
         $data                  = $this->receiptData('');
         $data['amount_change'] = 5.0;
 
-        $output = view('sales/receipt_default', $data);
-        $row    = $this->rowContaining($output, lang('Sales.change_due'));
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $data);
+            $row    = $this->rowContaining($output, lang('Sales.change_due'));
 
-        $this->assertNotSame('', $row);
-        $this->assertStringContainsString(to_currency(5.0), $row);
+            $this->assertNotSame('', $row, $receipt_view);
+            $this->assertStringContainsString(to_currency(5.0), $row, $receipt_view);
+        }
     }
 
     /**
-     * Omits the change row when the payment exactly settles the sale.
+     * Omits payment and change rows when one payment exactly settles either receipt.
      */
     public function testReceiptOmitsChangeRowForExactPayment(): void
     {
@@ -165,31 +292,35 @@ final class ReceiptLayoutTest extends CIUnitTestCase
             ],
         ];
 
-        $output = view('sales/receipt_default', $data);
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $data);
 
-        $this->assertStringNotContainsString(lang('Sales.change_due'), $output);
-        $this->assertStringNotContainsString(lang('Sales.check_balance'), $output);
-        $this->assertStringNotContainsString(lang('Sales.amount_due'), $output);
-        $this->assertStringNotContainsString(lang('Sales.cash'), $output);
+            $this->assertStringNotContainsString(lang('Sales.change_due'), $output, $receipt_view);
+            $this->assertStringNotContainsString(lang('Sales.check_balance'), $output, $receipt_view);
+            $this->assertStringNotContainsString(lang('Sales.amount_due'), $output, $receipt_view);
+            $this->assertStringNotContainsString(lang('Sales.cash'), $output, $receipt_view);
+        }
     }
 
     /**
-     * Prints amount due when the customer has not paid the full sale total.
+     * Prints an amount due for an underpaid sale in either receipt template.
      */
     public function testReceiptPrintsAmountDueForUnderpayment(): void
     {
         $data                  = $this->receiptData('');
         $data['amount_change'] = -5.0;
 
-        $output = view('sales/receipt_default', $data);
-        $row    = $this->rowContaining($output, lang('Sales.amount_due'));
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $data);
+            $row    = $this->rowContaining($output, lang('Sales.amount_due'));
 
-        $this->assertNotSame('', $row);
-        $this->assertStringContainsString(to_currency(-5.0), $row);
+            $this->assertNotSame('', $row, $receipt_view);
+            $this->assertStringContainsString(to_currency(-5.0), $row, $receipt_view);
+        }
     }
 
     /**
-     * Prints every payment row when a sale uses split payments.
+     * Prints each split payment row in either receipt template.
      */
     public function testReceiptPrintsRowsForMultiplePayments(): void
     {
@@ -205,18 +336,20 @@ final class ReceiptLayoutTest extends CIUnitTestCase
             ],
         ];
 
-        $output  = view('sales/receipt_default', $data);
-        $cashRow = $this->rowContaining($output, lang('Sales.cash'));
-        $cardRow = $this->rowContaining($output, lang('Sales.giftcard'));
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output  = view($receipt_view, $data);
+            $cashRow = $this->rowContaining($output, lang('Sales.cash'));
+            $cardRow = $this->rowContaining($output, lang('Sales.giftcard'));
 
-        $this->assertNotSame('', $cashRow);
-        $this->assertNotSame('', $cardRow);
-        $this->assertStringContainsString(to_currency(-5.0), $cashRow);
-        $this->assertStringContainsString(to_currency(-5.0), $cardRow);
+            $this->assertNotSame('', $cashRow, $receipt_view);
+            $this->assertNotSame('', $cardRow, $receipt_view);
+            $this->assertStringContainsString(to_currency(-5.0), $cashRow, $receipt_view);
+            $this->assertStringContainsString(to_currency(-5.0), $cardRow, $receipt_view);
+        }
     }
 
     /**
-     * Suppresses the single payment row when it exactly settles the sale.
+     * Suppresses the single settled payment row in either receipt template.
      */
     public function testReceiptSuppressesSingleFullySettlingPayment(): void
     {
@@ -228,34 +361,40 @@ final class ReceiptLayoutTest extends CIUnitTestCase
             ],
         ];
 
-        $output = view('sales/receipt_default', $data);
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $data);
 
-        $this->assertStringNotContainsString(lang('Sales.cash'), $output);
+            $this->assertStringNotContainsString(lang('Sales.cash'), $output, $receipt_view);
+        }
     }
 
     /**
-     * Omits punctuation-only return policies from the printed receipt.
+     * Omits punctuation-only return policies from both receipt templates.
      */
     public function testPunctuationOnlyReturnPolicyIsNotRendered(): void
     {
-        $output = view('sales/receipt_default', $this->receiptData('.'));
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $this->receiptData('.'));
 
-        $this->assertStringNotContainsString('id="sale_return_policy"', $output);
+            $this->assertStringNotContainsString('id="sale_return_policy"', $output, $receipt_view);
+        }
     }
 
     /**
-     * Keeps a return policy that contains real text on the receipt.
+     * Keeps a return policy that contains real text in both receipt templates.
      */
     public function testTextReturnPolicyIsRendered(): void
     {
-        $output = view('sales/receipt_default', $this->receiptData('Returns accepted.'));
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $this->receiptData('Returns accepted.'));
 
-        $this->assertStringContainsString('id="sale_return_policy"', $output);
-        $this->assertStringContainsString('Returns accepted.', $output);
+            $this->assertStringContainsString('id="sale_return_policy"', $output, $receipt_view);
+            $this->assertStringContainsString('Returns accepted.', $output, $receipt_view);
+        }
     }
 
     /**
-     * Prints the gift card balance when a gift card paid for part of the sale.
+     * Prints a gift card balance in either receipt template.
      */
     public function testReceiptPrintsGiftCardBalance(): void
     {
@@ -272,15 +411,17 @@ final class ReceiptLayoutTest extends CIUnitTestCase
             ],
         ];
 
-        $output = view('sales/receipt_default', $data);
-        $row    = $this->rowContaining($output, lang('Sales.giftcard_balance'));
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $data);
+            $row    = $this->rowContaining($output, lang('Sales.giftcard_balance'));
 
-        $this->assertNotSame('', $row);
-        $this->assertStringContainsString(to_currency(12.5), $row);
+            $this->assertNotSame('', $row, $receipt_view);
+            $this->assertStringContainsString(to_currency(12.5), $row, $receipt_view);
+        }
     }
 
     /**
-     * Prints a refunded return total without adding a zero change row.
+     * Prints a return total without adding a zero change row in either template.
      */
     public function testReceiptPrintsReturnTotalWithoutChangeRow(): void
     {
@@ -293,12 +434,14 @@ final class ReceiptLayoutTest extends CIUnitTestCase
             ],
         ];
 
-        $output = view('sales/receipt_default', $data);
-        $row    = $this->rowContaining($output, lang('Sales.total_to_pay'));
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $data);
+            $row    = $this->rowContaining($output, lang('Sales.total_to_pay'));
 
-        $this->assertNotSame('', $row);
-        $this->assertStringContainsString(to_currency(-8.0), $row);
-        $this->assertStringNotContainsString(lang('Sales.change_due'), $output);
+            $this->assertNotSame('', $row, $receipt_view);
+            $this->assertStringContainsString(to_currency(-8.0), $row, $receipt_view);
+            $this->assertStringNotContainsString(lang('Sales.change_due'), $output, $receipt_view);
+        }
     }
 
     /**
@@ -333,7 +476,7 @@ final class ReceiptLayoutTest extends CIUnitTestCase
     }
 
     /**
-     * Builds the smallest valid data set for rendering the default receipt.
+     * Builds the smallest valid data set for rendering either receipt template.
      *
      * @param string $returnPolicy Return policy text to place in the view data.
      *

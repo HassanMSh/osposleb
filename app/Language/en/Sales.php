@@ -215,8 +215,6 @@ return [
     'taxed_ind'                        => 'T',
     'total_to_pay'                     => 'TOTAL TO PAY',
     'vat_included'                     => '* VAT {0} (incl.)',
-    'vat_included_prefix'              => '* VAT',
-    'vat_included_suffix'              => 'included',
     'lbp_rate'                         => 'LBP Rate',
     'total'                            => 'Total',
     'total_tax_exclusive'              => 'Tax excluded',

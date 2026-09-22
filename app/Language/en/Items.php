@@ -123,6 +123,7 @@ return [
     'tax_mode_help'                      => "Inherit the global rate, use the item's own rate, or charge no TVA.",
     'tax_mode_inherit_rate'              => 'Inherit global rate ({0} {1}%)',
     'tax_mode_inherit_none'              => 'Inherit global rate (no global rate set; the item will be untaxed)',
+    'tax_mode_inherited'                 => 'Inherited global rate ({0} {1})',
     'tax_mode_own'                       => 'Use own rate',
     'tax_mode_none'                      => 'No TVA',
     'tax_exemption_reason'               => 'No-TVA reason',

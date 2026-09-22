@@ -92,10 +92,6 @@ jobs:
           for php_file in "${php_files[@]}"; do
             vendor/bin/php-cs-fixer fix "$php_file" --verbose --ansi --dry-run --config=.php-cs-fixer.no-header.php --using-cache=no --diff
           done
-      # Application container builds are disabled during baseline setup.
-      # Enable this step after application code changes require image validation.
-      # - name: Build application container
-      #   run: docker build . --target ospos -t ospos
 
   # Runs on 8.2 only. composer.lock pins dev tooling (PHPUnit 11 and its
   # sebastian/* dependencies) that requires PHP 8.2 or later, so the dev
@@ -148,3 +144,84 @@ jobs:
 
       - name: Run PHPUnit
         run: vendor/bin/phpunit --no-coverage --colors=always
+
+  # Only publish on pushes to develop after every check has passed.
+  # Publishes run one at a time.
+  # Only the newest develop commit moves the develop tag.
+  publish:
+    name: Publish shop image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: [syntax, coding-standards, tests]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    concurrency:
+      group: publish-shop-image
+      cancel-in-progress: false
+      queue: max
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check whether this commit is the tip of develop
+        id: tip
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          develop_sha="$(git ls-remote origin refs/heads/develop | cut -f1)" || {
+            echo "::error::Could not look up the tip of develop from origin."
+            exit 1
+          }
+          if [ -z "$develop_sha" ]; then
+            echo "::error::The lookup returned no tip SHA for develop."
+            exit 1
+          fi
+          if [ "$develop_sha" = "$COMMIT_SHA" ]; then
+            echo "is_tip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_tip=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Commit $COMMIT_SHA is no longer the tip of develop; left the moving develop tag alone."
+          fi
+
+      - name: Set short SHA
+        id: sha
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: echo "short_sha=${COMMIT_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Set image tags
+        id: tags
+        env:
+          SHORT_SHA: ${{ steps.sha.outputs.short_sha }}
+          IS_DEVELOP_TIP: ${{ steps.tip.outputs.is_tip }}
+        run: |
+          {
+            echo "tags<<EOF"
+            echo "hassanshamseddine/osposlb:develop-${SHORT_SHA}"
+            if [ "$IS_DEVELOP_TIP" = "true" ]; then
+              echo "hassanshamseddine/osposlb:develop"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB }}
+
+      - name: Build and publish shop image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ospos
+          platforms: linux/amd64
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: ${{ steps.tags.outputs.tags }}

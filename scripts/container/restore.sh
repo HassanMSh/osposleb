@@ -16,6 +16,8 @@ database_option_set=0
 env_value=''
 db_host_arg=''
 db_host_option_set=0
+platform_arg=''
+platform_option_set=0
 db_host=''
 db_port='3306'
 db_user=''
@@ -24,21 +26,25 @@ configured_database=''
 target_database=''
 stage_dir=''
 defaults_file=''
+uploads_parent=''
+uploads_name=''
 old_uploads=''
+old_uploads_dir=''
+new_uploads_dir=''
 old_uploads_moved=0
-uploads_installed=0
 restore_success=0
 
 # Print the command-line help for the restore tool.
 show_help() {
     cat <<'HELP'
-Usage: scripts/container/restore.sh --archive <file> --db-host <host> [--uploads <path>] [--env <path>] [--database <name>] [--yes]
+Usage: scripts/container/restore.sh --archive <file> --db-host <host> --platform <linux|windows> [--uploads <path>] [--env <path>] [--database <name>] [--yes]
 
 Restore one OSPOS backup archive.
 
 Options:
   --archive <file>           Backup archive to restore.
   --db-host <host>           Database service name or TCP host.
+  --platform <name>          Host platform: linux or windows.
   --uploads <path>           Uploads directory; default is public/uploads.
   --env <path>               Database .env file; default is the repository .env.
   --database <name>          Restore into another database for a restore drill.
@@ -115,7 +121,7 @@ validate_port() {
     (( 1 <= 10#$1 && 10#$1 <= 65535 )) || fail "Invalid database port in $env_file."
 }
 
-# Resolve the uploads target and reject a symlink at the directory being replaced.
+# Resolve the uploads target, record its parent and name, and reject a symlink.
 resolve_uploads_target() {
     local path=$uploads_arg
     local parent name
@@ -128,6 +134,8 @@ resolve_uploads_target() {
     [[ -n $name && $name != / ]] || fail "Invalid uploads path: $path"
     [[ -d $parent ]] || fail "Uploads parent directory does not exist: $parent"
     parent=$(CDPATH= cd -- "$parent" && pwd -P) || fail "Cannot use uploads parent directory: $path"
+    uploads_parent=$parent
+    uploads_name=$name
     uploads_target="$parent/$name"
     [[ ! -L $uploads_target ]] || fail "Uploads target must not be a symlink: $uploads_target"
     if [[ -e $uploads_target && ! -d $uploads_target ]]; then
@@ -283,34 +291,76 @@ confirm_restore() {
     [[ $answer == yes ]] || fail 'Restore cancelled. Type yes in full to continue.'
 }
 
-# Move the old uploads aside and install the validated uploads directory.
+# Create item pictures and set Linux permissions in the staged uploads tree.
+prepare_uploads() {
+    mkdir -p -- "$stage_dir/uploads/item_pics" \
+        || fail 'Could not create the item pictures directory in restored uploads.'
+    if [[ $platform_arg == linux ]]; then
+        find -P "$stage_dir/uploads" -type d -exec chmod 777 {} + \
+            || fail 'Could not make the restored uploads directories writable.'
+        find -P "$stage_dir/uploads" -type f -exec chmod 644 {} + \
+            || fail 'Could not make the restored uploads files readable.'
+    fi
+}
+
+# Copy prepared uploads beside the target, then swap directories on one filesystem.
 restore_uploads() {
-    old_uploads="$stage_dir/old-uploads"
+    new_uploads_dir=$(mktemp -d "$uploads_parent/.${uploads_name}.restore-new.XXXXXX") \
+        || fail 'Could not prepare restored uploads beside the live directory.'
+    cp -a -- "$stage_dir/uploads/." "$new_uploads_dir/" \
+        || fail 'Could not copy restored uploads beside the live directory.'
+
     if [[ -e $uploads_target ]]; then
-        mv -- "$uploads_target" "$old_uploads" || fail 'Could not move the existing uploads directory aside.'
+        old_uploads_dir=$(mktemp -d "$uploads_parent/.${uploads_name}.restore-old.XXXXXX") \
+            || fail 'Could not prepare a safe place for the existing uploads directory.'
+        old_uploads="$old_uploads_dir/$uploads_name"
+        mv -T -- "$uploads_target" "$old_uploads" \
+            || fail 'Could not move the existing uploads directory aside.'
         old_uploads_moved=1
     fi
-    mv -- "$stage_dir/uploads" "$uploads_target" || fail 'Could not install the restored uploads directory.'
-    uploads_installed=1
+    mv -T -- "$new_uploads_dir" "$uploads_target" \
+        || fail 'Could not install the restored uploads directory.'
+    new_uploads_dir=''
 }
 
-# Restore the old uploads directory if the restore fails after moving it.
+# Tell the operator where to find the old uploads if rollback cannot restore them.
+report_saved_uploads() {
+    printf 'The old uploads copy is next to the uploads directory in its host parent, at hidden path "%s/%s".\n' \
+        "$(basename -- "$old_uploads_dir")" "$uploads_name" >&2
+}
+
+# Remove a partial install and restore old uploads after a failed restore.
 rollback_uploads() {
-    if (( uploads_installed == 1 )) && [[ -e $uploads_target ]]; then
-        rm -rf -- "$uploads_target"
-    fi
-    if (( old_uploads_moved == 1 )) && [[ -e $old_uploads ]]; then
-        mv -- "$old_uploads" "$uploads_target" >/dev/null 2>&1 || true
+    if (( old_uploads_moved == 1 )); then
+        if [[ -e $uploads_target || -L $uploads_target ]]; then
+            if ! rm -rf -- "$uploads_target"; then
+                printf 'Could not remove the partial restored uploads directory. ' >&2
+                report_saved_uploads
+                return 0
+            fi
+        fi
+        if ! mv -T -- "$old_uploads" "$uploads_target" >/dev/null 2>&1; then
+            printf 'Could not restore the old uploads directory. ' >&2
+            report_saved_uploads
+            return 0
+        fi
+        old_uploads_moved=0
     fi
 }
 
-# Remove temporary files, remote credentials, and a partially installed upload restore.
+# Remove temporary files while leaving a sibling copy only when rollback fails.
 cleanup() {
     if (( restore_success == 0 )); then
         rollback_uploads
     fi
+    if [[ -n $new_uploads_dir && -d $new_uploads_dir ]]; then
+        rm -rf -- "$new_uploads_dir" || true
+    fi
+    if [[ -n $old_uploads_dir && -d $old_uploads_dir && $old_uploads_moved == 0 ]]; then
+        rm -rf -- "$old_uploads_dir" || true
+    fi
     if [[ -n $stage_dir && -d $stage_dir ]]; then
-        rm -rf -- "$stage_dir"
+        rm -rf -- "$stage_dir" || true
     fi
 }
 
@@ -335,6 +385,13 @@ parse_args() {
                 (( db_host_option_set == 0 )) || fail '--db-host was given more than once.'
                 db_host_arg=$2
                 db_host_option_set=1
+                shift 2
+                ;;
+            --platform)
+                (( $# >= 2 )) || fail '--platform needs linux or windows.'
+                (( platform_option_set == 0 )) || fail '--platform was given more than once.'
+                platform_arg=$2
+                platform_option_set=1
                 shift 2
                 ;;
             --uploads)
@@ -369,6 +426,7 @@ parse_args() {
         esac
     done
     [[ -n $archive_path ]] || fail '--archive is required.'
+    (( platform_option_set == 1 )) || fail '--platform is required.'
 }
 
 parse_args "$@"
@@ -378,9 +436,12 @@ parse_args "$@"
 [[ -r $env_file ]] || fail "Environment file is not readable: $env_file"
 (( db_host_option_set == 1 )) || fail '--db-host is required.'
 [[ -n $db_host_arg ]] || fail '--db-host must not be empty.'
+[[ $platform_arg == linux || $platform_arg == windows ]] || fail '--platform must be linux or windows.'
 require_command mysql
 require_command awk
 require_command chmod
+require_command cp
+require_command find
 require_command gzip
 require_command mktemp
 require_command mv
@@ -427,6 +488,7 @@ tar -xzf "$archive_path" -C "$stage_dir" --no-same-owner --no-same-permissions -
     || fail 'The extracted manifest.txt is not a regular file.'
 [[ -d $stage_dir/uploads && ! -L $stage_dir/uploads ]] \
     || fail 'The extracted uploads/ entry is not a directory.'
+prepare_uploads
 read_manifest
 validate_identifier "$manifest_database" 'manifest database name'
 if (( database_option_set == 0 )) && [[ $manifest_database != "$configured_database" ]]; then
@@ -449,6 +511,12 @@ if ! run_mysql < "$stage_dir/database.sql" 2> "$stage_dir/mysql-restore-error"; 
 fi
 restore_uploads
 restore_success=1
+if [[ -n $old_uploads_dir && -d $old_uploads_dir ]]; then
+    if ! rm -rf -- "$old_uploads_dir"; then
+        printf 'Restore succeeded, but the old uploads copy could not be removed. Delete this hidden sibling folder by hand. It is next to the uploads directory in its host parent, at hidden path "%s/%s".\n' \
+            "$(basename -- "$old_uploads_dir")" "$uploads_name" >&2
+    fi
+fi
 printf 'Restored database: %s\n' "$target_database"
 printf 'Restored uploads: %s\n' "$uploads_target"
 printf 'Check that you can log in.\n'

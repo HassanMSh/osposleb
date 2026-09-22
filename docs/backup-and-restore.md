@@ -70,6 +70,10 @@ It leaves the database in the named `mysql` volume.
 
 The setup command refuses to run when the target directory already exists.
 
+New client setup creates `uploads/item_pics/` automatically and sets it to mode 777 on Linux.
+
+If it is missing from an existing client data directory, run `mkdir -p "$OSPOS_DATA_DIR/uploads/item_pics" && chmod 777 "$OSPOS_DATA_DIR/uploads/item_pics"` on Linux or `New-Item -ItemType Directory -Force "$env:OSPOS_DATA_DIR\uploads\item_pics" | Out-Null` in PowerShell.
+
 ### Backup settings for older client installs
 
 Older `ospos.conf` files still work when they do not contain the new settings.
@@ -158,14 +162,20 @@ To move a shop, install Docker, copy the client directory, set `OSPOS_DATA_DIR`,
 
 The restore step is required because the database is not in the copied client directory.
 
+Restart the `ospos` service after the restore so it uses the restored uploads directory.
+
 ```powershell
 $env:OSPOS_DATA_DIR = 'C:\OSPOS\Client'
+docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
 .\scripts\restore.ps1 --archive E:\OSPOS-Backups\ospos-backup-YYYYMMDD-HHMMSS.tar.gz --yes
+docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml restart ospos
 ```
 
 ```bash
 export OSPOS_DATA_DIR="$PWD/client-data"
+docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
 ./scripts/restore.sh --archive /media/shop-backup/ospos-backup-YYYYMMDD-HHMMSS.tar.gz --yes
+docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml restart ospos
 ```
 
 ## Automatic daily backups
@@ -353,9 +363,17 @@ The launcher prints the target database name before the restore tool imports it.
 
 The tool checks the archive members and the database checksum before importing the database.
 
-It restores the database first and then replaces the uploads directory.
+Before importing the database, restore creates `uploads/item_pics/` in its temporary uploads copy if the archive did not contain it.
+
+The Windows restore path skips the explicit permission step.
+
+On the shop computer, check that restored pictures show.
+
+It restores the database first and then replaces the live uploads directory.
 
 If the database import fails, the uploads directory is not changed.
+
+If restore fails and cannot put the old uploads back, it keeps them in a hidden sibling folder named in the error.
 
 Start the application after the restore and check that you can log in.
 
@@ -461,9 +479,15 @@ scripts/restore.sh --archive /media/shop-backup/ospos-backup-YYYYMMDD-HHMMSS.tar
 
 The tool checks the archive contents and database checksum before importing the database.
 
-It restores the database first and then replaces the uploads directory.
+Before importing the database, restore creates `uploads/item_pics/` in its temporary uploads copy if the archive did not contain it.
+
+On Linux, restore sets every uploads directory to mode 777 and every regular file to mode 644 so the web server can use restored pictures.
+
+It restores the database first and then replaces the live uploads directory.
 
 If the database import fails, the uploads directory is not changed.
+
+If restore fails and cannot put the old uploads back, it keeps them in a hidden sibling folder named in the error.
 
 Start the application after the restore and check that you can log in.
 

@@ -55,6 +55,10 @@ Stop sales before restoring because restore replaces the selected database and u
 
 Check the archive and target database before confirming the restore.
 
+Stop the `ospos` container before the restore and start it after, because restore swaps in a new uploads folder and a running container keeps using the old one.
+
+After the restore, open Settings and check that item pictures show.
+
 ## Update and rollback
 
 The shop image version is pinned with `OSPOS_IMAGE_TAG`; see "Pin or roll back the client image" in [backup and restore](backup-and-restore.md).

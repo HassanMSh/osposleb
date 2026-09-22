@@ -4,6 +4,7 @@ namespace Tests;
 
 use App\Libraries\Sale_lib;
 use App\Libraries\Tax_lib;
+use App\Models\Appconfig;
 use App\Models\Customer;
 use App\Models\Item;
 use App\Models\Item_taxes;
@@ -50,22 +51,44 @@ final class TvaModelTest extends CIUnitTestCase
     }
 
     /**
-     * A changed global rate is used by the next inheriting calculation.
+     * A rate saved through app configuration is used by the next calculation.
      */
-    public function testInheritingItemUsesTheChangedGlobalRate(): void
+    public function testInheritingItemUsesTheChangedGlobalRateSavedInSettings(): void
     {
-        $taxLib = $this->makeTaxLibrary(
-            ['default_tax_1_rate' => '11'],
-            [1 => ['taxable' => 1]],
-        );
+        $appconfig             = model(Appconfig::class);
+        $had_rate              = $appconfig->exists('default_tax_1_rate');
+        $original_rate         = $appconfig->get_value('default_tax_1_rate');
+        $had_tax_included      = $appconfig->exists('tax_included');
+        $original_tax_included = $appconfig->get_value('tax_included');
+        $item_info             = [1 => ['taxable' => 1]];
+        $cart                  = [$this->makeCartLine(1, 100)];
 
-        $this->writePrivateProperty($taxLib, 'config', array_merge(
-            $this->readPrivateProperty($taxLib, 'config'),
-            ['default_tax_1_rate' => '12'],
-        ));
-        $cart = [$this->makeCartLine(1, 100)];
+        try {
+            $this->assertTrue($appconfig->save(['tax_included' => false]));
+            $this->assertTrue($appconfig->save(['default_tax_1_rate' => '11']));
+            $firstTaxLib = $this->makeTaxLibrary([], $item_info, [], [], true);
 
-        $this->assertSame(12.0, $this->firstTax($taxLib->get_taxes($cart))['sale_tax_amount']);
+            $this->assertSame(11.0, $this->firstTax($firstTaxLib->get_taxes($cart))['sale_tax_amount']);
+
+            $this->assertTrue($appconfig->save(['default_tax_1_rate' => '12']));
+            $nextTaxLib = $this->makeTaxLibrary([], $item_info, [], [], true);
+
+            $this->assertSame(12.0, $this->firstTax($nextTaxLib->get_taxes($cart))['sale_tax_amount']);
+        } finally {
+            if ($had_rate) {
+                $appconfig->save(['default_tax_1_rate' => $original_rate]);
+            } else {
+                $appconfig->delete('default_tax_1_rate');
+                config(OSPOS::class)->update_settings();
+            }
+
+            if ($had_tax_included) {
+                $appconfig->save(['tax_included' => $original_tax_included]);
+            } else {
+                $appconfig->delete('tax_included');
+                config(OSPOS::class)->update_settings();
+            }
+        }
     }
 
     /**
@@ -241,12 +264,15 @@ final class TvaModelTest extends CIUnitTestCase
 
     /**
      * Creates a tax library with test doubles for its data sources.
+     *
+     * @param bool $useApplicationConfig Build the library through its constructor so it reads live app settings.
      */
     private function makeTaxLibrary(
         array $configOverrides = [],
         array $itemInfo = [],
         array $itemTaxInfo = [],
         array $storedTaxInfo = [],
+        bool $useApplicationConfig = false,
     ): Tax_lib {
         $saleLib = $this->createMock(Sale_lib::class);
         $saleLib->method('get_mode')->willReturn('sale');
@@ -293,20 +319,24 @@ final class TvaModelTest extends CIUnitTestCase
             static fn (int $saleId, int $itemId): array => $storedTaxInfo[$itemId] ?? [],
         );
 
-        $taxLib = (new ReflectionClass(Tax_lib::class))->newInstanceWithoutConstructor();
+        $taxLib = $useApplicationConfig
+            ? new Tax_lib()
+            : (new ReflectionClass(Tax_lib::class))->newInstanceWithoutConstructor();
         $this->writePrivateProperty($taxLib, 'sale_lib', $saleLib);
         $this->writePrivateProperty($taxLib, 'customer', $customer);
         $this->writePrivateProperty($taxLib, 'item', $item);
         $this->writePrivateProperty($taxLib, 'item_taxes', $itemTaxes);
         $this->writePrivateProperty($taxLib, 'sale', $sale);
-        $this->writePrivateProperty($taxLib, 'config', array_merge([
-            'use_destination_based_tax' => false,
-            'tax_included'              => false,
-            'currency_decimals'         => '2',
-            'tax_decimals'              => '2',
-            'default_tax_1_rate'        => '11',
-            'default_tax_1_name'        => 'VAT',
-        ], $configOverrides));
+        if (! $useApplicationConfig) {
+            $this->writePrivateProperty($taxLib, 'config', array_merge([
+                'use_destination_based_tax' => false,
+                'tax_included'              => false,
+                'currency_decimals'         => '2',
+                'tax_decimals'              => '2',
+                'default_tax_1_rate'        => '11',
+                'default_tax_1_name'        => 'VAT',
+            ], $configOverrides));
+        }
 
         return $taxLib;
     }
@@ -347,16 +377,6 @@ final class TvaModelTest extends CIUnitTestCase
         }
 
         $this->fail("Tax group {$taxGroup} was not found.");
-    }
-
-    /**
-     * Reads a private property for a controlled test configuration update.
-     */
-    private function readPrivateProperty(object $object, string $property): mixed
-    {
-        $reflection = new ReflectionProperty($object, $property);
-
-        return $reflection->getValue($object);
     }
 
     /**

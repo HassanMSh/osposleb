@@ -40,6 +40,10 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 - Forbid `ps`, `pgrep`, `pkill`, `kill` and `top` in every delegated prompt, because the implementation agent can match and kill its own process.
 - The coordinating agent keeps audit, decision records, review, Git and GitHub operations, and is responsible for checking whatever the implementation agent returns before it is committed.
 - Name the model that actually ran the work in the phase completion report. Do not record an intended model as if it had been used.
+- The rules above are for the coordinating agent only. If you are `gpt-6-luna` or `gpt-6-sol` and were started by `codex exec`, you are the worker, not the coordinator.
+- If you are `gpt-6-luna`, you are the implementer. Do the work yourself in this run. Do not start `codex exec`, another Codex session, or any sub-agent, and do not hand the task on to another model.
+- If you are `gpt-6-sol`, you are the reviewer. Review the work yourself in this run and do not edit files. Do not start `codex exec`, another Codex session, or any sub-agent, and do not run your own review rounds.
+- One run is one round. The implementer and the reviewer each finish their run with a report and stop. The coordinating agent decides whether another round is needed and starts it.
 
 ## Working directory
 

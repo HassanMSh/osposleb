@@ -451,7 +451,7 @@ function get_item_data_row(object $item): array
         $item_tax_info = $item_taxes->get_info($item->item_id);
         $tax_percents = '';
         foreach ($item_tax_info as $tax_info) {
-            $tax_percents .= to_tax_decimals($tax_info['percent']) . '%, ';
+            $tax_percents .= esc(to_tax_decimals($tax_info['percent']) . '%, ');
         }
 
         // Remove ', ' from last item
@@ -470,7 +470,7 @@ function get_item_data_row(object $item): array
                     $tax_percents = lang('Items.tax_mode_inherit_none');
                 }
             } else {
-                $tax_percents = format_tax_group_label($item->tax_exemption_reason ?? 'exempt');
+                $tax_percents = esc(format_tax_group_label($item->tax_exemption_reason ?? 'exempt'));
             }
         }
     }

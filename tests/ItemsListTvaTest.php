@@ -113,6 +113,36 @@ final class ItemsListTvaTest extends CIUnitTestCase
     }
 
     /**
+     * Escapes a stored exemption reason before returning the item-list cell.
+     */
+    public function testNonTaxableItemEscapesStoredExemptionReason(): void
+    {
+        $reason = '<img src=x onerror=alert(document.domain)>';
+        $row    = get_item_data_row($this->makeItem(0, $reason));
+
+        $this->assertStringContainsString(
+            '&lt;img src=x onerror=alert(document.domain)&gt;',
+            $row['tax_percents']
+        );
+        $this->assertStringNotContainsString($reason, $row['tax_percents']);
+    }
+
+    /**
+     * Keeps HTML enabled for the item tax column so inherited rates retain their direction markup.
+     */
+    public function testItemTaxColumnKeepsHtmlEnabled(): void
+    {
+        $headers = json_decode(get_items_manage_table_headers(), true, 512, JSON_THROW_ON_ERROR);
+        $taxHeaders = array_values(array_filter(
+            $headers,
+            fn (array $header): bool => $header['field'] === 'tax_percents'
+        ));
+
+        $this->assertCount(1, $taxHeaders);
+        $this->assertFalse($taxHeaders[0]['escape']);
+    }
+
+    /**
      * Ensures item searches return the taxability fields needed by the list formatter.
      */
     public function testItemSearchReturnsTaxabilityFieldsForListRows(): void

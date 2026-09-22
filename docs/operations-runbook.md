@@ -57,13 +57,15 @@ Check the archive and target database before confirming the restore.
 
 ## Update and rollback
 
-A safe update process is not ready yet. It needs the pinned shop image and automatic database migrations, which are still being built.
+The shop image version is pinned with `OSPOS_IMAGE_TAG`; see "Pin or roll back the client image" in [backup and restore](backup-and-restore.md).
 
-Until then, do not update the shop yourself. Ask the developer, and take a backup first.
+The container does not apply database migrations by itself yet, so an update that changes the database still needs the developer.
 
-The planned process is: take a backup, change the image version in `ospos.conf`, pull, and start.
+Always take a backup and confirm its `result=ok` line before changing the image version.
 
-The planned rollback is: put the previous image version back and restore the backup taken before the update.
+To update: take a backup, set `OSPOS_IMAGE_TAG` to the new version, pull, and start.
+
+To roll back: set `OSPOS_IMAGE_TAG` back to the previous version and restore the backup taken before the update.
 
 Rolling back only the image is not supported, because a newer version may have changed the database.
 

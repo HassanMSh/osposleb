@@ -4,11 +4,13 @@ namespace Tests;
 
 use App\Controllers\Sales as SalesController;
 use App\Libraries\Sale_lib;
+use CodeIgniter\Config\Factories;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\URI;
 use CodeIgniter\HTTP\UserAgent;
 use CodeIgniter\Test\CIUnitTestCase;
 use Config\App;
+use Config\OSPOS;
 use ReflectionClass;
 use RuntimeException;
 
@@ -20,13 +22,22 @@ use RuntimeException;
 final class TillEditItemTest extends CIUnitTestCase
 {
     /**
-     * Loads the locale helper used by the controller's decimal validation.
+     * Loads locale helpers and injects the settings used by the edit path.
      */
     protected function setUp(): void
     {
         parent::setUp();
 
         helper('locale');
+
+        $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
+        $ospos->settings = [
+            'currency_decimals'   => '2',
+            'number_locale'       => 'en_US',
+            'quantity_decimals'   => '0',
+            'thousands_separator' => '1',
+        ];
+        Factories::injectMock('config', OSPOS::class, $ospos);
     }
 
     /**

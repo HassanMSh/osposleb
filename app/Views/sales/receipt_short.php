@@ -41,7 +41,7 @@
         <div id="sale_id"><?= lang('Sales.id') . esc(": {$sale_id}") ?></div>
 
         <?php if (! empty($invoice_number)) { ?>
-            <div id="invoice_number"><?= lang('Sales.invoice_number') . ": {$invoice_number}" ?></div>
+            <div id="invoice_number"><?= lang('Sales.invoice_number') . esc(": {$invoice_number}") ?></div>
         <?php } ?>
 
         <div id="employee"><?= lang('Employees.employee') . esc(": {$employee}") ?></div>

@@ -206,6 +206,22 @@ final class ReceiptLayoutTest extends CIUnitTestCase
     }
 
     /**
+     * Escapes the invoice number once in the short receipt.
+     */
+    public function testShortReceiptEscapesInvoiceNumber(): void
+    {
+        $data                    = $this->receiptData('');
+        $data['invoice_number']  = '<b>INV&1</b>';
+        $escaped_invoice_number  = esc(": {$data['invoice_number']}");
+        $expected_invoice_markup = '<div id="invoice_number">' . lang('Sales.invoice_number') . $escaped_invoice_number . '</div>';
+        $output                  = view('sales/receipt_short', $data);
+
+        $this->assertStringContainsString($expected_invoice_markup, $output);
+        $this->assertSame(1, substr_count($output, '&lt;b&gt;INV&amp;1&lt;/b&gt;'));
+        $this->assertStringNotContainsString('&amp;lt;b&amp;gt;', $output);
+    }
+
+    /**
      * Keeps the pound amount and LL marker inside one no-wrap amount cell.
      */
     public function testReceiptKeepsPoundAmountAndMarkerOnOneLine(): void

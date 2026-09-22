@@ -18,7 +18,7 @@ use ReflectionClass;
  */
 final class ItemsListTvaTest extends CIUnitTestCase
 {
-    private array $itemTaxInfo = [];
+    private array $itemTaxInfo     = [];
     private array $taxCategoryInfo = [];
 
     /**
@@ -219,7 +219,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
             'pack_name'            => 'Each',
             'pic_filename'         => null,
             'quantity'             => '1',
-            'tax_category_id'     => $taxCategoryId,
+            'tax_category_id'      => $taxCategoryId,
             'tax_exemption_reason' => $taxExemptionReason,
             'taxable'              => $taxable,
             'unit_price'           => '2.00',

@@ -81,13 +81,11 @@ final class ItemsListTvaTest extends CIUnitTestCase
      */
     public function testItemTaxPercentLoopEscapesFormattedValues(): void
     {
-        $source = file_get_contents(APPPATH . 'Helpers/tabular_helper.php');
+        $this->itemTaxInfo = [1 => [['percent' => '10']]];
 
-        $this->assertIsString($source);
-        $this->assertStringContainsString(
-            '$tax_percents .= esc(to_tax_decimals($tax_info[\'percent\']) . \'%, \');',
-            $source,
-        );
+        $row = get_item_data_row($this->makeItem());
+
+        $this->assertSame('10.00%', $row['tax_percents']);
     }
 
     /**
@@ -164,10 +162,40 @@ final class ItemsListTvaTest extends CIUnitTestCase
     }
 
     /**
+     * Escapes an ampersand in a destination tax-category name exactly once.
+     */
+    public function testDestinationTaxCategoryEscapesAmpersandOnce(): void
+    {
+        $this->taxCategoryInfo = [7 => 'TVA & Local'];
+        $this->setSettings('', true);
+
+        $row = get_item_data_row($this->makeItem(1, 'exempt', 7));
+
+        $this->assertSame('TVA &amp; Local', $row['tax_percents']);
+    }
+
+    /**
      * Keeps HTML enabled for the item tax column so inherited rates retain their direction markup.
      */
     public function testItemTaxColumnKeepsHtmlEnabled(): void
     {
+        $headers    = json_decode(get_items_manage_table_headers(), true, 512, JSON_THROW_ON_ERROR);
+        $taxHeaders = array_values(array_filter(
+            $headers,
+            static fn (array $header): bool => $header['field'] === 'tax_percents',
+        ));
+
+        $this->assertCount(1, $taxHeaders);
+        $this->assertFalse($taxHeaders[0]['escape']);
+    }
+
+    /**
+     * Keeps browser escaping disabled for the destination tax-category column.
+     */
+    public function testDestinationTaxColumnKeepsHtmlEnabled(): void
+    {
+        $this->setSettings('', true);
+
         $headers    = json_decode(get_items_manage_table_headers(), true, 512, JSON_THROW_ON_ERROR);
         $taxHeaders = array_values(array_filter(
             $headers,

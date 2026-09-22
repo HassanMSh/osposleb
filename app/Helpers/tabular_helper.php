@@ -408,7 +408,7 @@ function get_items_manage_table_headers(): string
     $headers = item_headers();
 
     if ($config['use_destination_based_tax']) {
-        $headers[] = ['tax_percents' => lang('Items.tax_category'), 'sortable' => false];
+        $headers[] = ['tax_percents' => lang('Items.tax_category'), 'sortable' => false, 'escape' => false];
     } else {
         $headers[] = ['tax_percents' => lang('Items.tax_percents'), 'sortable' => false, 'escape' => false];
     }

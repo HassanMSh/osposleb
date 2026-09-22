@@ -11,9 +11,11 @@ use App\Models\Item_taxes;
 use App\Models\Sale;
 use CodeIgniter\Config\Factories;
 use CodeIgniter\Test\CIUnitTestCase;
+use Config\Database;
 use Config\OSPOS;
 use ReflectionClass;
 use ReflectionProperty;
+use Throwable;
 
 /**
  * Covers Phase 3 part A TVA resolution and rounding rules.
@@ -55,6 +57,14 @@ final class TvaModelTest extends CIUnitTestCase
      */
     public function testInheritingItemUsesTheChangedGlobalRateSavedInSettings(): void
     {
+        try {
+            $database = Database::connect();
+            $database->initialize();
+            $database->query('SELECT 1');
+        } catch (Throwable $exception) {
+            $this->markTestSkipped('The test database is unavailable: ' . $exception->getMessage());
+        }
+
         $appconfig             = model(Appconfig::class);
         $had_rate              = $appconfig->exists('default_tax_1_rate');
         $original_rate         = $appconfig->get_value('default_tax_1_rate');

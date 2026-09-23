@@ -8,11 +8,9 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 
 ## Current project status
 
+- Phase status lives in `docs/adr/progress-checklist.md`, which is untracked and stays on the developer machine. Read it for what is done and what is open, and update it at the end of every phase instead of adding status here.
 - Approved baseline: `develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`, application version 3.4.1, approved 2026-09-20.
-- Phase 1 is complete and merged to `develop`: ADRs 0001 and 0002 are accepted and `docs/adr/gap-analysis.md` is complete.
-- Phase 2 is complete and merged to `develop`: ADRs 0003 and 0004 are accepted, both Arabic locales are fully translated, the right-to-left layer is in place, and the layout was verified in Google Chrome in both directions.
-- Operator documentation lives in `docs/`. Internal records, plans, and audits live in `docs/adr/`, which is untracked and stays on the developer machine. Track task status in `docs/adr/progress-checklist.md` and update it at the end of every phase.
-- Phase 3 is complete and merged to `develop`: ADR 0005 is accepted, the TVA model and the Lebanese pound presentation are implemented, the migration was rehearsed and rolled back against a real database, and the new screens were verified in Google Chrome in both languages.
+- Operator documentation lives in `docs/`. Internal records, plans, and audits live in `docs/adr/`.
 - The shop runs in Arabic (Lebanon) by default, the `admin` account runs in English, and the login page is always English and left to right. Decided 2026-09-20.
 - Phase 4 is waiting for the project owner's hardware to arrive. Do not start model-specific work until the devices are named.
 - Phase 6 production hardening is merged to `develop` (pull request #30, 2026-09-23): ADR 0009 is accepted, and the daily scheduled backup, keep-7 retention, optional USB copy, backup log, `127.0.0.1` binding, and warn-only `composer audit` job are in place, proved on Linux. Phase 6 is not complete: the Windows checks on the shop computer, the clean install and upgrade rehearsal, and automatic database migrations are still open.
@@ -36,7 +34,7 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 - Hand review work to `gpt-6-sol`: `codex exec -m gpt-6-sol -c model_reasoning_effort="high"`.
 - Pass `-m` and the reasoning effort every time. The local Codex default is `gpt-6-luna` at medium effort, so leaving them out silently runs the wrong model or a weaker setting.
 - Close standard input (`< /dev/null`) or `codex exec` waits forever.
-- Moved from `gpt-5.6-luna` and `gpt-5.6-sol` on 2026-09-23 at the project owner's request. Earlier reports and briefs that name the 5.6 models record what actually ran at the time and stay as they are.
+- Do not rewrite older reports that name the 5.6 models. They record what actually ran at the time.
 - Forbid `ps`, `pgrep`, `pkill`, `kill` and `top` in every delegated prompt, because the implementation agent can match and kill its own process.
 - The coordinating agent keeps audit, decision records, review, Git and GitHub operations, and is responsible for checking whatever the implementation agent returns before it is committed.
 - Name the model that actually ran the work in the phase completion report. Do not record an intended model as if it had been used.

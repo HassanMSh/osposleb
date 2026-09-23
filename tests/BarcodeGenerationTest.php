@@ -33,6 +33,7 @@ require_once APPPATH . 'Database/Migrations/20260922000001_barcode_generation.ph
 final class BarcodeGenerationTest extends CIUnitTestCase
 {
     private $database;
+    private ?string $migrationStateBackup = null;
 
     /**
      * Enables empty-barcode generation for the model and controller tests.
@@ -47,7 +48,7 @@ final class BarcodeGenerationTest extends CIUnitTestCase
     }
 
     /**
-     * Rolls back transaction-backed tests and clears session state.
+     * Rolls back transaction-backed tests, restores saved migration state, and clears session state.
      */
     protected function tearDown(): void
     {
@@ -56,6 +57,11 @@ final class BarcodeGenerationTest extends CIUnitTestCase
         }
 
         session()->remove(['person_id', 'sales_cart']);
+
+        if ($this->database !== null) {
+            $this->restoreMigrationStateTable();
+        }
+
         $this->database = null;
         parent::tearDown();
     }
@@ -621,10 +627,10 @@ final class BarcodeGenerationTest extends CIUnitTestCase
             $this->assertSame('0', $this->configValue('barcode_generate_if_empty'));
             $this->assertSame(2, (int) $this->database->table('items')->where('item_number', 'existing-duplicate')->countAllResults());
         } finally {
+            $this->cleanupMigrationState($migration);
             $this->database->table('items')->whereIn('item_id', [$empty_id, $owner_id, $duplicate_one_id, $duplicate_two_id])->delete();
             $this->restoreConfigRows($original_settings);
             $this->restoreBarcodeIndex($original_index);
-            $this->cleanupMigrationState($migration);
         }
     }
 
@@ -833,14 +839,50 @@ final class BarcodeGenerationTest extends CIUnitTestCase
     }
 
     /**
-     * Creates the migration and binds it to the test database connection.
+     * Backs up existing migration state, then binds the migration to the test database connection.
      */
     private function makeMigration(): Migration_barcode_generation
     {
+        $this->backupMigrationStateTable();
+
         $migration = new Migration_barcode_generation();
         $this->assignProperty($migration, 'db', $this->database);
 
         return $migration;
+    }
+
+    /**
+     * Renames a pre-existing migration state table so this test gets fresh state.
+     */
+    private function backupMigrationStateTable(): void
+    {
+        $state_table = $this->database->prefixTable('barcode_generation_state');
+
+        if (! $this->database->tableExists($state_table, false)) {
+            return;
+        }
+
+        $this->migrationStateBackup = $this->database->prefixTable('barcode_generation_state_backup_' . bin2hex(random_bytes(6)));
+        $this->database->query('RENAME TABLE ' . $state_table . ' TO ' . $this->migrationStateBackup);
+    }
+
+    /**
+     * Removes this test's state table and restores the table that existed before the test.
+     */
+    private function restoreMigrationStateTable(): void
+    {
+        if ($this->migrationStateBackup === null || ! $this->database->tableExists($this->migrationStateBackup, false)) {
+            return;
+        }
+
+        $state_table = $this->database->prefixTable('barcode_generation_state');
+
+        if ($this->database->tableExists($state_table, false)) {
+            $this->database->query('DROP TABLE ' . $state_table);
+        }
+
+        $this->database->query('RENAME TABLE ' . $this->migrationStateBackup . ' TO ' . $state_table);
+        $this->migrationStateBackup = null;
     }
 
     /**

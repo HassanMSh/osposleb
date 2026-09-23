@@ -1,0 +1,7 @@
+{
+  "name": "ospos-browser-qa",
+  "private": true,
+  "type": "module",
+  "scripts": { "qa": "node run.mjs" },
+  "devDependencies": { "playwright-core": "1.55.0" }
+}

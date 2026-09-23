@@ -1,7 +1,8 @@
 <?php
 /**
  * @var string $transaction_time
- * @var int    $sale_id
+ * @var string $sale_id
+ * @var int    $sale_id_num
  * @var string $invoice_number
  * @var string $employee
  * @var array  $cart
@@ -40,7 +41,7 @@
             <div id="customer"><?= lang('Customers.customer') . esc(": {$customer}") ?></div>
         <?php } ?>
 
-        <div id="sale_id"><?= lang('Sales.id') . esc(": {$sale_id}") ?></div>
+        <div id="sale_id"><?= lang('Sales.id') . esc(": {$sale_id_num}") ?></div>
 
         <?php if (! empty($invoice_number)) { ?>
             <div id="invoice_number"><?= lang('Sales.invoice_number') . esc(": {$invoice_number}") ?></div>

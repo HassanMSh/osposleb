@@ -222,6 +222,27 @@ final class ReceiptLayoutTest extends CIUnitTestCase
     }
 
     /**
+     * Prints the plain sale number in the receipt header and keeps the POS lookup text under the barcode.
+     */
+    public function testReceiptHeaderShowsPlainSaleNumber(): void
+    {
+        foreach (self::RECEIPT_VIEWS as $receipt_view) {
+            $output = view($receipt_view, $this->receiptData(''));
+
+            $this->assertStringContainsString('<div id="sale_id">' . lang('Sales.id') . ': 42</div>', $output, $receipt_view);
+            $this->assertMatchesRegularExpression('/<div id="barcode">.*POS 42/s', $output, $receipt_view);
+        }
+    }
+
+    /**
+     * Keeps the Lebanese Arabic description header as a full word with no abbreviation dot.
+     */
+    public function testLebaneseDescriptionHeaderHasNoDot(): void
+    {
+        $this->assertSame('الوصف', $this->loadSalesLanguage('ar-LB')['description_abbrv']);
+    }
+
+    /**
      * Keeps the pound amount and LL marker inside one no-wrap amount cell.
      */
     public function testReceiptKeepsPoundAmountAndMarkerOnOneLine(): void
@@ -503,6 +524,7 @@ final class ReceiptLayoutTest extends CIUnitTestCase
         return [
             'transaction_time'     => '21/09/2026 14:12:15',
             'sale_id'              => 'POS 42',
+            'sale_id_num'          => 42,
             'invoice_number'       => '',
             'employee'             => 'Test employee',
             'cart'                 => [],

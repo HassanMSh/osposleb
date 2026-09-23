@@ -373,12 +373,19 @@ class Sales extends Secure_Controller
 
     /**
      * Adds a cash payment and completes the sale when it is paid in full.
+     * Refuses without recording the payment when a cart line has a quantity of zero.
      * Used by app/Views/sales/register.php.
      *
      * @noinspection PhpUnused
      */
     public function postAddPaymentAndComplete(): void
     {
+        if ($this->cartHasZeroQuantity()) {
+            $this->_reload(['error' => lang('Sales.quantity_zero')]);
+
+            return;
+        }
+
         $data = $this->recordPayment();
 
         if (isset($data['error'])) {
@@ -592,6 +599,8 @@ class Sales extends Secure_Controller
      * Edit an item in the sale. Used in app/Views/sales/register.php
      *
      * Rejects missing or non-string price and quantity values before validation.
+     * Rejects a quantity of zero, so a cart line cannot be sold for nothing. Negative
+     * quantities stay allowed because returns use them.
      * Normalizes absent or blank discount fields and resolves invalid location
      * fields from the cart line or sale location for stock checks.
      *
@@ -642,6 +651,13 @@ class Sales extends Secure_Controller
                 ? parse_decimals($this->request->getPost('discounted_total') ?? '')
                 : null;
 
+            if ($this->isZeroQuantity($quantity)) {
+                $data['error'] = lang('Sales.quantity_zero');
+                $this->_reload($data);
+
+                return;
+            }
+
             $this->sale_lib->edit_item($line, $description, $serialnumber, $quantity, $discount, $discount_type, $price, $discounted_total);
 
             $this->sale_lib->empty_payments();
@@ -689,12 +705,19 @@ class Sales extends Secure_Controller
     /**
      * Completes a cash-only sale without buyer data. Used in app/Views/sales/register.php.
      * Builds a day-first timestamp when the completed sale is rendered as a receipt.
+     * Refuses to complete while any cart line has a quantity of zero.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
      */
     public function postComplete(): void    // TODO: this function is huge.  Probably should be refactored.
     {
+        if ($this->cartHasZeroQuantity()) {
+            $this->_reload(['error' => lang('Sales.quantity_zero')]);
+
+            return;
+        }
+
         $sale_id              = $this->sale_lib->get_sale_id();
         $data                 = [];
         $data['dinner_table'] = $this->sale_lib->get_dinner_table();
@@ -1470,6 +1493,31 @@ class Sales extends Secure_Controller
         if (! is_string($payment_type) || ! in_array($payment_type, get_translated_payment_labels('Sales.cash'), true)) {
             throw PageNotFoundException::forPageNotFound();
         }
+    }
+
+    /**
+     * Returns true when a quantity would be saved as zero.
+     *
+     * Sale quantities are stored with three decimals, so anything smaller than half of
+     * 0.001 rounds to zero in the database.
+     */
+    private function isZeroQuantity(mixed $quantity): bool
+    {
+        return abs((float) $quantity) < 0.0005;
+    }
+
+    /**
+     * Returns true when any line in the current cart has a quantity of zero.
+     */
+    private function cartHasZeroQuantity(): bool
+    {
+        foreach ($this->sale_lib->get_cart() as $line) {
+            if ($this->isZeroQuantity($line['quantity'] ?? 0)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

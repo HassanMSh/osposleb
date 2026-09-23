@@ -288,6 +288,47 @@ final class TillEditItemTest extends CIUnitTestCase
     }
 
     /**
+     * Refuses a quantity of zero and keeps the cart line unchanged (issue #47).
+     */
+    public function testEditingCartLineToZeroQuantityKeepsCartUnchanged(): void
+    {
+        foreach (['0', '0.00', '0.0001'] as $quantity) {
+            [$controller, $saleLibrary, $reloadException] = $this->makeController([
+                'location'     => '1',
+                'item_id'      => '7',
+                'price'        => '10.00',
+                'quantity'     => $quantity,
+                'description'  => '',
+                'serialnumber' => '',
+            ], expectOutOfStock: false);
+            $cartBefore = $saleLibrary->get_cart();
+
+            $this->invokeEditItem($controller, $reloadException);
+
+            $this->assertSame($cartBefore, $saleLibrary->get_cart(), "Quantity {$quantity} changed the cart.");
+        }
+    }
+
+    /**
+     * Still stores a negative quantity, because returns use negative lines.
+     */
+    public function testEditingCartLineToNegativeQuantityStillWorks(): void
+    {
+        [$controller, $saleLibrary, $reloadException] = $this->makeController([
+            'location'     => '1',
+            'item_id'      => '7',
+            'price'        => '10.00',
+            'quantity'     => '-1',
+            'description'  => '',
+            'serialnumber' => '',
+        ]);
+
+        $this->invokeEditItem($controller, $reloadException);
+
+        $this->assertSame('-1', $saleLibrary->get_cart()[1]['quantity']);
+    }
+
+    /**
      * Requires every input rendered in a cart line to name that line's form.
      */
     public function testEveryCartInputNamesItsLineForm(): void

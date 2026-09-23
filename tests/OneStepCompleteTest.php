@@ -150,6 +150,77 @@ final class OneStepCompleteTest extends CIUnitTestCase
     }
 
     /**
+     * Refuses a cart with a zero-quantity line before recording the payment (issue #47).
+     */
+    public function testZeroQuantityLineReloadsWithoutPaymentOrCompletion(): void
+    {
+        $saleLibrary = $this->getMockBuilder(Sale_lib::class)
+            ->onlyMethods(['add_payment', 'get_cart', 'reset_cash_rounding'])
+            ->getMock();
+        $saleLibrary->method('get_cart')->willReturn([
+            1 => ['item_id' => 7, 'quantity' => '1', 'price' => '10'],
+            2 => ['item_id' => 8, 'quantity' => '0.000', 'price' => '10'],
+        ]);
+        $saleLibrary->expects($this->never())->method('add_payment');
+
+        $reloadException = new RuntimeException('register reload reached');
+        $saleLibrary->expects($this->once())
+            ->method('reset_cash_rounding')
+            ->willThrowException($reloadException);
+
+        $controller = $this->getMockBuilder(SalesController::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['validate', 'postComplete'])
+            ->getMock();
+        $controller->expects($this->never())->method('validate');
+        $controller->expects($this->never())->method('postComplete');
+
+        $reflection = new ReflectionClass(SalesController::class);
+        $reflection->getProperty('session')->setValue($controller, session());
+        $reflection->getProperty('sale_lib')->setValue($controller, $saleLibrary);
+
+        try {
+            $controller->postAddPaymentAndComplete();
+        } catch (RuntimeException $exception) {
+            $this->assertSame($reloadException, $exception);
+
+            return;
+        }
+
+        $this->fail('The zero-quantity cart did not reload the register.');
+    }
+
+    /**
+     * Refuses to complete a sale directly while a cart line has a quantity of zero.
+     */
+    public function testCompleteRefusesZeroQuantityLine(): void
+    {
+        $saleLibrary = $this->getMockBuilder(Sale_lib::class)
+            ->onlyMethods(['get_cart', 'get_sale_id', 'reset_cash_rounding'])
+            ->getMock();
+        $saleLibrary->method('get_cart')->willReturn([1 => ['item_id' => 7, 'quantity' => 0.0, 'price' => '10']]);
+        $saleLibrary->expects($this->never())->method('get_sale_id');
+
+        $reloadException = new RuntimeException('register reload reached');
+        $saleLibrary->method('reset_cash_rounding')->willThrowException($reloadException);
+
+        $controller = (new ReflectionClass(SalesController::class))->newInstanceWithoutConstructor();
+        $reflection = new ReflectionClass(SalesController::class);
+        $reflection->getProperty('session')->setValue($controller, session());
+        $reflection->getProperty('sale_lib')->setValue($controller, $saleLibrary);
+
+        try {
+            $controller->postComplete();
+        } catch (RuntimeException $exception) {
+            $this->assertSame($reloadException, $exception);
+
+            return;
+        }
+
+        $this->fail('The zero-quantity cart was not refused.');
+    }
+
+    /**
      * Builds the mocked sales controller, sale totals, taxes, and payment request.
      *
      * @return array{0: SalesController, 1: Sale_lib}
@@ -177,7 +248,7 @@ final class OneStepCompleteTest extends CIUnitTestCase
             $saleLibrary->expects($this->exactly(2))
                 ->method('get_total')
                 ->willReturnOnConsecutiveCalls($total, $salesTotal);
-            $saleLibrary->expects($this->once())->method('get_cart')->willReturn($cart);
+            $saleLibrary->expects($this->exactly(2))->method('get_cart')->willReturn($cart);
             $saleLibrary->expects($this->once())
                 ->method('get_totals')
                 ->with($taxes)
@@ -188,7 +259,7 @@ final class OneStepCompleteTest extends CIUnitTestCase
             }
         } else {
             $saleLibrary->expects($this->never())->method('get_total');
-            $saleLibrary->expects($this->never())->method('get_cart');
+            $saleLibrary->expects($this->once())->method('get_cart')->willReturn($cart);
             $saleLibrary->expects($this->never())->method('get_totals');
         }
 

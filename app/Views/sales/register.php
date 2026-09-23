@@ -355,7 +355,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     if ($pos_mode) {
                         ?>
                             <button type="button" class="btn btn-sm btn-success pull-right" id="finish_sale_button" tabindex="<?= ++$tabindex ?>">
-                                <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?>
+                                <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?> <span dir="ltr">(F12)</span>
                             </button>
                     <?php
                     }
@@ -372,7 +372,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                                 </tr>
                             </table>
                             <button type="submit" class="btn btn-sm btn-success pull-right" id="complete_sale_button" tabindex="<?= ++$tabindex ?>">
-                                <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?>
+                                <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?> <span dir="ltr">(F12)</span>
                             </button>
                         <?= form_close() ?>
                     <?php } else { ?>
@@ -641,6 +641,50 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 }
             });
         };
+
+        let f12ShortcutTriggered = false;
+
+        const f12ShortcutEnabled = <?= $pos_mode ? 'true' : 'false' ?>;
+
+        /**
+         * F12 stops Chrome DevTools opening and, in sale or return mode, clicks the Complete button that is shown (the one-step Complete while cash is still due).
+         * It does nothing when the cart is empty (neither button is rendered), while a scan is still being added or typed,
+         * or while a dialog is open. If a cart field holds an unsaved edit, it saves that edit instead and the next F12 continues.
+         * It clicks at most once per page load so a double press cannot send two requests.
+         */
+        const handleF12Shortcut = function(event) {
+            if (event.key !== 'F12' && event.keyCode !== 123) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (!f12ShortcutEnabled || f12ShortcutTriggered || addItemInFlight || pendingItemScans.length > 0 || registerRecoveryInProgress) {
+                return;
+            }
+
+            if ($('.modal:visible').length > 0 || String($('#item').val() || '').trim() !== '') {
+                return;
+            }
+
+            const activeField = document.activeElement;
+            if ($(activeField).is('#cart_contents input, #cart_contents textarea') && activeField.value !== activeField.defaultValue) {
+                f12ShortcutTriggered = true;
+                $(activeField).trigger('change');
+
+                return;
+            }
+
+            const targetButton = document.getElementById('finish_sale_button') || document.getElementById('complete_sale_button');
+            if (!targetButton) {
+                return;
+            }
+
+            f12ShortcutTriggered = true;
+            targetButton.click();
+        };
+
+        document.addEventListener('keydown', handleF12Shortcut);
 
         /**
          * Rebinds controls after an AJAX response replaces the register fragments.
@@ -978,11 +1022,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 $("#amount_tendered").select();
                 break;
             case 54: // Alt + 6 Complete payment or sale
-            case 55: // Alt + 7 Complete payment or sale
-                const completionButton = $("#complete_sale_button").length
-                    ? $("#complete_sale_button")
-                    : $("#finish_sale_button");
-                completionButton.click();
+                $("#complete_sale_button").length ? $("#complete_sale_button").click() : $("#finish_sale_button").click();
                 break;
             case 56: // Alt + 8 Finish Invoice without payment
                 $("#finish_invoice_button").click();

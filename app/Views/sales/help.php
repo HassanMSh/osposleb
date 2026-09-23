@@ -20,6 +20,10 @@
                         <td><?= lang('Sales.key_cancel'); ?></td>
                     </tr>
                     <tr>
+                        <td><code>F12</code></td>
+                        <td><?= lang('Sales.key_finish_sale'); ?></td>
+                    </tr>
+                    <tr>
                         <td><code>ALT + 1</code></td>
                         <td><?= lang('Sales.key_item_search'); ?></td>
                     </tr>
@@ -41,10 +45,6 @@
                     </tr>
                     <tr>
                         <td><code>ALT + 6</code></td>
-                        <td><?= lang('Sales.key_payment'); ?></td>
-                    </tr>
-                    <tr>
-                        <td><code>ALT + 7</code></td>
                         <td><?= lang('Sales.key_finish_sale'); ?></td>
                     </tr>
                     <tr>

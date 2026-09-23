@@ -12,6 +12,7 @@ The Linux results for ADR 0009 are listed below and recorded in the local eviden
 | --- | --- | --- | --- |
 | Startup and login | Manual | verified | Start the client stack and sign in from Chrome. |
 | Create and complete a sale | Manual | verified | Sell an item for cash and confirm it appears in sales history. |
+| F12 completes a sale | Automated browser check and manual | verified | Scan an item and press F12: it adds the cash payment, or completes when Complete is shown; a double press sends one request, and F12 does nothing with an empty cart, an open dialog, or in quote mode. |
 | TVA and rounding | Automated PHPUnit and manual | verified | Set an item TVA rate and compare sale and receipt totals with the expected rounded amount. |
 | Returns, voids, and discounts | Manual | expected | Return, void, and discount a test sale and compare the totals and reports. |
 | Arabic and English screens | Manual | verified | Sign in with each language and complete a sale in both. |

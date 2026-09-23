@@ -547,6 +547,7 @@ class Sales extends Secure_Controller
     /**
      * Edit an item in the sale. Used in app/Views/sales/register.php
      *
+     * Rejects missing or non-string price and quantity values before validation.
      * Normalizes absent or blank discount fields and resolves invalid location
      * fields from the cart line or sale location for stock checks.
      *
@@ -555,6 +556,16 @@ class Sales extends Secure_Controller
     public function postEditItem(string $line): void
     {
         $data = [];
+
+        $price    = $this->request->getPost('price');
+        $quantity = $this->request->getPost('quantity');
+
+        if (! is_string($price) || ! is_string($quantity)) {
+            $data['error'] = lang('Sales.error_editing_item');
+            $this->_reload($data);
+
+            return;
+        }
 
         $rules = [
             'price'    => 'trim|required|decimal_locale',

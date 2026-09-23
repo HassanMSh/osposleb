@@ -18,7 +18,7 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 
 - Track bugs, gaps, planned work, deferred items, and accepted risks as issues in `HassanMSh/osposleb`. Do not start new lists of open work in local files, ADRs, or this file.
 - Search existing issues before opening one (`gh issue list --state all --search "<words>"`). Comment on a matching issue instead of opening a duplicate.
-- Give each issue one type label (`bug`, `enhancement`, or `documentation`) and its phase label (`phase-2`, `phase-4`, and so on). Create a new phase label only when a new phase starts.
+- Give each issue one type label (`bug`, `enhancement`, or `documentation`) and its phase label (`phase-arabic`, `phase-hardware`, and so on). Create a new phase label only when a new phase starts.
 - Write the body in plain words: what happens now, what should change, and how it was found or reproduced, with dates. Link any local plan or ADR by path and say when it is untracked.
 - If a fix is faster to do by hand on the shop computer than through a pull request (for example one setting in Settings), do not keep an issue for it. Add it as a checklist item under "Manual install steps" in the client install issue (#70), then close the issue with a comment pointing there.
 - When work finds a problem outside the current change, open an issue for it and name the issue number in the completion report instead of fixing it on the side.

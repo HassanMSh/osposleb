@@ -19,7 +19,7 @@ function encode_payment_id(string $payment_id): string
  *
  * @return false|string The payment type name, or false when the value is invalid.
  */
-function decode_payment_id(string $encoded_payment_id): string|false
+function decode_payment_id(string $encoded_payment_id): false|string
 {
     if ($encoded_payment_id === '' || preg_match('/\A[a-z0-9_\-]+\z/i', $encoded_payment_id) !== 1 || strlen($encoded_payment_id) % 4 === 1) {
         return false;

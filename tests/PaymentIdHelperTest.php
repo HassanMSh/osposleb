@@ -12,7 +12,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
  */
 final class PaymentIdHelperTest extends CIUnitTestCase
 {
-    /** Loads the helper under test. */
+    /**
+     * Loads the helper under test.
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -20,7 +22,9 @@ final class PaymentIdHelperTest extends CIUnitTestCase
         helper('sale');
     }
 
-    /** Confirms English, Arabic, and reserved base64 bytes survive a URL-safe round trip. */
+    /**
+     * Confirms English, Arabic, and reserved base64 bytes survive a URL-safe round trip.
+     */
     #[DataProvider('paymentIdProvider')]
     public function testPaymentIdsRoundTripThroughUrlSafeBase64(string $paymentId): void
     {
@@ -30,14 +34,18 @@ final class PaymentIdHelperTest extends CIUnitTestCase
         $this->assertMatchesRegularExpression('/\A[a-z0-9_\-]+\z/i', $encodedPaymentId);
     }
 
-    /** Rejects values that are not unpadded URL-safe base64. */
+    /**
+     * Rejects values that are not unpadded URL-safe base64.
+     */
     public function testInvalidPaymentIdsAreRejected(): void
     {
         $this->assertFalse(decode_payment_id('!!!'));
         $this->assertFalse(decode_payment_id('a'));
     }
 
-    /** Confirms standard base64 plus and slash characters become URL-safe characters. */
+    /**
+     * Confirms standard base64 plus and slash characters become URL-safe characters.
+     */
     public function testBase64PlusAndSlashAreReplacedInTheUrlSafeValue(): void
     {
         $paymentId = "\xfb\xff";
@@ -46,14 +54,16 @@ final class PaymentIdHelperTest extends CIUnitTestCase
         $this->assertSame('-_8', encode_payment_id($paymentId));
     }
 
-    /** Supplies representative payment ids and bytes that encode to plus and slash. */
+    /**
+     * Supplies representative payment ids and bytes that encode to plus and slash.
+     */
     public static function paymentIdProvider(): array
     {
         return [
-            'English cash' => ['Cash'],
-            'Lebanese Arabic cash' => ['نقدي'],
+            'English cash'                    => ['Cash'],
+            'Lebanese Arabic cash'            => ['نقدي'],
             'Lebanese Arabic cash adjustment' => ['تعديل الصندوق'],
-            'base64 plus and slash' => ["\xfb\xff"],
+            'base64 plus and slash'           => ["\xfb\xff"],
         ];
     }
 }

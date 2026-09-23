@@ -163,6 +163,14 @@ OSPOS_BACKUP_COPY_TO=''
 OSPOS_HTTP_PORT=80
 EOF
 
+if [[ $platform == windows ]]; then
+    # Docker Desktop shows Windows folders as root-only, so the web server cannot write pictures there.
+    cat >> "$data_dir/ospos.conf" <<EOF
+# Keep item pictures in the client_uploads Docker volume. They are not in backups yet (see issue #82).
+OSPOS_UPLOADS=client_uploads
+EOF
+fi
+
 if [[ $platform == linux ]]; then
     chmod 700 "$data_dir/secrets"
     chmod 644 "$data_dir/secrets/app.env"

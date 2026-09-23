@@ -64,11 +64,15 @@ docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml
 docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
 ```
 
-The client override binds `secrets\app.env` read-only at `/run/ospos/app.env`, and the container copies it to `/app/.env` at every start, owned by the web server user with mode 400. Docker Desktop on Windows shows the locked secrets file as readable by root only, so the web server could not read a direct bind mount. The override also mounts `uploads\` at `/app/public/uploads`. The application container takes no `env_file` and has no environment of its own.
+The client override binds `secrets\app.env` read-only at `/run/ospos/app.env`, and the container copies it to `/app/.env` at every start, owned by the web server user with mode 400. Docker Desktop on Windows shows the locked secrets file as readable by root only, so the web server could not read a direct bind mount. On Windows, item pictures live in the `client_uploads` Docker volume at `/app/public/uploads`, because Docker Desktop also shows the `uploads\` folder as root-only and the web server cannot write to it. Windows setup writes `OSPOS_UPLOADS=client_uploads` to `ospos.conf` for this; without that line the override mounts `uploads\` at `/app/public/uploads`, as on Linux. The application container takes no `env_file` and has no environment of its own.
 
 The application reads the generated settings from `/app/.env`, because Compose `env_file` silently drops any key containing a dot, so the secret file is delivered only by bind mount, never by the container environment. It is still not copied into the image.
 
 It leaves the database in the named `mysql` volume.
+
+For a Windows client set up before this change, add `OSPOS_UPLOADS=client_uploads` to `ospos.conf` and rerun the full `up -d` command.
+
+Windows backups do not include item pictures yet, because the backup and restore commands still use the `uploads\` folder (issue #82).
 
 The setup command refuses to run when the target directory already exists.
 

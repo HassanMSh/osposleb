@@ -369,6 +369,8 @@ The launcher prints the target database name before the restore tool imports it.
 
 The tool checks the archive members and the database checksum before importing the database.
 
+The restore removes tables and views that are not in the backup, so the database holds only the backed-up tables and views.
+
 Before importing the database, restore creates `uploads/item_pics/` in its temporary uploads copy if the archive did not contain it.
 
 The Windows restore path skips the explicit permission step.
@@ -484,6 +486,8 @@ scripts/restore.sh --archive /media/shop-backup/ospos-backup-YYYYMMDD-HHMMSS.tar
 ```
 
 The tool checks the archive contents and database checksum before importing the database.
+
+The restore removes tables and views that are not in the backup, so the database holds only the backed-up tables and views.
 
 Before importing the database, restore creates `uploads/item_pics/` in its temporary uploads copy if the archive did not contain it.
 

@@ -52,8 +52,8 @@ Options:
   --help                     Show this help.
 
 Without --database, the database named by --env is overwritten.
-Use --database with a separate, empty database to test a restore without touching the live shop.
-This command never restores .env and never drops or recreates a database.
+Use --database with a separate scratch database to test a restore without touching the live shop.
+This command never restores .env and never drops or recreates the database itself.
 HELP
 }
 
@@ -276,6 +276,25 @@ verify_database_checksum() {
     local actual_checksum
     actual_checksum=$(sha256sum "$stage_dir/database.sql" | awk '{print $1}')
     [[ $actual_checksum == "$manifest_checksum" ]] || fail 'The database checksum does not match the manifest.'
+}
+
+# Drop the target tables and views, then import the dump in one MySQL session.
+restore_database() {
+    local drop_query
+    drop_query=$(cat <<'SQL'
+SELECT CONCAT('DROP ', IF(TABLE_TYPE = 'VIEW', 'VIEW', 'TABLE'), ' IF EXISTS `',
+              REPLACE(TABLE_NAME, '`', '``'), '`;')
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA = DATABASE()
+ORDER BY TABLE_TYPE = 'VIEW' DESC, TABLE_NAME;
+SQL
+    ) || return 1
+
+    {
+        printf 'SET FOREIGN_KEY_CHECKS=0;\n'
+        run_mysql --batch --skip-column-names --raw --execute "$drop_query" || exit 1
+        cat "$stage_dir/database.sql" || exit 1
+    } | run_mysql
 }
 
 # Ask for the destructive confirmation unless --yes was supplied.
@@ -506,7 +525,7 @@ if ! run_mysql -e 'SELECT 1' >/dev/null 2> "$stage_dir/mysql-target-error"; then
     fi
     fail 'Could not access the target database.'
 fi
-if ! run_mysql < "$stage_dir/database.sql" 2> "$stage_dir/mysql-restore-error"; then
+if ! restore_database 2> "$stage_dir/mysql-restore-error"; then
     fail 'Database restore failed; the uploads directory was not changed.'
 fi
 restore_uploads

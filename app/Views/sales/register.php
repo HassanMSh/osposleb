@@ -154,14 +154,14 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                         <tr>
                             <td>
                                 <?= anchor("{$controller_name}/deleteItem/{$line}", '<span class="glyphicon glyphicon-trash"></span>');
-                    echo form_hidden('location', (string) $item['item_location']);
-                    echo form_input(['type' => 'hidden', 'name' => 'item_id', 'value' => $item['item_id']]);
+                    echo form_input(['type' => 'hidden', 'name' => 'location', 'value' => (string) $item['item_location'], 'form' => "cart_{$line}"]);
+                    echo form_input(['type' => 'hidden', 'name' => 'item_id', 'value' => $item['item_id'], 'form' => "cart_{$line}"]);
                     ?>
                             </td>
                             <?php if ((int) $item['item_type'] === ITEM_TEMP) { ?>
-                                <td><?= form_input(['name' => 'item_number', 'id' => 'item_number', 'class' => 'form-control input-sm', 'value' => $item['item_number'], 'tabindex' => ++$tabindex]) ?></td>
+                                <td><?= form_input(['name' => 'item_number', 'id' => 'item_number', 'class' => 'form-control input-sm', 'value' => $item['item_number'], 'tabindex' => ++$tabindex, 'form' => "cart_{$line}"]) ?></td>
                                 <td style="align: center;">
-                                    <?= form_input(['name' => 'name', 'id' => 'name', 'class' => 'form-control input-sm', 'value' => $item['name'], 'tabindex' => ++$tabindex]) ?>
+                                    <?= form_input(['name' => 'name', 'id' => 'name', 'class' => 'form-control input-sm', 'value' => $item['name'], 'tabindex' => ++$tabindex, 'form' => "cart_{$line}"]) ?>
                                 </td>
                             <?php } else { ?>
                                 <td><?= esc($item['item_number']) ?></td>
@@ -176,10 +176,10 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                             <td>
                                 <?php
                                 if ($items_module_allowed && $change_price) {
-                                    echo form_input(['name' => 'price', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($item['price']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']);
+                                    echo form_input(['name' => 'price', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($item['price']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
                                 } else {
                                     echo to_currency($item['price']);
-                                    echo form_hidden('price', to_currency_no_money($item['price']));
+                                    echo form_input(['type' => 'hidden', 'name' => 'price', 'value' => to_currency_no_money($item['price']), 'form' => "cart_{$line}"]);
                                 }
                     ?>
                             </td>
@@ -188,9 +188,9 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                                 <?php
                     if ($item['is_serialized']) {
                         echo to_quantity_decimals($item['quantity']);
-                        echo form_hidden('quantity', $item['quantity']);
+                        echo form_input(['type' => 'hidden', 'name' => 'quantity', 'value' => $item['quantity'], 'form' => "cart_{$line}"]);
                     } else {
-                        echo form_input(['name' => 'quantity', 'class' => 'form-control input-sm', 'value' => to_quantity_decimals($item['quantity']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']);
+                        echo form_input(['name' => 'quantity', 'class' => 'form-control input-sm', 'value' => to_quantity_decimals($item['quantity']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
                     }
                     ?>
                             </td>
@@ -198,7 +198,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                             <td>
                                 <?php
                     if ((int) $item['item_type'] === ITEM_AMOUNT_ENTRY) {
-                        echo form_input(['name' => 'discounted_total', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($item['discounted_total']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']);
+                        echo form_input(['name' => 'discounted_total', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($item['discounted_total']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
                     } else {
                         echo to_currency($item['discounted_total']);
                     }
@@ -213,9 +213,9 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                         </tr>
                         <tr>
                             <?php if ((int) $item['item_type'] === ITEM_TEMP) { ?>
-                                <td><?= form_input(['type' => 'hidden', 'name' => 'item_id', 'value' => $item['item_id']]) ?></td>
+                                <td><?= form_input(['type' => 'hidden', 'name' => 'item_id', 'value' => $item['item_id'], 'form' => "cart_{$line}"]) ?></td>
                                 <td style="align: center;" colspan="5">
-                                    <?= form_input(['name' => 'item_description', 'id' => 'item_description', 'class' => 'form-control input-sm', 'value' => $item['description'], 'tabindex' => ++$tabindex]) ?>
+                                    <?= form_input(['name' => 'item_description', 'id' => 'item_description', 'class' => 'form-control input-sm', 'value' => $item['description'], 'tabindex' => ++$tabindex, 'form' => "cart_{$line}"]) ?>
                                 </td>
                                 <td> </td>
                             <?php } else { ?>
@@ -227,14 +227,14 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                                 <td colspan="2" style="text-align: left;">
                                     <?php
                         if ($item['allow_alt_description']) {
-                            echo form_input(['name' => 'description', 'class' => 'form-control input-sm', 'value' => $item['description'], 'onClick' => 'this.select();']);
+                            echo form_input(['name' => 'description', 'class' => 'form-control input-sm', 'value' => $item['description'], 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
                         } else {
                             if ((string) $item['description'] !== '') {
                                 echo $item['description'];
-                                echo form_hidden('description', $item['description']);
+                                echo form_input(['type' => 'hidden', 'name' => 'description', 'value' => $item['description'], 'form' => "cart_{$line}"]);
                             } else {
                                 echo lang(ucfirst($controller_name) . '.no_description');
-                                echo form_hidden('description', '');
+                                echo form_input(['type' => 'hidden', 'name' => 'description', 'value' => '', 'form' => "cart_{$line}"]);
                             }
                         }
                                 ?>
@@ -250,9 +250,9 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                                 <td colspan="4" style="text-align: left;">
                                     <?php
                                 if ($item['is_serialized']) {
-                                    echo form_input(['name' => 'serialnumber', 'class' => 'form-control input-sm', 'value' => $item['serialnumber'], 'onClick' => 'this.select();']);
+                                    echo form_input(['name' => 'serialnumber', 'class' => 'form-control input-sm', 'value' => $item['serialnumber'], 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
                                 } else {
-                                    echo form_hidden('serialnumber', '');
+                                    echo form_input(['type' => 'hidden', 'name' => 'serialnumber', 'value' => '', 'form' => "cart_{$line}"]);
                                 }
                                 ?>
                                 </td>

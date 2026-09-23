@@ -230,11 +230,111 @@ final class TillEditItemTest extends CIUnitTestCase
     }
 
     /**
-     * Builds a controller with a real cart edit and stops before the register reload.
+     * Shows the edit error and preserves the cart when the request body is empty.
+     */
+    public function testEditingCartLineWithEmptyPostShowsErrorAndKeepsCartUnchanged(): void
+    {
+        [$controller, $saleLibrary, $reloadException] = $this->makeController([], expectOutOfStock: false);
+        $cartBefore                                   = $saleLibrary->get_cart();
+
+        $this->invokeEditItem($controller, $reloadException);
+
+        $this->assertSame($cartBefore, $saleLibrary->get_cart());
+        $this->assertMissingEditFieldsUseTheEditError();
+    }
+
+    /**
+     * Shows the edit error and preserves the cart when quantity is missing.
+     */
+    public function testEditingCartLineWithoutQuantityShowsErrorAndKeepsCartUnchanged(): void
+    {
+        $post = [
+            'location'     => '1',
+            'item_id'      => '7',
+            'price'        => '12.00',
+            'description'  => '',
+            'serialnumber' => '',
+        ];
+
+        [$controller, $saleLibrary, $reloadException] = $this->makeController($post, expectOutOfStock: false);
+        $cartBefore                                   = $saleLibrary->get_cart();
+
+        $this->invokeEditItem($controller, $reloadException);
+
+        $this->assertSame($cartBefore, $saleLibrary->get_cart());
+        $this->assertMissingEditFieldsUseTheEditError();
+    }
+
+    /**
+     * Shows the edit error and preserves the cart when price is missing.
+     */
+    public function testEditingCartLineWithoutPriceShowsErrorAndKeepsCartUnchanged(): void
+    {
+        $post = [
+            'location'     => '1',
+            'item_id'      => '7',
+            'quantity'     => '2.00',
+            'description'  => '',
+            'serialnumber' => '',
+        ];
+
+        [$controller, $saleLibrary, $reloadException] = $this->makeController($post, expectOutOfStock: false);
+        $cartBefore                                   = $saleLibrary->get_cart();
+
+        $this->invokeEditItem($controller, $reloadException);
+
+        $this->assertSame($cartBefore, $saleLibrary->get_cart());
+        $this->assertMissingEditFieldsUseTheEditError();
+    }
+
+    /**
+     * Requires every input rendered in a cart line to name that line's form.
+     */
+    public function testEveryCartInputNamesItsLineForm(): void
+    {
+        $source = file_get_contents(APPPATH . 'Views/sales/register.php');
+
+        $this->assertIsString($source);
+
+        $cartStart = strpos($source, 'foreach (array_reverse($cart, true) as $line => $item)');
+        $cartEnd   = strpos($source, '<?= form_close() ?>', $cartStart);
+
+        $this->assertNotFalse($cartStart);
+        $this->assertNotFalse($cartEnd);
+
+        $cartSource = substr($source, $cartStart, $cartEnd - $cartStart);
+        $inputCount = preg_match_all('/form_input\(\[([^\r\n]*)\]\)/', $cartSource, $inputMatches);
+
+        $this->assertGreaterThan(0, $inputCount);
+        $this->assertStringNotContainsString('form_hidden(', $cartSource);
+
+        foreach ($inputMatches[1] as $inputAttributes) {
+            $this->assertStringContainsString('\'form\' => "cart_{$line}"', $inputAttributes);
+        }
+    }
+
+    /**
+     * Requires missing price or quantity to take the normal edit-error reload path.
+     */
+    private function assertMissingEditFieldsUseTheEditError(): void
+    {
+        $source = file_get_contents(APPPATH . 'Controllers/Sales.php');
+
+        $this->assertIsString($source);
+        $this->assertMatchesRegularExpression(
+            '/if \(! is_string\(\$price\) \|\| ! is_string\(\$quantity\)\) \{\s*\$data\[\'error\'\] = lang\(\'Sales\.error_editing_item\'\);\s*\$this->_reload\(\$data\);\s*return;\s*\}/',
+            $source,
+        );
+    }
+
+    /**
+     * Builds a controller with a cart line and stops when the register reload starts.
+     *
+     * @param bool $expectOutOfStock Whether a valid edit must reach the stock check.
      *
      * @return array{0: SalesController, 1: Sale_lib, 2: RuntimeException}
      */
-    private function makeController(array $post, ?int $cartLineLocation = 1, int $saleLocation = 1): array
+    private function makeController(array $post, ?int $cartLineLocation = 1, int $saleLocation = 1, bool $expectOutOfStock = true): array
     {
         $reloadException = new RuntimeException('register reload reached');
         $saleLibrary     = $this->getMockBuilder(Sale_lib::class)
@@ -242,10 +342,15 @@ final class TillEditItemTest extends CIUnitTestCase
             ->getMock();
 
         $expectedLocation = $cartLineLocation ?? $saleLocation;
-        $saleLibrary->expects($this->once())
-            ->method('out_of_stock')
-            ->with(7, $expectedLocation)
-            ->willReturn('');
+        if ($expectOutOfStock) {
+            $saleLibrary->expects($this->once())
+                ->method('out_of_stock')
+                ->with(7, $expectedLocation)
+                ->willReturn('');
+        } else {
+            $saleLibrary->expects($this->never())
+                ->method('out_of_stock');
+        }
         $saleLibrary->method('reset_cash_rounding')->willThrowException($reloadException);
         $saleLibrary->set_sale_location($saleLocation);
 

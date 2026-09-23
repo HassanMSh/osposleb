@@ -1,4 +1,4 @@
-# Deferred until Phase 6 production hardening.
+# Deferred until the production phase.
 #
 # The upstream workflow was removed from .github/workflows because it used
 # retired CodeQL actions and scanned JavaScript only. Create and validate a

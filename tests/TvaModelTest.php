@@ -18,7 +18,7 @@ use ReflectionProperty;
 use Throwable;
 
 /**
- * Covers Phase 3 part A TVA resolution and rounding rules.
+ * Covers part A of the TVA phase: resolution and rounding rules.
  *
  * @internal
  */

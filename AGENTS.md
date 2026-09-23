@@ -12,7 +12,7 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 - Approved baseline: `develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`, application version 3.4.1, approved 2026-09-20.
 - Operator documentation lives in `docs/`. Internal records, plans, and audits live in `docs/adr/`.
 - The shop runs in Arabic (Lebanon) by default, the `admin` account runs in English, and the login page is always English and left to right. Decided 2026-09-20.
-- Phase 4 hardware was named on 2026-09-24 (issue #58). The device list and test status live in the hardware compatibility issue (#65). Record any change of device there before doing model-specific work.
+- The shop hardware was named on 2026-09-24 (issue #58). The device list and test status live in the hardware compatibility issue (#65). Record any change of device there before doing model-specific work.
 
 ## GitHub issues
 

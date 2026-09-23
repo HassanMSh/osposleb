@@ -1,4 +1,4 @@
-# Phase 6 test plan
+# Production phase test plan
 
 Run these checks before a production handoff.
 
@@ -19,8 +19,8 @@ The Linux results for ADR 0009 are listed below and recorded in the local eviden
 | RTL and mixed-direction text | Manual | verified | Open Arabic screens in Chrome and check names, numbers, and barcodes. |
 | Receipt totals | Manual | verified | Compare a TVA sale total with the customer receipt. |
 | Barcode input | Hardware | pending | Scan known and unknown item barcodes with the named shop scanner. |
-| Modifier and combo pricing | Manual | not built yet | Check size, topping, extra, removal, and combo prices after Phase 5 is built. |
-| Kitchen ticket generation | Hardware and manual | not built yet | Route and reprint a test ticket after Phase 5 and printer setup are built. |
+| Modifier and combo pricing | Manual | not built yet | Check size, topping, extra, removal, and combo prices after the fast-food phase is built. |
+| Kitchen ticket generation | Hardware and manual | not built yet | Route and reprint a test ticket after the fast-food phase and printer setup are built. |
 | Database migration and rollback | Manual | verified | Rehearse the migration on a database copy and restore the saved copy. |
 | Backup restoration | Manual | verified | Restore the latest archive into a scratch database and uploads folder. |
 

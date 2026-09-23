@@ -215,8 +215,6 @@ return [
     'taxed_ind'                        => 'ض',
     'total_to_pay'                     => 'الإجمالي المطلوب دفعه',
     'vat_included'                     => '* ضريبة القيمة المضافة {0} مشمولة',
-    'vat_included_prefix'              => '* ضريبة القيمة المضافة',
-    'vat_included_suffix'              => 'مشمولة',
     'lbp_rate'                         => 'سعر صرف الليرة اللبنانية',
     'total'                            => 'المجموع',
     'total_tax_exclusive'              => 'الإجمالى بدون الضرائب',

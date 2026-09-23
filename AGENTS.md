@@ -8,11 +8,23 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 
 ## Current project status
 
-- Phase status lives in `docs/adr/progress-checklist.md`, which is untracked and stays on the developer machine. Read it for what is done and what is open, and update it at the end of every phase instead of adding status here.
+- Phase status lives in `docs/adr/progress-checklist.md`, which is untracked and stays on the developer machine. Read it for what is done and what is open, and update it at the end of every phase instead of adding status here. Individual open items live in GitHub issues (see below).
 - Approved baseline: `develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`, application version 3.4.1, approved 2026-09-20.
 - Operator documentation lives in `docs/`. Internal records, plans, and audits live in `docs/adr/`.
 - The shop runs in Arabic (Lebanon) by default, the `admin` account runs in English, and the login page is always English and left to right. Decided 2026-09-20.
 - Phase 4 is waiting for the project owner's hardware to arrive. Do not start model-specific work until the devices are named.
+
+## GitHub issues
+
+- Track bugs, gaps, planned work, deferred items, and accepted risks as issues in `HassanMSh/osposleb`. Do not start new lists of open work in local files, ADRs, or this file.
+- Search existing issues before opening one (`gh issue list --state all --search "<words>"`). Comment on a matching issue instead of opening a duplicate.
+- Give each issue one type label (`bug`, `enhancement`, or `documentation`) and its phase label (`phase-2`, `phase-4`, and so on). Create a new phase label only when a new phase starts.
+- Write the body in plain words: what happens now, what should change, and how it was found or reproduced, with dates. Link any local plan or ADR by path and say when it is untracked.
+- When work finds a problem outside the current change, open an issue for it and name the issue number in the completion report instead of fixing it on the side.
+- Link every pull request to its issue with `Closes #<number>` in the pull request body, so the merge closes it. Use `Refs #<number>` when the pull request only covers part of the issue.
+- Do not close an issue by hand unless the project owner asks, or the work is proven done and no pull request carries it. Say why in a closing comment.
+- Opening and commenting on issues does not need approval. Closing, relabeling another person's issue, or deleting anything does.
+- If you are the implementer or the reviewer started by `codex exec`, do not touch issues. Put suggested issues in your report and let the coordinating agent open them.
 
 ## Code-style gate
 

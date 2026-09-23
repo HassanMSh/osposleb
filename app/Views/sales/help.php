@@ -45,7 +45,7 @@
                     </tr>
                     <tr>
                         <td><code>ALT + 6</code></td>
-                        <td><?= lang('Sales.key_payment'); ?></td>
+                        <td><?= lang('Sales.key_finish_sale'); ?></td>
                     </tr>
                     <tr>
                         <td><code>ALT + 8</code></td>

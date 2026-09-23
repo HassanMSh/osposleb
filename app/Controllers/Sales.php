@@ -366,6 +366,46 @@ class Sales extends Secure_Controller
      */
     public function postAddPayment(): void
     {
+        $data = $this->recordPayment();
+
+        $this->_reload($data);
+    }
+
+    /**
+     * Adds a cash payment and completes the sale when it is paid in full.
+     * Used by app/Views/sales/register.php.
+     *
+     * @noinspection PhpUnused
+     */
+    public function postAddPaymentAndComplete(): void
+    {
+        $data = $this->recordPayment();
+
+        if (isset($data['error'])) {
+            $this->_reload($data);
+
+            return;
+        }
+
+        $this->sale_lib->reset_cash_rounding();
+        $cart        = $this->sale_lib->get_cart();
+        $tax_details = $this->tax_lib->get_taxes($cart);
+        $totals      = $this->sale_lib->get_totals($tax_details[0]);
+
+        if ($totals['payments_cover_total']) {
+            $this->postComplete();
+
+            return;
+        }
+
+        $this->_reload($data);
+    }
+
+    /**
+     * Validates and records the current payment, then returns any errors or warnings.
+     */
+    private function recordPayment(): array
+    {
         $data         = [];
         $giftcard     = model(Giftcard::class);
         $payment_type = lang('Sales.cash');
@@ -450,7 +490,7 @@ class Sales extends Secure_Controller
             }
         }
 
-        $this->_reload($data);
+        return $data;
     }
 
     /**

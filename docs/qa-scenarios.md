@@ -116,11 +116,11 @@ The cashier opens the register. "Scan" means typing the barcode and pressing Ent
 | SALE-27 | Creates a new item from the register. | The item is added to the cart. |
 | SALE-28 | Looks for a customer picker. | There is none. Sales are walk-in only. |
 | SALE-29 | Finishes a sale with no customer. | The sale saves. |
-| SALE-30 | Pays exactly $11.10 cash and finishes. | No change due. The receipt total is $11.10. |
-| SALE-31 | Pays $20.00 cash. | Change $8.90 on the receipt. |
-| SALE-32 | Pays $5.00 cash. | $6.10 still due. Finish is hidden. |
-| SALE-33 | Then pays $6.10. | Nothing due. Finish appears. |
-| SALE-34 | Adds a payment and deletes it. | The amount due goes back up. |
+| SALE-30 | Enters $11.10 cash and presses Complete. | The sale saves in one action with no change and an $11.10 receipt total. |
+| SALE-31 | Enters $20.00 cash and presses Complete. | The sale saves in one action and the receipt shows $8.90 change. |
+| SALE-32 | Enters $5.00 cash and presses Complete. | $6.10 remains due, Complete remains available, and no receipt appears. |
+| SALE-33 | With $6.10 still due, enters $6.10 and presses Complete again. | The sale saves and the receipt appears. |
+| SALE-34 | Enters $5.00 cash and presses Complete, then deletes that payment. | The payment is removed and the full amount due returns. |
 | SALE-35 | Looks for card or cheque payment. | Cash only in this shop. |
 | SALE-36 | Looks for a pay-later option. | There is none. |
 | SALE-37 | Looks for gift card or rewards. | There is none. |
@@ -134,7 +134,7 @@ The cashier opens the register. "Scan" means typing the barcode and pressing Ent
 | SALE-45 | Turns "print after sale" off and on. | The setting controls whether printing starts. |
 | SALE-46 | Looks for invoice mode. | Only sale, quote, and return are offered. |
 | SALE-47 | Makes a quote. | A quote is saved without payment. |
-| SALE-48 | In return mode, scans an item and refunds cash. | A negative line and a negative total. |
+| SALE-48 | In return mode, scans an item and presses Complete with the prefilled negative cash amount. | The return saves with a negative line and a negative cash payment. |
 | SALE-49 | In return mode, enters `POS <number>` of an earlier sale. | The earlier lines come back as negative lines. |
 | SALE-50 | A cashier tries to delete a finished sale, then the admin does. | The cashier is refused. The admin succeeds and the stock goes back. |
 
@@ -149,7 +149,7 @@ Money checks to repeat on SALE-30, SALE-44, and SALE-49:
 | ID | What is measured | Result on 2026-09-23 |
 |---|---|---|
 | PERF-01 | Search and scan speed with 5,000 items. | About 30 to 40 ms per request on the server. |
-| PERF-02 | A 10-item sale: scan 10 barcodes, pay exact cash, finish. | About 1.5 seconds and 2 clicks. |
+| PERF-02 | A 10-item sale: scan 10 barcodes and press Complete with exact cash. | About 1.5 seconds and 2 clicks with the old Add Payment step. Not re-measured with one-step Complete. |
 | PERF-03 | A 10-item sale where 3 lines need a quantity change. | Blocked by the line edit error. |
 | PERF-04 | Creating 5 items one after another. | About 6.6 seconds, 2 clicks per item. |
 | PERF-05 | The held sales list with 1, 10, and 50 held sales. | Opens without delay. |

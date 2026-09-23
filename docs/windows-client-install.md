@@ -62,7 +62,7 @@ docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f 
 
 ## 4. First login and settings
 
-1. Open `http://localhost/` in Google Chrome. The first start creates the database, so wait about a minute if the page shows a database error.
+1. Open `http://localhost/` in Google Chrome. After section 5, use the Chrome shortcuts described there instead. The first start creates the database, so wait about a minute if the page shows a database error.
 2. Log in with `admin` / `pointofsale`.
 3. Change the admin password under Employees.
 4. In Settings, Localization tab, set the timezone to `Asia/Beirut` and save. The default is `America/New_York`, which stamps sales 7 hours early.
@@ -74,14 +74,32 @@ docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f 
 The app runs in Chrome, so Windows and Chrome handle the hardware. Docker is not involved.
 
 - Barcode scanner: on the sale screen, click the item box and scan. The item must be added without pressing any key. An unknown barcode must show an error.
-- Receipt printer: install the Windows driver, make it the default printer, finish a test sale, and print the receipt from Chrome.
+- Receipt printer: install the Windows driver and make it the default printer. In Windows Settings, Printers & scanners, turn off "Let Windows manage my default printer" so Windows does not change the default. Test it from the POS Register shortcut (below).
 - Cash drawer: it is usually connected to the receipt printer. Turn on the "open drawer" (or "kick drawer") option in the printer driver so the drawer opens when a receipt prints.
 - Barcode label printer: tested 2026-09-23 on an Xprinter XP-365B with 40 × 20 mm labels.
   - In the driver, add a paper size of 1.57 × 0.78 in (Portrait) under both "Printing preferences" and "Printer properties → Advanced → Printing Defaults". Then restart Chrome.
   - Calibrate the label gap: turn the printer off, hold FEED, turn it on, and let go after the second beep.
   - In Settings, Barcode tab: type EAN13, width 125, height 30, font size 9, number in row 1, page width 100, cell spacing 0, first row item name, second row retail price, third row none.
-  - In Chrome's print window: destination XP-365B, paper size the label size, margins None, scale Custom 100, headers and footers off.
+  - Print labels from the POS Office shortcut (below). In Chrome's print window: destination XP-365B, paper size the label size, margins None, scale Custom 100, headers and footers off.
   - Each item prints on its own label. The page drops its extra spacing only on paper 80 mm wide or narrower, so A4 label sheets print as before.
+
+### Chrome shortcuts for printing
+
+Receipts must print with no Chrome print window, but barcode labels need the window so the label printer can be picked. Chrome's `--kiosk-printing` option skips the window for everything that Chrome prints, so the shop uses two desktop shortcuts. Each one has its own `--user-data-dir`, which makes it a separate Chrome with its own settings and login (issue #93).
+
+| Shortcut | Target | Use it for |
+| --- | --- | --- |
+| POS Register | `"C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing --user-data-dir="C:\POS\chrome-register" http://localhost/sales` | Selling. Receipts go straight to the default printer. |
+| POS Office | `"C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="C:\POS\chrome-office" http://localhost/` | Items, barcode labels, reports and settings. Chrome shows its normal print window. |
+
+1. Create each shortcut: right-click the desktop, New, Shortcut, and paste the target. If port 80 was changed, use the same port in the address.
+2. Close every Chrome window before you open each shortcut for the first time. If another Chrome is already running, the new window can join it and ignore the options.
+3. Log in once in each shortcut. They do not share a login.
+4. In Settings, Receipt tab, set "Print Receipt checkbox" to "Always checked" and "Autoreturn to Sale delay" to `1`. With `0`, the page can go back to the sale before the receipt is sent.
+5. Test in POS Register: finish a sale. The receipt must print with no window, and the screen must return to a new sale.
+6. Test in POS Office: print a barcode sheet. The print window must open, and Chrome remembers the label printer for this shortcut.
+
+Do not print labels from POS Register, because they would go to the receipt printer without asking.
 
 Result of the first run: pending. Record the device models and any settings needed here.
 

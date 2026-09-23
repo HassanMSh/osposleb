@@ -64,9 +64,9 @@ docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml
 docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
 ```
 
-The client override binds `secrets\app.env` read-only at `/app/.env` and mounts `uploads\` at `/app/public/uploads`. The application container takes no `env_file` and has no environment of its own.
+The client override binds `secrets\app.env` read-only at `/run/ospos/app.env`, and the container copies it to `/app/.env` at every start, owned by the web server user with mode 400. Docker Desktop on Windows shows the locked secrets file as readable by root only, so the web server could not read a direct bind mount. The override also mounts `uploads\` at `/app/public/uploads`. The application container takes no `env_file` and has no environment of its own.
 
-The application reads the generated settings from the bind-mounted `/app/.env`, because Compose `env_file` silently drops any key containing a dot, so the secret file is delivered only by bind mount, never by the container environment. It is still not copied into the image.
+The application reads the generated settings from `/app/.env`, because Compose `env_file` silently drops any key containing a dot, so the secret file is delivered only by bind mount, never by the container environment. It is still not copied into the image.
 
 It leaves the database in the named `mysql` volume.
 

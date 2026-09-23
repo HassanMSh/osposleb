@@ -11,6 +11,7 @@ Upstream files outside this directory are left as the original developers wrote 
 - `backup-and-restore.md` — daily backups, manual backups, and restore steps for Windows and Linux.
 - `operations-runbook.md` — startup, checks, updates, support logs, and install tasks.
 - `test-plan.md` — critical workflow checks and recorded hardening proofs.
+- `qa-scenarios.md` — cashier item and sale scenarios, and how to run the browser QA suite in `tests/qa-e2e/`.
 
 Later phases may add hardware setup notes to this directory.
 

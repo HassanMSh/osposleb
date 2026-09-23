@@ -2,6 +2,8 @@
 
 Run these checks before a production handoff.
 
+The detailed cashier scenarios for items and sales are in `qa-scenarios.md`, and `tests/qa-e2e/` runs them in a browser.
+
 The Linux results for ADR 0009 are listed below and recorded in the local evidence folder.
 
 ## Critical paths

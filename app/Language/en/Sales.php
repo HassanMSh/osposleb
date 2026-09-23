@@ -114,7 +114,7 @@ return [
     'key_cancel'                       => 'Cancels Current Quote/Invoice/Sale',
     'key_customer_search'              => 'Customer Search',
     'key_finish_quote'                 => 'Finish Quote/Invoice without payment',
-    'key_finish_sale'                  => 'Add Payment and Complete Invoice/Sale',
+    'key_finish_sale'                  => 'Complete Sale (adds the cash payment first if needed)',
     'key_full'                         => 'Open in Full Screen Mode',
     'key_function'                     => 'Function',
     'key_help'                         => 'Shortcuts',

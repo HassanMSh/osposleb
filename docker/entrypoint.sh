@@ -22,6 +22,12 @@ run_migration_helper() {
     fi
 }
 
+# The client install mounts its database settings here. Copy them in before the database check,
+# because this script ignores the compose command that used to copy them.
+if [ -f /run/ospos/app.env ]; then
+    install -o www-data -g www-data -m 0400 /run/ospos/app.env /app/.env
+fi
+
 echo "Waiting for the database (up to ${database_timeout} seconds)."
 while :; do
     if probe_output=$(run_migration_helper check 2>&1 </dev/null); then

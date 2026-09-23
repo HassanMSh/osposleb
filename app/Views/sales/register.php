@@ -355,7 +355,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     if ($pos_mode) {
                         ?>
                             <div class="btn btn-sm btn-success pull-right" id="finish_sale_button" tabindex="<?= ++$tabindex ?>">
-                                <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?>
+                                <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?> <span dir="ltr">(F12)</span>
                             </div>
                     <?php
                     }
@@ -373,7 +373,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     <?= form_close() ?>
 
                     <div class="btn btn-sm btn-success pull-right" id="add_payment_button" tabindex="<?= ++$tabindex ?>">
-                        <span class="glyphicon glyphicon-credit-card">&nbsp;</span><?= lang(ucfirst($controller_name) . '.add_payment') ?>
+                        <span class="glyphicon glyphicon-credit-card">&nbsp;</span><?= lang(ucfirst($controller_name) . '.add_payment') ?><?php if ($pos_mode) { ?> <span dir="ltr">(F12)</span><?php } ?>
                     </div>
                 <?php } ?>
 
@@ -624,6 +624,50 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 }
             });
         };
+
+        let f12ShortcutTriggered = false;
+
+        const f12ShortcutEnabled = <?= $pos_mode ? 'true' : 'false' ?>;
+
+        /**
+         * F12 stops Chrome DevTools opening and, in sale or return mode, clicks Complete, or Add Payment when Complete is not shown.
+         * It does nothing when the cart is empty (neither button is rendered), while a scan is still being added or typed,
+         * or while a dialog is open. If a cart field holds an unsaved edit, it saves that edit instead and the next F12 continues.
+         * It clicks at most once per page load so a double press cannot send two requests.
+         */
+        const handleF12Shortcut = function(event) {
+            if (event.key !== 'F12' && event.keyCode !== 123) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (!f12ShortcutEnabled || f12ShortcutTriggered || addItemInFlight || pendingItemScans.length > 0 || registerRecoveryInProgress) {
+                return;
+            }
+
+            if ($('.modal:visible').length > 0 || String($('#item').val() || '').trim() !== '') {
+                return;
+            }
+
+            const activeField = document.activeElement;
+            if ($(activeField).is('#cart_contents input, #cart_contents textarea') && activeField.value !== activeField.defaultValue) {
+                f12ShortcutTriggered = true;
+                $(activeField).trigger('change');
+
+                return;
+            }
+
+            const targetButton = document.getElementById('finish_sale_button') || document.getElementById('add_payment_button');
+            if (!targetButton) {
+                return;
+            }
+
+            f12ShortcutTriggered = true;
+            targetButton.click();
+        };
+
+        document.addEventListener('keydown', handleF12Shortcut);
 
         /**
          * Rebinds controls after an AJAX response replaces the register fragments.
@@ -913,10 +957,6 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 break;
             case 54: // Alt + 6 Add Payment
                 $("#add_payment_button").click();
-                break;
-            case 55: // Alt + 7 Add Payment and Complete Sales/Invoice
-                $("#add_payment_button").click();
-                window.location.href = "<?= 'sales/complete' ?>";
                 break;
             case 56: // Alt + 8 Finish Invoice without payment
                 $("#finish_invoice_button").click();

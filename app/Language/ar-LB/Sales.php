@@ -65,7 +65,7 @@ return [
     'delete_entire_sale'               => 'حذف عملية البيع بالكامل',
     'delete_successful'                => 'لقد تم حذف عملية البيع بنجاح.',
     'delete_unsuccessful'              => 'لقد فشل حذف عملية البيع.',
-    'description_abbrv'                => 'الوصف.',
+    'description_abbrv'                => 'الوصف',
     'discard'                          => 'إلغاء',
     'discard_quote'                    => '',
     'discount'                         => 'خصم',

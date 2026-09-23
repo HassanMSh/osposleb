@@ -1,7 +1,8 @@
 <?php
 /**
  * @var string $transaction_time
- * @var int $sale_id
+ * @var string $sale_id
+ * @var int $sale_id_num
  * @var string $employee
  * @var array $cart
  * @var float $discount
@@ -41,7 +42,7 @@
             <div id="customer"><?= lang('Customers.customer') . esc(": $customer") ?></div>
         <?php } ?>
 
-        <div id="sale_id"><?= lang('Sales.id') . esc(": $sale_id") ?></div>
+        <div id="sale_id"><?= lang('Sales.id') . esc(": {$sale_id_num}") ?></div>
         <div id="employee"><?= lang('Employees.employee') . esc(": $employee") ?></div>
     </div>
 

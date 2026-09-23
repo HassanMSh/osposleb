@@ -106,7 +106,8 @@ final class FormatterSafetyTest extends CIUnitTestCase
         ];
         $data = [
             'transaction_time'     => '2026-09-20 12:00:00',
-            'sale_id'              => 1,
+            'sale_id'              => 'POS 1',
+            'sale_id_num'          => 1,
             'invoice_number'       => '',
             'employee'             => 'Test employee',
             'cart'                 => [],

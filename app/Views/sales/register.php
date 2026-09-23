@@ -354,27 +354,42 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                     // Only show this part if in sale or return mode
                     if ($pos_mode) {
                         ?>
-                            <div class="btn btn-sm btn-success pull-right" id="finish_sale_button" tabindex="<?= ++$tabindex ?>">
+                            <button type="button" class="btn btn-sm btn-success pull-right" id="finish_sale_button" tabindex="<?= ++$tabindex ?>">
                                 <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?>
-                            </div>
+                            </button>
                     <?php
                     }
                     ?>
                 <?php } else { ?>
-                    <?= form_open("{$controller_name}/addPayment", ['id' => 'add_payment_form', 'class' => 'form-horizontal']) ?>
-                        <table class="sales_table_100">
-                            <tr>
-                                <td><span id="amount_tendered_label"><?= lang(ucfirst($controller_name) . '.amount_tendered') ?></span></td>
-                                <td>
-                                    <?= form_input(['name' => 'amount_tendered', 'id' => 'amount_tendered', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($amount_due), 'size' => '5', 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']) ?>
-                                </td>
-                            </tr>
-                        </table>
-                    <?= form_close() ?>
-
-                    <div class="btn btn-sm btn-success pull-right" id="add_payment_button" tabindex="<?= ++$tabindex ?>">
-                        <span class="glyphicon glyphicon-credit-card">&nbsp;</span><?= lang(ucfirst($controller_name) . '.add_payment') ?>
-                    </div>
+                    <?php if ($pos_mode) { ?>
+                        <?= form_open("{$controller_name}/addPaymentAndComplete", ['id' => 'complete_sale_form', 'class' => 'form-horizontal']) ?>
+                            <table class="sales_table_100">
+                                <tr>
+                                    <td><span id="amount_tendered_label"><?= lang(ucfirst($controller_name) . '.amount_tendered') ?></span></td>
+                                    <td>
+                                        <?= form_input(['name' => 'amount_tendered', 'id' => 'amount_tendered', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($amount_due), 'size' => '5', 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']) ?>
+                                    </td>
+                                </tr>
+                            </table>
+                            <button type="submit" class="btn btn-sm btn-success pull-right" id="complete_sale_button" tabindex="<?= ++$tabindex ?>">
+                                <span class="glyphicon glyphicon-ok">&nbsp;</span><?= lang(ucfirst($controller_name) . '.complete_sale') ?>
+                            </button>
+                        <?= form_close() ?>
+                    <?php } else { ?>
+                        <?= form_open("{$controller_name}/addPayment", ['id' => 'add_payment_form', 'class' => 'form-horizontal']) ?>
+                            <table class="sales_table_100">
+                                <tr>
+                                    <td><span id="amount_tendered_label"><?= lang(ucfirst($controller_name) . '.amount_tendered') ?></span></td>
+                                    <td>
+                                        <?= form_input(['name' => 'amount_tendered', 'id' => 'amount_tendered', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($amount_due), 'size' => '5', 'tabindex' => ++$tabindex, 'onClick' => 'this.select();']) ?>
+                                    </td>
+                                </tr>
+                            </table>
+                            <button type="submit" class="btn btn-sm btn-success pull-right" id="add_payment_button" tabindex="<?= ++$tabindex ?>">
+                                <span class="glyphicon glyphicon-credit-card">&nbsp;</span><?= lang(ucfirst($controller_name) . '.add_payment') ?>
+                            </button>
+                        <?= form_close() ?>
+                    <?php } ?>
                 <?php } ?>
 
                 <?php if (count($payments) > 0) { // Only show this part if there is at least one payment entered.?>
@@ -411,7 +426,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             </div>
             <?= form_close() ?>
 
-            <?php if ($payments_cover_total || ! $pos_mode) { // Only show this part if the payment cover the total?>
+            <?php if (count($cart) > 0) { // Show comments and print settings whenever the cart has items.?>
                 <div class="container-fluid">
                     <div class="no-gutter row">
                         <div class="form-group form-group-sm">
@@ -460,6 +475,8 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
 
 <script type="text/javascript">
     $(document).ready(function() {
+        let saleCompletionStarted = false;
+
         const redirect = function() {
             window.location.href = "<?= site_url('sales'); ?>";
         };
@@ -736,6 +753,34 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 $(this).autocomplete('search');
             });
 
+            /**
+             * Saves the comment, print and invoice settings shown on the register before the sale completes,
+             * so a change made just before Complete is not lost to a request that is still in flight.
+             */
+            const saveSaleSettings = function() {
+                const requests = [];
+
+                if ($('#comment').length) {
+                    requests.push($.post("<?= esc(site_url("{$controller_name}/setComment")) ?>", {
+                        comment: $('#comment').val()
+                    }));
+                }
+
+                if ($('#sales_print_after_sale').length) {
+                    requests.push($.post("<?= esc(site_url("{$controller_name}/setPrintAfterSale")) ?>", {
+                        sales_print_after_sale: $('#sales_print_after_sale').is(':checked')
+                    }));
+                }
+
+                if ($('#sales_invoice_number').length) {
+                    requests.push($.post("<?= esc(site_url("{$controller_name}/setInvoiceNumber")) ?>", {
+                        sales_invoice_number: $('#sales_invoice_number').val()
+                    }));
+                }
+
+                return $.when.apply($, requests);
+            };
+
             $('#comment').off('keyup.register').on('keyup.register', function() {
                 $.post("<?= esc(site_url("{$controller_name}/setComment")) ?>", {
                     comment: $('#comment').val()
@@ -758,8 +803,36 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             });
 
             $('#finish_sale_button').off('click.register').on('click.register', function() {
-                $('#buttons_form').attr('action', "<?= "{$controller_name}/complete" ?>");
-                $('#buttons_form').submit();
+                if (saleCompletionStarted) {
+                    return false;
+                }
+
+                saleCompletionStarted = true;
+                $(this).prop('disabled', true).addClass('disabled').attr('aria-disabled', 'true');
+                saveSaleSettings().always(function() {
+                    setup_csrf_token();
+                    $('#buttons_form').attr('action', "<?= "{$controller_name}/complete" ?>");
+                    $('#buttons_form').submit();
+                });
+            });
+
+            $('#complete_sale_form').off('submit.register').on('submit.register', function(event) {
+                event.preventDefault();
+
+                if (saleCompletionStarted) {
+                    return false;
+                }
+
+                saleCompletionStarted = true;
+                $('#complete_sale_button').prop('disabled', true).attr('aria-disabled', 'true');
+
+                const form = this;
+                saveSaleSettings().always(function() {
+                    setup_csrf_token();
+                    form.submit();
+                });
+
+                return false;
             });
 
             $('#finish_invoice_button').off('click.register').on('click.register', function() {
@@ -779,25 +852,18 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 }
             });
 
-            $('#add_payment_button').off('click.register').on('click.register', function() {
-                $('#add_payment_form').submit();
-            });
-
             $('#cart_contents input').off('keypress.register').on('keypress.register', function(event) {
                 if (event.which == 13) {
                     $(this).parents('tr').prevAll('form:first').submit();
                 }
             });
 
-            $('#amount_tendered').off('keypress.register').on('keypress.register', function(event) {
-                if (event.which == 13) {
-                    $('#add_payment_form').submit();
-                }
-            });
-
             $('#finish_sale_button').off('keypress.register').on('keypress.register', function(event) {
                 if (event.which == 13) {
-                    $('#finish_sale_form').submit();
+                    event.preventDefault();
+                    $(this).trigger('click');
+
+                    return false;
                 }
             });
 
@@ -911,12 +977,12 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 $("#amount_tendered").focus();
                 $("#amount_tendered").select();
                 break;
-            case 54: // Alt + 6 Add Payment
-                $("#add_payment_button").click();
-                break;
-            case 55: // Alt + 7 Add Payment and Complete Sales/Invoice
-                $("#add_payment_button").click();
-                window.location.href = "<?= 'sales/complete' ?>";
+            case 54: // Alt + 6 Complete payment or sale
+            case 55: // Alt + 7 Complete payment or sale
+                const completionButton = $("#complete_sale_button").length
+                    ? $("#complete_sale_button")
+                    : $("#finish_sale_button");
+                completionButton.click();
                 break;
             case 56: // Alt + 8 Finish Invoice without payment
                 $("#finish_invoice_button").click();

@@ -347,39 +347,42 @@ async function completeSale(ctx, number, display, item) {
     if (number === 31) await ctx.ui.fill(page.locator("#amount_tendered"), "20.00");
     if (number === 32) await ctx.ui.fill(page.locator("#amount_tendered"), "5.00");
     if (number === 33) await ctx.ui.fill(page.locator("#amount_tendered"), "5.00");
-    if (number !== 24 && (await page.locator("#add_payment_button").count())) {
+    if (number !== 24 && (await page.locator("#complete_sale_button").count())) {
         await Promise.all([
             page
-                .waitForResponse((response) => response.url().includes("/sales/addPayment"), { timeout: 6000 })
+                .waitForResponse((response) => response.url().includes("/sales/addPaymentAndComplete"), { timeout: 8000 })
                 .catch(() => null),
-            ctx.ui.click(page.locator("#add_payment_button")),
+            ctx.ui.click(page.locator("#complete_sale_button")),
         ]);
         await page.waitForTimeout(250);
     }
-    if (number === 32)
+    if (number === 32) {
+        const due = (await page.locator("#sale_amount_due").innerText().catch(() => "")).replaceAll(",", "");
+        const receipt = await page.locator("#receipt_wrapper").count();
+        const complete = await page.locator("#complete_sale_button").count();
+
         return {
-            status: "pass",
-            expected: "Partial payment leaves $6.10 due and Finish is absent",
+            status: /(^|[^\d.])6\.10$/.test(due.trim()) && receipt === 0 && complete === 1 ? "pass" : "fail",
+            expected: "$6.10 remains due, the Complete button remains available, and no receipt appears",
             actual: {
-                due: await page
-                    .locator("#sale_amount_due")
-                    .innerText()
-                    .catch(() => ""),
-                finish: await page.locator("#finish_sale_button").count(),
+                due,
+                receipt,
+                complete,
             },
-            note: "Partial cash entry submitted.",
+            note: "The first Complete action recorded a partial cash payment and reloaded the register.",
         };
+    }
     if (number === 33) {
         await ctx.ui.fill(page.locator("#amount_tendered"), "6.10");
         await Promise.all([
             page
-                .waitForResponse((response) => response.url().includes("/sales/addPayment"), { timeout: 6000 })
+                .waitForResponse((response) => response.url().includes("/sales/addPaymentAndComplete"), { timeout: 8000 })
                 .catch(() => null),
-            ctx.ui.click(page.locator("#add_payment_button")),
+            ctx.ui.click(page.locator("#complete_sale_button")),
         ]);
         await page.waitForTimeout(250);
     }
-    if (number !== 32 && (await page.locator("#finish_sale_button").count())) {
+    if (number === 24 && (await page.locator("#finish_sale_button").count())) {
         await Promise.all([
             page
                 .waitForResponse((response) => response.url().includes("/sales/complete"), { timeout: 8000 })
@@ -706,7 +709,13 @@ async function removePaymentScenario(ctx) {
         milk = await findItem(ctx, "Milk");
     if (!milk) return blocked("ITEM-01", "Milk fixture absent");
     await addBarcode(ctx, milk.barcode);
-    await ctx.ui.click(page.locator("#add_payment_button"));
+    await ctx.ui.fill(page.locator("#amount_tendered"), "5.00");
+    await Promise.all([
+        page
+            .waitForResponse((response) => response.url().includes("/sales/addPaymentAndComplete"), { timeout: 8000 })
+            .catch(() => null),
+        ctx.ui.click(page.locator("#complete_sale_button")),
+    ]);
     await page.waitForTimeout(300);
     const link = page.locator('#payment_details a[href*="deletePayment"]').first();
     const href = await link.getAttribute("href").catch(() => null);
@@ -736,14 +745,14 @@ async function removePaymentScenario(ctx) {
             href && deleteStatus !== null && deleteStatus < 500 && (due.includes("11.10") || total.includes("11.10"))
                 ? "pass"
                 : "fail",
-        expected: "Payment removed and due restored",
+        expected: "A partial payment is removed and the full amount due returns",
         actual: {
             deleteRoute: href,
             deleteStatus,
             due,
             registerTotal: total,
         },
-        note: "Used the payment row delete route after adding payment.",
+        note: "Recorded a partial cash payment with Complete, then used the payment row delete route.",
     };
 }
 
@@ -759,15 +768,14 @@ async function returnSale(ctx) {
     }
     await addBarcode(ctx, milk.barcode);
     const before = sql(ctx.mysqlContainer, "SELECT COALESCE(MAX(sale_id),0) FROM ospos_sales");
-    if (await page.locator("#add_payment_button").count()) {
-        await page.locator("#amount_tendered").fill("-11.10");
-        await ctx.ui.click(page.locator("#add_payment_button"));
-        await page.waitForTimeout(300);
-    }
-    if (await page.locator("#finish_sale_button").count()) {
-        await ctx.ui.click(page.locator("#finish_sale_button"));
-        await page.waitForTimeout(400);
-    }
+    const tendered = await page.locator("#amount_tendered").inputValue();
+    await Promise.all([
+        page
+            .waitForResponse((response) => response.url().includes("/sales/addPaymentAndComplete"), { timeout: 8000 })
+            .catch(() => null),
+        ctx.ui.click(page.locator("#complete_sale_button")),
+    ]);
+    await page.waitForTimeout(400);
     const sale = sql(
         ctx.mysqlContainer,
         `SELECT s.sale_id, si.quantity_purchased, sp.payment_amount
@@ -784,10 +792,11 @@ async function returnSale(ctx) {
     const fields = sale.rows?.[0]?.split("\t") || [];
     const negativeQuantity = Number(fields[1]) < 0;
     const negativePayment = Number(fields[2]) < 0;
+    const negativePrefilledTender = tendered.trim().startsWith("-");
     return {
-        status: sale.ok && sale.rows?.length && negativeQuantity && negativePayment ? "pass" : "fail",
-        expected: "Return creates negative item quantity and negative cash payment",
-        actual: { total: returnTotal, sql: sale.rows, negativeQuantity, negativePayment },
+        status: sale.ok && sale.rows?.length && negativeQuantity && negativePayment && negativePrefilledTender ? "pass" : "fail",
+        expected: "Complete saves the prefilled negative tender, negative item quantity, and negative cash payment",
+        actual: { total: returnTotal, tendered, sql: sale.rows, negativeQuantity, negativePayment },
         note: sale.rows?.[0] || "Return mode and refund payment were attempted.",
         sqlEvidence: sale,
     };
@@ -799,9 +808,12 @@ async function refundReceipt(ctx) {
         milk = await findItem(ctx, "Milk");
     if (!milk) return blocked("ITEM-01", "Milk fixture absent");
     await addBarcode(ctx, milk.barcode);
-    await page.locator("#add_payment_button").click();
-    await page.waitForTimeout(300);
-    await page.locator("#finish_sale_button").click();
+    await Promise.all([
+        page
+            .waitForResponse((response) => response.url().includes("/sales/addPaymentAndComplete"), { timeout: 8000 })
+            .catch(() => null),
+        page.locator("#complete_sale_button").click(),
+    ]);
     await page.waitForTimeout(350);
     const prior = sql(ctx.mysqlContainer, "SELECT MAX(sale_id) FROM ospos_sales");
     const id = prior.rows?.[0];

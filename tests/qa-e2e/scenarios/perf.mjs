@@ -180,6 +180,7 @@ export async function perfScenario(ctx, number) {
             }
         }
     const elapsedMs = Date.now() - ctx.measure().started;
+    const saleBefore = number === 2 ? Number(sql(ctx.mysqlContainer, "SELECT IFNULL(MAX(sale_id), 0) FROM ospos_sales").rows?.[0] ?? 0) : 0;
     if (number === 2) {
         const amount =
             (
@@ -191,17 +192,19 @@ export async function perfScenario(ctx, number) {
                 .match(/\d[\d,]*\.\d{2}/)?.[0]
                 ?.replaceAll(",", "") || "0";
         await page.locator("#amount_tendered").fill(amount);
-        await ui.click(page.locator("#add_payment_button"));
-        await page.waitForTimeout(300);
-        if (await page.locator("#finish_sale_button").count()) {
-            await ui.click(page.locator("#finish_sale_button"));
-            await page.waitForTimeout(500);
-        }
+        await Promise.all([
+            page
+                .waitForResponse((response) => response.url().includes("/sales/addPaymentAndComplete"), { timeout: 8000 })
+                .catch(() => null),
+            ui.click(page.locator("#complete_sale_button")),
+        ]);
+        await page.waitForTimeout(500);
     }
     const errors = ctx.measure().failures;
     const saleSaved = number === 2 ? sql(ctx.mysqlContainer, "SELECT MAX(sale_id) FROM ospos_sales") : null;
+    const saleCreated = number !== 2 || !saleSaved?.ok || Number(saleSaved?.rows?.[0] ?? 0) > saleBefore;
     return {
-        status: errors.some((error) => error.status >= 500) ? "fail" : "pass",
+        status: errors.some((error) => error.status >= 500) || !saleCreated ? "fail" : "pass",
         expected:
             number === 2 ? "Ten-item scanner sale paid and completed" : "Ten items added and three quantities changed",
         actual: {

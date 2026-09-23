@@ -37,3 +37,27 @@
 .font_b-de-bonita-shadow {
     font-family: 'b-de-bonita-shadow' !important;
 }
+
+/* On label-printer paper (80 mm wide or less), drop built-in spacing so one label fits, such as 40 x 20 mm. A4 sheets are unchanged. */
+@media print and (max-width: 80mm) {
+    body {
+        margin: 0;
+    }
+
+    td {
+        padding: 0;
+        line-height: 1.1;
+    }
+
+    td > table {
+        margin: 0 auto;
+        border-spacing: 0;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .barcode svg {
+        display: block;
+        margin: 0 auto;
+    }
+}

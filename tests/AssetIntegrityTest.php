@@ -89,6 +89,23 @@ final class AssetIntegrityTest extends CIUnitTestCase
     }
 
     /**
+     * Verifies that right-to-left popups keep the close button on the left, clear of the message text.
+     */
+    public function testRtlPopupCloseButtonSitsOnTheLeft(): void
+    {
+        $rtlCss = $this->readProjectFile(self::PUBLIC_PATH . '/css/ospos_rtl.css');
+
+        $this->assertMatchesRegularExpression(
+            '/\[dir="rtl"\]\s+\[data-notify="container"\]\s*{\s*padding-left:\s*35px;\s*}/',
+            $rtlCss,
+        );
+        $this->assertMatchesRegularExpression(
+            '/\[dir="rtl"\]\s+\[data-notify="container"\]\s+button\.close\[data-notify="dismiss"\]\s*{\s*right:\s*auto\s*!important;\s*left:\s*10px;\s*}/',
+            $rtlCss,
+        );
+    }
+
+    /**
      * Reads a required project file and fails with its path when it cannot be read.
      *
      * @param string $path Absolute project file path.

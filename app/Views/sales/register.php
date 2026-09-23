@@ -269,7 +269,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
 
 <!-- Overall Sale -->
 
-<div id="overall_sale" class="panel panel-default">
+<div id="overall_sale" class="panel panel-default" data-change-helper-total="<?= esc((string) (float) $total, 'attr') ?>">
     <div class="panel-body">
         <table class="sales_table_100" id="sale_totals">
             <tr>
@@ -518,7 +518,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         };
 
         /**
-         * Validates and renders both register fragments returned by the add-item AJAX request.
+         * Validates the response, keeps the entered tender, and refreshes the helper from the returned total.
          */
         const renderAddItemResponse = function(response) {
             if (typeof response !== 'string') {
@@ -534,13 +534,23 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             const $register = $response.find('#register_wrapper');
             const $sale = $response.find('#overall_sale');
             const $message = $response.find('.alert-danger, .alert-warning, .alert-success').first();
-            const totalMatch = response.match(/let changeHelperTotal = ([^;]+);/);
+            const totalValue = $sale.attr('data-change-helper-total');
+            const responseTotal = Number(totalValue);
 
-            if ($register.length !== 1 || $sale.length !== 1) {
+            if (
+                $register.length !== 1 ||
+                $sale.length !== 1 ||
+                totalValue === undefined ||
+                totalValue.trim() === '' ||
+                !Number.isFinite(responseTotal)
+            ) {
                 recoverRegister(itemAddFailureMessage);
 
                 return false;
             }
+
+            const changeHelperAmount = $('#change_helper_amount').val();
+            const changeHelperCurrency = $('#change_helper_currency').val();
 
             $('#register_wrapper').prevAll('.alert').remove();
             if ($message.length) {
@@ -548,8 +558,10 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             }
             $('#register_wrapper').replaceWith($register);
             $('#overall_sale').replaceWith($sale);
-            if (totalMatch) {
-                changeHelperTotal = Number(totalMatch[1]);
+            changeHelperTotal = responseTotal;
+            if (changeHelperAmount !== undefined) {
+                $('#change_helper_amount').val(changeHelperAmount);
+                $('#change_helper_currency').val(changeHelperCurrency);
             }
 
             bindRegisterHandlers();

@@ -179,6 +179,22 @@ final class CurrencyHelperTest extends CIUnitTestCase
     }
 
     /**
+     * Exposes the current sale total on the fragment read by scan updates.
+     */
+    public function testRegisterChangeHelperTotalUsesOverallSaleAttribute(): void
+    {
+        $source = file_get_contents(APPPATH . 'Views/sales/register.php');
+
+        $this->assertIsString($source);
+        $this->assertStringContainsString('data-change-helper-total="<?= esc((string) (float) $total, \'attr\') ?>"', $source);
+        $this->assertStringContainsString("\$sale.attr('data-change-helper-total')", $source);
+        $this->assertStringContainsString('!Number.isFinite(responseTotal)', $source);
+        $this->assertStringContainsString("const changeHelperAmount = \$('#change_helper_amount').val();", $source);
+        $this->assertStringContainsString("\$('#change_helper_amount').val(changeHelperAmount);", $source);
+        $this->assertStringNotContainsString('response.match(/let changeHelperTotal', $source);
+    }
+
+    /**
      * Keeps the exchange rate outside stored, report, and drawer calculations.
      */
     public function testExchangeRateIsUsedOnlyByDisplayCode(): void

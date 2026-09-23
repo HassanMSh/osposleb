@@ -20,6 +20,7 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 - Search existing issues before opening one (`gh issue list --state all --search "<words>"`). Comment on a matching issue instead of opening a duplicate.
 - Give each issue one type label (`bug`, `enhancement`, or `documentation`) and its phase label (`phase-2`, `phase-4`, and so on). Create a new phase label only when a new phase starts.
 - Write the body in plain words: what happens now, what should change, and how it was found or reproduced, with dates. Link any local plan or ADR by path and say when it is untracked.
+- If a fix is faster to do by hand on the shop computer than through a pull request (for example one setting in Settings), do not keep an issue for it. Add it as a checklist item under "Manual install steps" in the client install issue (#70), then close the issue with a comment pointing there.
 - When work finds a problem outside the current change, open an issue for it and name the issue number in the completion report instead of fixing it on the side.
 - Link every pull request to its issue with `Closes #<number>` in the pull request body, so the merge closes it. Use `Refs #<number>` when the pull request only covers part of the issue.
 - Do not close an issue by hand unless the project owner asks, or the work is proven done and no pull request carries it. Say why in a closing comment.

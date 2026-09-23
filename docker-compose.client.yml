@@ -12,10 +12,16 @@ services:
             - install -o www-data -g www-data -m 0400 /run/ospos/app.env /app/.env && exec apache2-foreground
         volumes:
             - ${OSPOS_DATA_DIR}/secrets/app.env:/run/ospos/app.env:ro
-            - ${OSPOS_DATA_DIR}/uploads:/app/public/uploads
+            # OSPOS_UPLOADS=client_uploads keeps pictures in a Docker volume (Windows setup sets it),
+            # because Docker Desktop shows the Windows uploads folder as root-only.
+            - ${OSPOS_UPLOADS:-${OSPOS_DATA_DIR}/uploads}:/app/public/uploads
     mysql:
         container_name: !reset null
         environment: !reset []
         env_file:
             - ${OSPOS_DATA_DIR}/secrets/mysql.env
             - ${OSPOS_DATA_DIR}/secrets/db.env
+
+volumes:
+    client_uploads:
+        driver: local

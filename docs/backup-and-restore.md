@@ -36,6 +36,8 @@ Anyone with administrator rights on the shop computer, or anyone holding its dis
 
 Windows support is expected, not verified, until the project owner runs it on the shop computer.
 
+The Windows scripts run in Windows PowerShell 5.1, which ships with Windows 10, and in PowerShell 7.
+
 Install Docker Desktop and give Docker Desktop access to the drive holding the client directory.
 
 Keep the client directory on the internal NTFS drive when possible.

@@ -77,11 +77,11 @@ if (-not (Test-Path -LiteralPath $uploadsArg -PathType Container)) { throw "Uplo
 if (-not (Test-Path -LiteralPath $envArg -PathType Leaf)) { throw "Environment file does not exist: $envArg" }
 
 $archive = (Resolve-Path -LiteralPath $archiveArg).Path
-$archiveParent = Split-Path -LiteralPath $archive -Parent
-$archiveName = Split-Path -LiteralPath $archive -Leaf
+$archiveParent = [System.IO.Path]::GetDirectoryName($archive)
+$archiveName = [System.IO.Path]::GetFileName($archive)
 $uploads = (Resolve-Path -LiteralPath $uploadsArg).Path
-$uploadsParent = Split-Path -LiteralPath $uploads -Parent
-$uploadsName = Split-Path -LiteralPath $uploads -Leaf
+$uploadsParent = [System.IO.Path]::GetDirectoryName($uploads)
+$uploadsName = [System.IO.Path]::GetFileName($uploads)
 $envFile = (Resolve-Path -LiteralPath $envArg).Path
 
 $dockerArgs = @(

@@ -63,7 +63,13 @@ After the restore, open Settings and check that item pictures show.
 
 The shop image version is pinned with `OSPOS_IMAGE_TAG`; see "Pin or roll back the client image" in [backup and restore](backup-and-restore.md).
 
-The container does not apply database migrations by itself yet, so an update that changes the database still needs the developer.
+The container applies pending database migrations when it starts.
+
+If it cannot reach the database or a migration fails, it stops and writes the reason to its logs.
+
+Because the container restarts automatically, a startup that keeps failing shows as a container that keeps restarting.
+
+Check `docker compose ps` and the `ospos` logs, then fix the database or restore the backup taken before the update.
 
 Always take a backup and confirm its `result=ok` line before changing the image version.
 

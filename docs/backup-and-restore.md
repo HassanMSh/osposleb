@@ -16,7 +16,7 @@ The owner must keep a separate copy of the `secrets` directory somewhere other t
 
 The shop secrets file `secrets/app.env` holds the application encryption key.
 
-Back up the shop before running `docker compose pull` on it, because a new image can migrate the database once automatic migrations land.
+Back up the shop before starting a new image because it may apply pending database migrations when it starts.
 
 Backups deliberately exclude the secrets files, including the encryption key.
 

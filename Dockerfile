@@ -38,6 +38,9 @@ COPY --from=frontend-build /app/app/Views/partial/header_assets.php /app/app/Vie
 COPY --from=frontend-build /app/public/license /app/public/license
 RUN ln -s /app/*[^public] /var/www && rm -rf /var/www/html && ln -nsf /app/public /var/www/html
 RUN chmod -R 770 /app/writable/uploads /app/writable/logs /app/writable/cache && chown -R www-data:www-data /app
+COPY docker/entrypoint.sh /usr/local/bin/ospos-entrypoint
+RUN chmod +x /usr/local/bin/ospos-entrypoint
+ENTRYPOINT ["/usr/local/bin/ospos-entrypoint"]
 
 FROM ospos AS ospos_test
 
@@ -48,9 +51,10 @@ RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for
 RUN docker-php-ext-install zip
 RUN composer install -d/app
 #RUN sed -i 's/backupGlobals="true"/backupGlobals="false"/g' /app/tests/phpunit.xml
-WORKDIR /app/tests
+WORKDIR /app
 
-CMD ["/app/vendor/phpunit/phpunit/phpunit"]
+ENTRYPOINT []
+CMD ["/app/vendor/phpunit/phpunit/phpunit", "--configuration", "/app/phpunit.xml.dist", "--no-coverage"]
 
 FROM ospos AS ospos_dev
 

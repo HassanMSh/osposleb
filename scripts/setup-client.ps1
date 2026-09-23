@@ -28,9 +28,9 @@ for ($index = 0; $index -lt $args.Count; $index++) {
 }
 
 if ($null -eq $dataArg) { throw '--data-directory is required.' }
-$dataDirectory = [System.IO.Path]::GetFullPath($dataArg)
-$dataParent = Split-Path -LiteralPath $dataDirectory -Parent
-$dataName = Split-Path -LiteralPath $dataDirectory -Leaf
+$dataDirectory = [System.IO.Path]::GetFullPath($dataArg).TrimEnd('\', '/')
+$dataParent = [System.IO.Path]::GetDirectoryName($dataDirectory)
+$dataName = [System.IO.Path]::GetFileName($dataDirectory)
 if ([string]::IsNullOrWhiteSpace($dataName) -or $dataName -in @('.', '..')) { throw "Invalid data directory: $dataArg" }
 New-Item -ItemType Directory -Force -Path $dataParent | Out-Null
 

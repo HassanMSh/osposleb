@@ -914,6 +914,7 @@ class Sales extends Secure_Controller
 
     /**
      * Emails a sales document PDF to a customer, using day-first dates for receipt output.
+     * The document number is HTML-escaped before it goes into the HTML email message, because it is stored as typed.
      *
      * @noinspection PhpUnused
      */
@@ -931,7 +932,7 @@ class Sales extends Secure_Controller
 
             $text   = $this->config['invoice_email_message'];
             $tokens = [
-                new Token_invoice_sequence($number),
+                new Token_invoice_sequence(esc($number)),
                 new Token_invoice_count('POS ' . $sale_data['sale_id']),
                 new Token_customer((array) $sale_data),
             ];
@@ -1347,6 +1348,7 @@ class Sales extends Secure_Controller
     /**
      * Saves an existing sale edit and accepts only cash payment changes.
      * It updates the sales table and payment rows after validating all posted payment types.
+     * The invoice number is stored as typed, so views escape it only once.
      *
      * @throws PageNotFoundException When a non-cash payment type is posted.
      * @throws ReflectionException
@@ -1364,7 +1366,7 @@ class Sales extends Secure_Controller
             'customer_id'    => $this->request->getPost('customer_id') != '' ? $this->request->getPost('customer_id', FILTER_SANITIZE_NUMBER_INT) : null,
             'employee_id'    => $this->request->getPost('employee_id') != '' ? $this->request->getPost('employee_id', FILTER_SANITIZE_NUMBER_INT) : null,
             'comment'        => $this->request->getPost('comment', FILTER_SANITIZE_FULL_SPECIAL_CHARS),
-            'invoice_number' => $this->request->getPost('invoice_number') != '' ? $this->request->getPost('invoice_number', FILTER_SANITIZE_FULL_SPECIAL_CHARS) : null,
+            'invoice_number' => $this->postedInvoiceNumber(),
         ];
 
         // In order to maintain tradition the only element that can change on prior payments is the payment type
@@ -1468,6 +1470,23 @@ class Sales extends Secure_Controller
         if (! is_string($payment_type) || ! in_array($payment_type, get_translated_payment_labels('Sales.cash'), true)) {
             throw PageNotFoundException::forPageNotFound();
         }
+    }
+
+    /**
+     * Returns the posted invoice number as typed, trimmed, or null when it is blank.
+     *
+     * The value is stored raw, not HTML-encoded, because every view escapes it on output.
+     * Encoding it here as well made receipts print an ampersand as `&amp;`.
+     */
+    private function postedInvoiceNumber(): ?string
+    {
+        $invoice_number = $this->request->getPost('invoice_number');
+
+        if (! is_string($invoice_number) || trim($invoice_number) === '') {
+            return null;
+        }
+
+        return trim($invoice_number);
     }
 
     /**
@@ -1603,13 +1622,14 @@ class Sales extends Secure_Controller
 
     /**
      * Check the validity of an invoice number. Used in app/Views/sales/form.php.
+     * Compares the invoice number as typed, matching how the sale edit save stores it.
      *
      * @noinspection PhpUnused
      */
     public function postCheckInvoiceNumber(): void
     {
         $sale_id        = $this->request->getPost('sale_id', FILTER_SANITIZE_NUMBER_INT);
-        $invoice_number = $this->request->getPost('invoice_number', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+        $invoice_number = $this->postedInvoiceNumber();
         $exists         = ! empty($invoice_number) && $this->sale->check_invoice_number_exists($invoice_number, $sale_id);
         echo ! $exists ? 'true' : 'false';
     }

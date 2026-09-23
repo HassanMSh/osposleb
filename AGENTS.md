@@ -194,8 +194,8 @@ Suggested branch prefixes:
 
 - The development stack builds assets itself through the one-shot `assets` service.
 - The shop image is published to Docker Hub as `hassanshamseddine/osposlb`. The local Docker client is already logged in to that account.
-- Publishing is live: the `publish` job in `.github/workflows/main.yml` runs only on pushes to `develop` after all checks pass.
-- The job pushes `hassanshamseddine/osposlb:develop`, which follows the newest `develop` commit, and `hassanshamseddine/osposlb:develop-<short sha>`, which stays fixed for pinning and rollback.
+- Publishing is live: the `publish` job in `.github/workflows/main.yml` runs only on pushes to `develop` after all checks pass. It skips merges from `docs/` and `chore/` branches, so name a branch that way only when it does not change the shop image.
+- The job pushes `hassanshamseddine/osposlb:develop`, which follows the newest published `develop` commit, and `hassanshamseddine/osposlb:develop-<short sha>`, which stays fixed for pinning and rollback.
 - Client machines pull the published image and never build it.
 - Development still builds the image locally with `docker-compose.dev.yml`.
 - Never build and push the image from a developer machine. Image publishing belongs to GitHub Actions only, so every published tag comes from a reviewed commit.

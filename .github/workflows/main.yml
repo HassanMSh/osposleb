@@ -169,11 +169,17 @@ jobs:
         run: vendor/bin/phpunit --no-coverage --colors=always
 
   # Only publish on pushes to develop after every check has passed.
+  # Merges of docs/ and chore/ branches are skipped: they do not change the shop.
+  # The merge commit subject names the branch, e.g.
+  # "Merge pull request #99 from HassanMSh/docs/agents-phase4-status".
   # Publishes run one at a time.
-  # Only the newest develop commit moves the develop tag.
+  # Only the newest published develop commit moves the develop tag.
   publish:
     name: Publish shop image
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/develop' &&
+      !contains(github.event.head_commit.message, format('from {0}/docs/', github.repository_owner)) &&
+      !contains(github.event.head_commit.message, format('from {0}/chore/', github.repository_owner))
     needs: [syntax, coding-standards, tests]
     runs-on: ubuntu-22.04
     permissions:
@@ -192,16 +198,18 @@ jobs:
         shell: bash
         env:
           COMMIT_SHA: ${{ github.sha }}
+          OWNER: ${{ github.repository_owner }}
         run: |
-          develop_sha="$(git ls-remote origin refs/heads/develop | cut -f1)" || {
-            echo "::error::Could not look up the tip of develop from origin."
+          git fetch --quiet --no-tags --depth=50 origin develop || {
+            echo "::error::Could not fetch the tip of develop from origin."
             exit 1
           }
-          if [ -z "$develop_sha" ]; then
-            echo "::error::The lookup returned no tip SHA for develop."
-            exit 1
-          fi
-          if [ "$develop_sha" = "$COMMIT_SHA" ]; then
+          develop_sha="$(git rev-parse FETCH_HEAD)"
+          # Docs and chore merges never publish, so this commit still counts as
+          # the tip when only such merges landed on develop after it.
+          newer_subjects="$(git log --first-parent --format=%s "$COMMIT_SHA..$develop_sha")"
+          skipped_merge="^Merge pull request #[0-9]+ from ${OWNER}/(docs|chore)/"
+          if [ -z "$newer_subjects" ] || ! grep -Evq "$skipped_merge" <<< "$newer_subjects"; then
             echo "is_tip=true" >> "$GITHUB_OUTPUT"
           else
             echo "is_tip=false" >> "$GITHUB_OUTPUT"

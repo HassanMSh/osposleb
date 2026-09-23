@@ -76,8 +76,8 @@ The app runs in Chrome, so Windows and Chrome handle the hardware. Docker is not
 - Barcode scanner: on the sale screen, click the item box and scan. The item must be added without pressing any key. An unknown barcode must show an error.
 - Receipt printer: install the Windows driver and make it the default printer. In Windows Settings, Printers & scanners, turn off "Let Windows manage my default printer" so Windows does not change the default. Test it from the POS Register shortcut (below).
 - Cash drawer: it is usually connected to the receipt printer. Turn on the "open drawer" (or "kick drawer") option in the printer driver so the drawer opens when a receipt prints.
-- Barcode label printer: tested 2026-09-23 on an Xprinter XP-365B with 40 × 20 mm labels.
-  - In the driver, add a paper size of 1.57 × 0.78 in (Portrait) under both "Printing preferences" and "Printer properties → Advanced → Printing Defaults". Then restart Chrome.
+- Barcode label printer: tested 2026-09-23 on an Xprinter XP-365B. The shop's labels measure 1.6 × 1.05 in (about 40.6 × 26.7 mm, measured 2026-09-24, issue #97).
+  - In the driver, add a paper size of 1.6 × 1.05 in (Portrait), the exact size of one label, under both "Printing preferences" and "Printer properties → Advanced → Printing Defaults". Then restart Chrome. A paper size that does not match the real label makes the content land at a different height on each label and can split one label across two.
   - Calibrate the label gap: turn the printer off, hold FEED, turn it on, and let go after the second beep.
   - In Settings, Barcode tab: type EAN13, width 125, height 30, font size 9, number in row 1, page width 100, cell spacing 0, first row item name, second row retail price, third row none.
   - Print labels from the POS Office shortcut (below). In Chrome's print window: destination XP-365B, paper size the label size, margins None, scale Custom 100, headers and footers off.

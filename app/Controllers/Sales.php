@@ -28,7 +28,7 @@ use stdClass;
 
 class Sales extends Secure_Controller
 {
-    protected $helpers = ['file'];
+    protected $helpers = ['file', 'sale'];
     private Barcode_lib $barcode_lib;
     private Email_lib $email_lib;
     private Sale_lib $sale_lib;
@@ -454,13 +454,17 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Multiple Payments. Used in app/Views/sales/register.php
+     * Removes a valid payment id from the current sale and reloads the register.
      *
      * @noinspection PhpUnused
      */
     public function getDeletePayment(string $payment_id): void
     {
-        $this->sale_lib->delete_payment(base64_decode($payment_id));
+        $decoded_payment_id = decode_payment_id($payment_id);
+
+        if ($decoded_payment_id !== false) {
+            $this->sale_lib->delete_payment($decoded_payment_id);
+        }
 
         $this->_reload();    // TODO: Hungarian notation
     }

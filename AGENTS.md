@@ -12,13 +12,13 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 - Approved baseline: `develop` snapshot `bcc9efc7c1ecf48273f03c5c0e3b24a8aef0c350`, application version 3.4.1, approved 2026-09-20.
 - Operator documentation lives in `docs/`. Internal records, plans, and audits live in `docs/adr/`.
 - The shop runs in Arabic (Lebanon) by default, the `admin` account runs in English, and the login page is always English and left to right. Decided 2026-09-20.
-- Phase 4 hardware was named on 2026-09-24 (issue #58). The device list and test status live in the hardware compatibility issue (#65). Record any change of device there before doing model-specific work.
+- The shop hardware was named on 2026-09-24 (issue #58). The device list and test status live in the hardware compatibility issue (#65). Record any change of device there before doing model-specific work.
 
 ## GitHub issues
 
 - Track bugs, gaps, planned work, deferred items, and accepted risks as issues in `HassanMSh/osposleb`. Do not start new lists of open work in local files, ADRs, or this file.
 - Search existing issues before opening one (`gh issue list --state all --search "<words>"`). Comment on a matching issue instead of opening a duplicate.
-- Give each issue one type label (`bug`, `enhancement`, or `documentation`) and its phase label (`phase-2`, `phase-4`, and so on). Create a new phase label only when a new phase starts.
+- Give each issue one type label (`bug`, `enhancement`, or `documentation`) and its phase label (`phase-arabic`, `phase-hardware`, and so on). Create a new phase label only when a new phase starts.
 - Write the body in plain words: what happens now, what should change, and how it was found or reproduced, with dates. Link any local plan or ADR by path and say when it is untracked.
 - If a fix is faster to do by hand on the shop computer than through a pull request (for example one setting in Settings), do not keep an issue for it. Add it as a checklist item under "Manual install steps" in the client install issue (#70), then close the issue with a comment pointing there.
 - When work finds a problem outside the current change, open an issue for it and name the issue number in the completion report instead of fixing it on the side.
@@ -194,8 +194,8 @@ Suggested branch prefixes:
 
 - The development stack builds assets itself through the one-shot `assets` service.
 - The shop image is published to Docker Hub as `hassanshamseddine/osposlb`. The local Docker client is already logged in to that account.
-- Publishing is live: the `publish` job in `.github/workflows/main.yml` runs only on pushes to `develop` after all checks pass.
-- The job pushes `hassanshamseddine/osposlb:develop`, which follows the newest `develop` commit, and `hassanshamseddine/osposlb:develop-<short sha>`, which stays fixed for pinning and rollback.
+- Publishing is live: the `publish` job in `.github/workflows/main.yml` runs only on pushes to `develop` after all checks pass. It skips merges from `docs/` and `chore/` branches, so name a branch that way only when it does not change the shop image.
+- The job pushes `hassanshamseddine/osposlb:develop`, which follows the newest published `develop` commit, and `hassanshamseddine/osposlb:develop-<short sha>`, which stays fixed for pinning and rollback.
 - Client machines pull the published image and never build it.
 - Development still builds the image locally with `docker-compose.dev.yml`.
 - Never build and push the image from a developer machine. Image publishing belongs to GitHub Actions only, so every published tag comes from a reviewed commit.

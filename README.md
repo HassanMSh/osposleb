@@ -25,7 +25,7 @@ The latest `3.4` version is a complete overhaul of the original software. It use
 This fork uses `develop` for project work and is based on the stable OSPOS `3.4.1` release.
 Phase branches are reviewed through pull requests into `develop`, and required checks must pass before merging.
 GitHub Actions checks full-project PHP syntax on PHP 8.1 and 8.2, then validates Composer configuration and coding standards for changed PHP files on PHP 8.2.
-The workflow publishes the shop image after all checks pass on `develop`.
+The workflow publishes the shop image after all checks pass on `develop`, except for merges from `docs/` and `chore/` branches, which publish nothing.
 The development stack uses a one-shot `assets` service to build front-end assets before the app starts.
 The asset build needs no host Node.js, PHP, or Composer installation.
 Automated code scanning is deferred until the production-hardening phase.

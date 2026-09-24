@@ -121,9 +121,9 @@ The update command refuses tracked changes and non-ignored untracked files; move
 
 The update command asks before it downloads the app image and takes the backup.
 
-If `./shop status` shows a recovery marker, use its single recovery command and wait for the marker to clear before opening the shop.
+If `./shop status` shows a recovery marker, follow its recovery steps and wait for the marker to clear before opening the shop.
 
-An update writes a recovery marker and pins the current app image before the image download; `./shop status` prints one allowed recovery command if the update does not finish.
+An update writes a recovery marker and pins the current app image before the image download; `./shop status` prints the allowed recovery steps if the update does not finish.
 
 If an update marker exists but no rollback point was saved, retry with `./shop update`.
 
@@ -131,7 +131,17 @@ If a rollback point was saved, recover with `./shop rollback`.
 
 Restore stays refused while the update marker exists, and only a successful rollback clears that marker.
 
-An unfinished rollback is retried with `./shop rollback`, and a second completed rollback is refused until a new update saves a fresh point.
+Retry an unfinished rollback with `./shop rollback`; if it fails after the saved code is checked out, run these commands in order:
+
+```bash
+git switch develop
+git pull --ff-only origin develop
+./shop rollback
+```
+
+If `git pull` fails, restore the internet connection and run it again before `./shop rollback`; the retry needs the fixed script from `develop`.
+
+A second completed rollback is refused until a new update saves a fresh point.
 
 Restore is advised only when `restore.unfinished` shows that database changes may be partial.
 
@@ -157,7 +167,7 @@ If the exact image cannot be recovered, leave the app stopped and contact the pr
 
 An update retry keeps the saved rollback point; a new update after a completed rollback saves a fresh point with the sales made since that rollback.
 
-To roll back, use `./shop rollback`; it checks the saved archive checksum, manifest and database checksum, and fully extracts every archive entry before stopping the app, then restores the backup taken before the update along with the saved code and image.
+To roll back, use `./shop rollback`; it checks the saved archive checksum, manifest and database checksum, and fully extracts every archive entry before stopping the app, restores through the current checkout, checks out the saved code, then starts the saved image.
 
 After one rollback finishes, a second rollback is refused until a new `./shop update` saves a fresh rollback point.
 

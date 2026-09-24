@@ -10,7 +10,7 @@ time_value=23:30 remove_flag=0 archive_value='' lines_value=200 config_value='' 
 backup_destination='' backup_archive='' rollback_exists=0 rollback_commit=''
 rollback_archive='' rollback_archive_sha256='' rollback_archive_sha256_present=0 rollback_date='' rollback_image='' rollback_active=0 update_pending=0
 rollback_from_commit='' rollback_from_digest='' rollback_from_image_id='' remote_image_digest='' update_source_image_id=''
-shop_lock_dir='' shop_lock_acquired=0 update_checkout_ready=0
+shop_lock_dir='' shop_lock_acquired=0 update_checkout_ready=0 rollback_checkout_succeeded=0
 restore_marker_preexisting=0
 backup_archives_before=()
 recovery_advice_printed=0
@@ -434,14 +434,33 @@ shop_lock_has_known_files() {
         esac
     done
 }
-# Print one command that is safe and accepted for the current recovery state.
+# Check whether an unfinished rollback left this detached checkout at its saved commit.
+rollback_checkout_is_saved_commit() {
+    local current_branch current_commit
+    [[ -e ${data_dir:-}/rollback.unfinished && -n $rollback_commit ]] || return 1
+    current_branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+    [[ -z $current_branch ]] || return 1
+    current_commit=$(git rev-parse HEAD 2>/dev/null || true)
+    [[ $current_commit == "$rollback_commit" ]]
+}
+# Print the safe recovery commands for the current state.
 recovery_advice() {
     local lock_directory="${data_dir:-}/.shop-command.lock"
-    local command=''
+    local command='' switch_to_develop=0
     (( recovery_advice_printed == 0 )) || return 0
     if [[ -d $lock_directory ]] && (( shop_lock_acquired == 0 )); then
         command='./shop unlock'
     elif [[ -e ${data_dir:-}/rollback.unfinished ]]; then
+        if (( rollback_checkout_succeeded == 1 )); then
+            switch_to_develop=1
+        elif [[ $target == status ]] && rollback_checkout_is_saved_commit; then
+            switch_to_develop=1
+        fi
+        if (( switch_to_develop == 1 )); then
+            printf 'Recovery command: git switch develop\nRecovery command: git pull --ff-only origin develop\nRecovery command: ./shop rollback\n'
+            recovery_advice_printed=1
+            return 0
+        fi
         command='./shop rollback'
     elif (( update_pending == 1 )); then
         command='./shop rollback'
@@ -558,13 +577,13 @@ clear_restore_marker() {
     rm -f -- "$data_dir/restore.unfinished" \
         || fail 'Could not clear the restore recovery marker; do not start the shop.'
 }
-# Preserve an earlier restore marker and keep a new one only if import may have started.
+# Preserve earlier restore state and allow recovery markers only for rollback restores.
 run_marked_restore() {
-    local archive_path=$1 restore_status=0
+    local archive_path=$1 rollback_recovery=${2:-0} restore_status=0
     restore_marker_preexisting=0
     [[ ! -e $data_dir/restore.unfinished ]] || restore_marker_preexisting=1
     write_restore_marker
-    if run_launcher restore --archive "$archive_path" --yes; then
+    if OSPOS_RESTORE_FOR_ROLLBACK=$rollback_recovery run_launcher restore --archive "$archive_path" --yes; then
         clear_restore_marker
         return 0
     else
@@ -1099,7 +1118,7 @@ run_update() {
     image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:develop)
     printf 'Develop image ID: %s\n' "$image_id"
 }
-# Validate the rollback point, restore its database, code, and image, then clear restore state on success.
+# Mark rollback before changing state, restore with the current checkout, and clear the marker only after the app answers.
 run_rollback() {
     local archive_copy source_commit source_container source_image source_references source_reference source_digest='' source_image_id=''
     read_rollback_config
@@ -1148,12 +1167,13 @@ run_rollback() {
         rollback_from_digest=$source_digest
         rollback_from_image_id=$source_image_id
     fi
-    write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" "$rollback_active" "$update_pending"
     : > "$data_dir/rollback.unfinished" || fail 'Could not mark the rollback as started.'
+    write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" "$rollback_active" "$update_pending"
     run_compose stop ospos
     run_compose up -d --pull never mysql
+    run_marked_restore "$archive_copy" 1
     git checkout --detach "$rollback_commit"
-    run_marked_restore "$archive_copy"
+    rollback_checkout_succeeded=1
     write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" 1 0
     rollback_active=1
     update_pending=0

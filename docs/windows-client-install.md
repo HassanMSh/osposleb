@@ -163,14 +163,24 @@ Result of the first run: pending.
 
 | Command | What it does |
 | --- | --- |
-| `./shop status` | Shows the containers, code version, running image, recovery markers, lock age and owner, recovery command, and last backup result. |
+| `./shop status` | Shows the containers, code version, running image, recovery markers, lock age and owner, recovery steps, and last backup result. |
 | `./shop start` / `./shop stop` | Starts or stops the shop without downloading anything, and start refuses while update or rollback recovery is needed. |
 | `./shop update` | Refuses local changes and previews code and image changes before asking; stop sales first because it downloads the app image before the rollback backup, then saves a rollback point, pulls code, and starts the shop without changing the database image. |
-| `./shop rollback` | Restores the code, app image, and backup saved by the last update after confirmation; it checks and fully extracts the archive before stopping, and an interrupted rollback can be retried with `./shop rollback`. |
+| `./shop rollback` | Checks and fully extracts the saved archive before stopping, restores through the current checkout, checks out the saved code, and starts the saved image; see the recovery steps below if a rollback retry is needed. |
 | `./shop backup` / `./shop backups` | Takes a backup now, or lists the backups newest first. |
 | `./shop restore ARCHIVE=<file>` | Validates and restores a backup by file name or path, after asking; it refuses while update or rollback recovery is unfinished. |
 | `./shop unlock` | Shows the lock owner and clears the lock only after you type `UNLOCK SHOP LOCK`; `--yes` does not bypass the prompt. |
 | `./shop logs` | Shows the last 200 lines of container logs (`LINES=<count>` changes the number). |
+
+If rollback fails after checking out the saved code, run these commands in order:
+
+```bash
+git switch develop
+git pull --ff-only origin develop
+./shop rollback
+```
+
+If `git pull` fails, restore the internet connection and run it again before `./shop rollback`; the retry needs the fixed script from `develop`.
 
 The image used after an update is the newest published `develop` image.
 Right after a merge, the image build takes a few minutes; `./shop update` warns when there is new code but no new image yet and refuses if either the digest or downloaded image ID matches the version rolled back.

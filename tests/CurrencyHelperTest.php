@@ -29,12 +29,15 @@ final class CurrencyHelperTest extends CIUnitTestCase
     }
 
     /**
-     * Rounds both sides of the contract to the nearest 5,000 pounds.
+     * Rounds to the nearest 1,000 pounds: below 500 goes down, 500 and above goes up.
      */
     public function testPoundConversionRoundsUpAndDown(): void
     {
         $this->assertSame(4_090_000, to_lbp('45.70'));
-        $this->assertSame(1_105_000, to_lbp('12.34'));
+        $this->assertSame(1_104_000, to_lbp('12.34'));
+        $this->assertSame(1_107_000, to_lbp('12.37'));
+        $this->assertSame(90_000, to_lbp('1.00'));
+        $this->assertSame(269_000, to_lbp('3.00'));
     }
 
     /**
@@ -168,7 +171,7 @@ final class CurrencyHelperTest extends CIUnitTestCase
         $this->assertIsString($source);
         $this->assertStringContainsString('id="change_helper_amount"', $source);
         $this->assertStringContainsString('const changeDollars = tenderedDollars - changeHelperTotal;', $source);
-        $this->assertStringContainsString('const changePounds = Math.round((changeDollars * rate) / 5000) * 5000;', $source);
+        $this->assertStringContainsString('const changePounds = Math.round((changeDollars * rate) / 1000) * 1000;', $source);
 
         $helper_start = strpos($source, 'function updateChangeHelper');
         $helper_end   = strpos($source, '// Add Keyboard Shortcuts', $helper_start);

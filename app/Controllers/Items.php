@@ -586,15 +586,12 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Validates and saves item data, including duplicate barcode errors and the selected legacy-path TVA mode.
+     * Validates and saves item data, including item entry limits, duplicate barcodes, and the selected legacy-path TVA mode.
      *
      * @throws ReflectionException
      */
     public function postSave(int $item_id = NEW_ENTRY): void
     {
-        $upload_data    = $this->upload_image();
-        $upload_success = empty($upload_data['error']);
-
         $raw_receiving_quantity = $this->request->getPost('receiving_quantity');
 
         $receiving_quantity = parse_quantity($raw_receiving_quantity);
@@ -606,8 +603,25 @@ class Items extends Secure_Controller
 
         $default_pack_name = lang('Items.default_pack_name');
 
-        $cost_price                = parse_decimals($this->request->getPost('cost_price'));
-        $unit_price                = parse_decimals($this->request->getPost('unit_price'));
+        $cost_price = parse_decimals($this->request->getPost('cost_price'));
+        $unit_price = parse_decimals($this->request->getPost('unit_price'));
+        $name       = $this->request->getPost('name');
+
+        if (! is_string($name)) {
+            $name = '';
+        }
+
+        $validation_error = self::getItemEntryValidationError($name, $cost_price, $unit_price);
+
+        if ($validation_error !== null) {
+            echo json_encode(['success' => false, 'message' => $validation_error, 'id' => $item_id]);
+
+            return;
+        }
+
+        $upload_data    = $this->upload_image();
+        $upload_success = empty($upload_data['error']);
+
         $reorder_level             = parse_quantity($this->request->getPost('reorder_level'));
         $qty_per_pack              = parse_quantity($this->request->getPost('qty_per_pack') ?? '');
         $use_destination_based_tax = (bool) $this->config['use_destination_based_tax'];
@@ -678,7 +692,7 @@ class Items extends Secure_Controller
 
         // Save item data
         $item_data = [
-            'name'                  => $this->request->getPost('name'),
+            'name'                  => $name,
             'description'           => $this->request->getPost('description'),
             'category'              => $this->request->getPost('category'),
             'item_type'             => $item_type,
@@ -809,6 +823,72 @@ class Items extends Secure_Controller
 
             echo json_encode(['success' => false, 'message' => $message, 'id' => NEW_ENTRY]);
         }
+    }
+
+    /**
+     * Returns a localized error when an item name or parsed price is outside the allowed entry limits.
+     *
+     * @param false|float|int|string|null $cost_price Parsed wholesale price or raw CSV value.
+     * @param false|float|int|string|null $unit_price Parsed retail price or raw CSV value.
+     */
+    public static function getItemEntryValidationError(string $name, mixed $cost_price, mixed $unit_price): ?string
+    {
+        if ($cost_price === '') {
+            return lang('Items.cost_price_required');
+        }
+
+        if ($cost_price === false || ! is_numeric($cost_price)) {
+            return lang('Items.cost_price_number');
+        }
+
+        if ((float) $cost_price < 0) {
+            return lang('Items.cost_price_non_negative');
+        }
+
+        if ($unit_price === '') {
+            return lang('Items.unit_price_required');
+        }
+
+        if ($unit_price === false || ! is_numeric($unit_price)) {
+            return lang('Items.unit_price_number');
+        }
+
+        if ((float) $unit_price < 0) {
+            return lang('Items.unit_price_non_negative');
+        }
+
+        return self::getItemNameValidationError($name);
+    }
+
+    /**
+     * Returns a localized error when a CSV row breaks the item name or price limits.
+     *
+     * A blank cost counts as zero, as the importer saves it. A blank retail price is allowed only when the row updates an existing item, which keeps its current price.
+     *
+     * @param array<string, mixed> $item_data Row values keyed by item column.
+     */
+    public static function getCsvRowValidationError(array $item_data, bool $is_update): ?string
+    {
+        $cost_price = $item_data['cost_price'] ?? '';
+        $unit_price = $item_data['unit_price'] ?? '';
+
+        return self::getItemEntryValidationError(
+            (string) ($item_data['name'] ?? ''),
+            $cost_price === '' ? 0.0 : $cost_price,
+            $is_update && $unit_price === '' ? 0.0 : $unit_price,
+        );
+    }
+
+    /**
+     * Returns a localized error when a stored item name is longer than 255 Unicode characters.
+     */
+    public static function getItemNameValidationError(string $name): ?string
+    {
+        if (mb_strlen($name, 'UTF-8') > 255) {
+            return lang('Items.name_max_length');
+        }
+
+        return null;
     }
 
     /**
@@ -944,12 +1024,35 @@ class Items extends Secure_Controller
     }
 
     /**
+     * Validates item entry fields before applying the selected bulk update.
+     *
      * @noinspection PhpUnused
      */
     public function postBulkUpdate(): void
     {
         $items_to_update = $this->request->getPost('item_ids');
         $item_data       = [];
+
+        $name_value           = $this->request->getPost('name');
+        $cost_price_value     = $this->request->getPost('cost_price');
+        $unit_price_value     = $this->request->getPost('unit_price');
+        $has_item_entry_value = ($name_value !== null && $name_value !== '')
+            || ($cost_price_value !== null && $cost_price_value !== '')
+            || ($unit_price_value !== null && $unit_price_value !== '');
+
+        if ($has_item_entry_value) {
+            $validation_error = self::getItemEntryValidationError(
+                is_string($name_value) ? $name_value : '',
+                is_string($cost_price_value) && $cost_price_value !== '' ? parse_decimals($cost_price_value) : 0.0,
+                is_string($unit_price_value) && $unit_price_value !== '' ? parse_decimals($unit_price_value) : 0.0,
+            );
+
+            if ($validation_error !== null) {
+                echo json_encode(['success' => false, 'message' => $validation_error]);
+
+                return;
+            }
+        }
 
         foreach ($_POST as $key => $value) {
             // This field is nullable, so treat it differently
@@ -1021,7 +1124,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Imports items from CSV formatted file and reports localized duplicate-barcode details.
+     * Imports CSV items after checking name and price limits, and reports failed rows with localized details.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -1059,6 +1162,7 @@ class Items extends Secure_Controller
                 foreach ($csv_rows as $key => $row) {
                     $is_failed_row  = false;
                     $duplicate_item = null;
+                    $row_error      = null;
                     $item_id        = (int) $row['Id'];
                     $is_update      = ($item_id > 0);
                     $item_data      = [
@@ -1093,6 +1197,11 @@ class Items extends Secure_Controller
                     }
 
                     if (! $is_failed_row) {
+                        $row_error     = self::getCsvRowValidationError($item_data, $is_update);
+                        $is_failed_row = $row_error !== null;
+                    }
+
+                    if (! $is_failed_row) {
                         $is_failed_row = $this->data_error_check($row, $item_data, $allowed_stock_locations, $attribute_definition_names, $attribute_data);
                     }
 
@@ -1120,13 +1229,15 @@ class Items extends Secure_Controller
 
                         $failed_row        = $key + 2;
                         $failCodes[]       = $failed_row;
-                        $failure_details[] = $duplicate_item === null
-                            ? (string) $failed_row
-                            : lang('Items.csv_import_barcode_duplicate', [
-                                $failed_row,
-                                $duplicate_number,
-                                $duplicate_item->name,
-                            ]);
+                        $failure_details[] = $row_error !== null
+                            ? "{$failed_row}: {$row_error}"
+                            : ($duplicate_item === null
+                                ? (string) $failed_row
+                                : lang('Items.csv_import_barcode_duplicate', [
+                                    $failed_row,
+                                    $duplicate_number,
+                                    $duplicate_item->name,
+                                ]));
                         log_message('error', "CSV Item import failed on line {$failed_row}. This item was not imported.");
                     }
 

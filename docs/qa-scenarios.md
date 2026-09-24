@@ -46,13 +46,13 @@ The cashier opens Items, clicks New Item, fills the form, and saves. Start each 
 | ITEM-04 | Leaves cost, price, stock, receiving quantity, or reorder level empty, one at a time. | Each empty field blocks the save. |
 | ITEM-05 | Enters cost 0. | Saves with cost 0.00. |
 | ITEM-06 | Enters price 0. | Saves with price 0.00. |
-| ITEM-07 | Enters cost -1. | Record what happens. Today it saves -1.00. |
-| ITEM-08 | Enters price -1. | Record what happens. Today it saves -1.00. |
+| ITEM-07 | Enters cost -1. | The form and server reject the negative cost without saving. |
+| ITEM-08 | Enters price -1. | The form and server reject the negative price without saving. |
 | ITEM-09 | Enters a price of 100000000000001. | The form refuses it. |
 | ITEM-10 | Enters 10.50, then 10,50. | The dot form saves 10.50. Record what the comma form does. |
 | ITEM-11 | Uses an Arabic name, such as `حليب طازج`. | Saves and can be found by searching in Arabic. |
 | ITEM-12 | Uses a mixed name, such as `حليب UHT 1L`. | Saves and displays in the right order. |
-| ITEM-13 | Uses a 255-character name, then a 256-character name. | Record the limit. Today the 256th character is cut off. |
+| ITEM-13 | Uses a 255-character Arabic name, then a 256-character name. | The 255-character name saves in full; the 256-character name shows an error and does not save. |
 | ITEM-14 | Puts HTML and a script tag in the name and description. | The text shows as plain text and nothing runs. |
 | ITEM-15 | Leaves the barcode empty. | A barcode starting with `20` is generated. |
 | ITEM-16 | Uses a barcode that another item already has. | The form reports the duplicate and does not save it. |

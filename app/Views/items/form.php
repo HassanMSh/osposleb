@@ -67,6 +67,7 @@ $tax_mode_inherit_label = $default_tax_1_rate !== ''
                     'class' => 'form-control input-sm',
                     'value' => $item_info->name,
                 ]) ?>
+                <p class="help-block"><?= lang('Items.name_length_limit') ?></p>
             </div>
         </div>
 
@@ -581,6 +582,40 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
             return value.match(/(\||_)/g) == null;
         }, "<?= lang('Attributes.attribute_value_invalid_chars') ?>");
 
+        // Count Unicode code points so Arabic letters use the same limit as mb_strlen on the server.
+        $.validator.addMethod('maxItemNameLength', function(value, element) {
+            return Array.from(value).length <= 255;
+        }, "<?= esc(lang('Items.name_max_length'), 'js') ?>");
+
+        // Reject negative prices while allowing grouped prices and negative zero.
+        $.validator.addMethod('nonNegativePrice', function(value, element) {
+            var trimmed_value = value.trim();
+
+            if (trimmed_value === '') {
+                return true;
+            }
+
+            var locale_minus_sign = new Intl.NumberFormat().formatToParts(-1).find(function(part) {
+                return part.type === 'minusSign';
+            }).value;
+            var minus_signs = ['-', '−', locale_minus_sign];
+            var matched_minus_sign = minus_signs.find(function(sign) {
+                return trimmed_value.startsWith(sign);
+            });
+
+            if (matched_minus_sign === undefined) {
+                return true;
+            }
+
+            var price_digits = trimmed_value.slice(matched_minus_sign.length).replace(/[.,\s\u00a0\u202f]/g, '');
+
+            if (!/^\d+$/.test(price_digits)) {
+                return true;
+            }
+
+            return !/[1-9]/.test(price_digits);
+        }, "<?= esc(lang('Items.unit_price_non_negative'), 'js') ?>");
+
         var item_number_duplicate_message = "<?= esc(lang('Items.item_number_duplicate'), 'js') ?>";
 
         var init_validation = function() {
@@ -610,7 +645,10 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                 errorLabelContainer: '#error_message_box',
 
                 rules: {
-                    name: 'required',
+                    name: {
+                        required: true,
+                        maxItemNameLength: true
+                    },
                     category: 'required',
                     item_number: {
                         required: false,
@@ -636,10 +674,12 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     },
                     cost_price: {
                         required: true,
+                        nonNegativePrice: true,
                         remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
                     },
                     unit_price: {
                         required: true,
+                        nonNegativePrice: true,
                         remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
                     },
                     <?php foreach ($stock_locations as $key => $location_detail) { ?>
@@ -663,7 +703,10 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                 },
 
                 messages: {
-                    name: "<?= lang('Items.name_required') ?>",
+                    name: {
+                        required: "<?= lang('Items.name_required') ?>",
+                        maxItemNameLength: "<?= esc(lang('Items.name_max_length'), 'js') ?>"
+                    },
                     item_number: {
                         remote: function() {
                             return item_number_duplicate_message;
@@ -672,11 +715,13 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                     category: "<?= lang('Items.category_required') ?>",
                     cost_price: {
                         required: "<?= lang('Items.cost_price_required') ?>",
-                        number: "<?= lang('Items.cost_price_number') ?>"
+                        number: "<?= lang('Items.cost_price_number') ?>",
+                        nonNegativePrice: "<?= esc(lang('Items.cost_price_non_negative'), 'js') ?>"
                     },
                     unit_price: {
                         required: "<?= lang('Items.unit_price_required') ?>",
-                        number: "<?= lang('Items.unit_price_number') ?>"
+                        number: "<?= lang('Items.unit_price_number') ?>",
+                        nonNegativePrice: "<?= esc(lang('Items.unit_price_non_negative'), 'js') ?>"
                     },
                     <?php foreach ($stock_locations as $key => $location_detail) { ?>
                         <?= esc("quantity_{$key}", 'js') ?>: {

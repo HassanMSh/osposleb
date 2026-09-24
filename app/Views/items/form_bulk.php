@@ -1,10 +1,10 @@
 <?php
 /**
- * @var array $suppliers
- * @var array $allow_alt_description_choices
- * @var array $serialization_choices
+ * @var array  $suppliers
+ * @var array  $allow_alt_description_choices
+ * @var array  $serialization_choices
  * @var string $controller_name
- * @var array $config
+ * @var array  $config
  */
 ?>
 
@@ -20,7 +20,7 @@
                 <?= form_input([
                     'name'  => 'name',
                     'id'    => 'name',
-                    'class' => 'form-control input-sm'
+                    'class' => 'form-control input-sm',
                 ]) ?>
             </div>
         </div>
@@ -33,7 +33,7 @@
                     <?= form_input([
                         'name'  => 'category',
                         'id'    => 'category',
-                        'class' => 'form-control input-sm'
+                        'class' => 'form-control input-sm',
                     ]) ?>
                 </div>
             </div>
@@ -50,13 +50,13 @@
             <?= form_label(lang('Items.cost_price'), 'cost_price', ['class' => 'control-label col-xs-3']) ?>
             <div class="col-xs-4">
                 <div class="input-group input-group-sm">
-                    <?php if (!is_right_side_currency_symbol()): ?>
+                    <?php if (! is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
                     <?php endif; ?>
                     <?= form_input([
                         'name'  => 'cost_price',
                         'id'    => 'cost_price',
-                        'class' => 'form-control input-sm'
+                        'class' => 'form-control input-sm',
                     ]) ?>
                     <?php if (is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
@@ -69,13 +69,13 @@
             <?= form_label(lang('Items.unit_price'), 'unit_price', ['class' => 'control-label col-xs-3']) ?>
             <div class="col-xs-4">
                 <div class="input-group input-group-sm">
-                    <?php if (!is_right_side_currency_symbol()): ?>
+                    <?php if (! is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
                     <?php endif; ?>
                     <?= form_input([
                         'name'  => 'unit_price',
                         'id'    => 'unit_price',
-                        'class' => 'form-control input-sm'
+                        'class' => 'form-control input-sm',
                     ]) ?>
                     <?php if (is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
@@ -91,7 +91,7 @@
                     'name'  => 'tax_names[]',
                     'id'    => 'tax_name_1',
                     'class' => 'form-control input-sm',
-                    'value' => $config['default_tax_1_name']
+                    'value' => $config['default_tax_1_name'],
                 ]) ?>
             </div>
             <div class="col-xs-4">
@@ -100,7 +100,7 @@
                         'name'  => 'tax_percents[]',
                         'id'    => 'tax_percent_name_1',
                         'class' => 'form-control input-sm',
-                        'value' => to_tax_decimals($config['default_tax_1_rate'])
+                        'value' => to_tax_decimals($config['default_tax_1_rate']),
                     ]) ?>
                     <span class="input-group input-group-addon"><b>%</b></span>
                 </div>
@@ -114,7 +114,7 @@
                     'name'  => 'tax_names[]',
                     'id'    => 'tax_name_2',
                     'class' => 'form-control input-sm',
-                    'value' => $config['default_tax_2_name']
+                    'value' => $config['default_tax_2_name'],
                 ]) ?>
             </div>
             <div class="col-xs-4">
@@ -123,7 +123,7 @@
                         'name'  => 'tax_percents[]',
                         'id'    => 'tax_percent_name_2',
                         'class' => 'form-control input-sm',
-                        'value' => to_tax_decimals($config['default_tax_2_rate'])
+                        'value' => to_tax_decimals($config['default_tax_2_rate']),
                     ]) ?>
                     <span class="input-group input-group-addon"><b>%</b></span>
                 </div>
@@ -136,7 +136,7 @@
                 <?= form_input([
                     'name'  => 'reorder_level',
                     'id'    => 'reorder_level',
-                    'class' => 'form-control input-sm'
+                    'class' => 'form-control input-sm',
                 ]) ?>
             </div>
         </div>
@@ -147,7 +147,7 @@
                 <?= form_textarea([
                     'name'  => 'description',
                     'id'    => 'description',
-                    'class' => 'form-control input-sm'
+                    'class' => 'form-control input-sm',
                 ]) ?>
             </div>
         </div>
@@ -172,6 +172,38 @@
 <script type="text/javascript">
     // Validation and submit handling
     $(document).ready(function() {
+        $.validator.addMethod('maxItemNameLength', function(value, element) {
+            return Array.from(value).length <= 255;
+        }, "<?= esc(lang('Items.name_max_length'), 'js') ?>");
+
+        $.validator.addMethod('nonNegativePrice', function(value, element) {
+            var trimmed_value = value.trim();
+
+            if (trimmed_value === '') {
+                return true;
+            }
+
+            var locale_minus_sign = new Intl.NumberFormat().formatToParts(-1).find(function(part) {
+                return part.type === 'minusSign';
+            }).value;
+            var minus_signs = ['-', '−', locale_minus_sign];
+            var matched_minus_sign = minus_signs.find(function(sign) {
+                return trimmed_value.startsWith(sign);
+            });
+
+            if (matched_minus_sign === undefined) {
+                return true;
+            }
+
+            var price_digits = trimmed_value.slice(matched_minus_sign.length).replace(/[.,\s\u00a0\u202f]/g, '');
+
+            if (!/^\d+$/.test(price_digits)) {
+                return true;
+            }
+
+            return !/[1-9]/.test(price_digits);
+        }, "<?= esc(lang('Items.unit_price_non_negative'), 'js') ?>");
+
         $('#category').autocomplete({
             source: "<?= 'items/suggestCategory' ?>",
             appendTo: '.modal-content',
@@ -208,8 +240,17 @@
             errorLabelContainer: '#error_message_box',
 
             rules: {
+                name: {
+                    maxItemNameLength: true
+                },
+                cost_price: {
+                    nonNegativePrice: true,
+                    remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
+                },
                 unit_price: {
-                    number: true
+                    number: true,
+                    nonNegativePrice: true,
+                    remote: "<?= esc("{$controller_name}/checkNumeric") ?>"
                 },
                 tax_percent: {
                     number: true
@@ -223,8 +264,18 @@
             },
 
             messages: {
+                name: {
+                    maxItemNameLength: "<?= esc(lang('Items.name_max_length'), 'js') ?>"
+                },
+                cost_price: {
+                    number: "<?= lang('Items.cost_price_number') ?>",
+                    remote: "<?= lang('Items.cost_price_number') ?>",
+                    nonNegativePrice: "<?= esc(lang('Items.cost_price_non_negative'), 'js') ?>"
+                },
                 unit_price: {
-                    number: "<?= lang('Items.unit_price_number') ?>"
+                    number: "<?= lang('Items.unit_price_number') ?>",
+                    remote: "<?= lang('Items.unit_price_number') ?>",
+                    nonNegativePrice: "<?= esc(lang('Items.unit_price_non_negative'), 'js') ?>"
                 },
                 tax_percent: {
                     number: "<?= lang('Items.tax_percent_number') ?>"

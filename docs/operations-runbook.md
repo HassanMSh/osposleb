@@ -79,6 +79,8 @@ To roll back: set `OSPOS_IMAGE_TAG` back to the previous version and restore the
 
 Rolling back only the image is not supported, because a newer version may have changed the database.
 
+If login keeps returning to the login page with "A database migration to ... will start after login", restore the backup taken before the update.
+
 ## Collect logs for support
 
 Collect the output from `docker compose ps` and the recent application and database logs.

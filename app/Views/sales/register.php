@@ -973,7 +973,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         const rate = <?= json_encode((float) $config['lbp_exchange_rate']) ?>;
         const tenderedDollars = $('#change_helper_currency').val() === 'lbp' ? amount / rate : amount;
         const changeDollars = tenderedDollars - changeHelperTotal;
-        const changePounds = Math.round((changeDollars * rate) / 5000) * 5000;
+        const changePounds = Math.round((changeDollars * rate) / 1000) * 1000;
 
         $('#change_helper_dollars').text(formatChangeDollars(changeDollars));
         $('#change_helper_pounds').text(formatChangePounds(changePounds));

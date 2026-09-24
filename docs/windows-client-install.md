@@ -60,6 +60,24 @@ Then:
 - If port 80 is already used, `./shop install` creates the client folder and then stops. Set `OSPOS_HTTP_PORT=8080` in `ospos.conf`, run `./shop install` again, and use `http://localhost:8080/`.
 - `./shop status` shows the containers, the code version, the running image, and the last backup result.
 
+### Shop installed by hand before `./shop`
+
+A shop set up with the older manual steps uses the same `osposleb` folder, the same `C:\OSPOS\Client` folder and the same Compose files, so `./shop` picks up its containers, data and item pictures. Do not reinstall it and do not run `./shop install`; switch it over once with these steps in Git Bash:
+
+```bash
+cd osposleb
+git switch develop
+git pull --ff-only origin develop
+./shop check
+./shop update
+```
+
+- `git pull` is the only manual pull, because the old checkout does not contain `./shop` yet. After this, only `./shop update` pulls.
+- If `git pull` or `./shop update` reports local changes or untracked files, the manual setup left files in the checkout. Move or delete them, then run the command again.
+- `./shop update` takes a backup, saves a rollback point, downloads the latest app image and restarts the shop. Stop sales first.
+- The daily backup task created by hand keeps working, because it runs `scripts/backup.ps1` from this checkout.
+- The rollback point saved by this first update pairs the old app image with the new checkout, because `git pull` moved the code first. The app itself is inside the image, so a rollback still returns the old app, but it is not a full old-version rollback. From the next `./shop update` on, code and image move together.
+
 ## 3. First login and settings
 
 1. Open `http://localhost/` in Google Chrome. After section 4, use the Chrome shortcuts described there instead. The first start creates the database, so wait about a minute if the page shows a database error.

@@ -1,3 +1,4 @@
 dist/ merge=ours
 app/Language/**/*.php merge=ours
 *.sh text eol=lf
+shop text eol=lf

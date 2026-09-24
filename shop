@@ -1,0 +1,691 @@
+#!/usr/bin/env bash
+set -euo pipefail
+script_dir=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+cd "$script_dir"
+repo_root=$PWD
+repo_name=$(basename -- "$repo_root")
+project_name=${COMPOSE_PROJECT_NAME:-$repo_name}
+platform='' data_dir=${OSPOS_DATA_DIR:-} image_tag=develop http_port=80 yes_flag=0
+time_value=23:30 remove_flag=0 archive_value='' lines_value=200 config_value='' config_matches=0
+backup_destination='' backup_archive='' rollback_exists=0 rollback_commit=''
+rollback_archive='' rollback_date='' rollback_image='' rollback_active=0 update_pending=0 rollback_point_saved=0
+rollback_checkout_done=0 backup_archives_before=()
+# Stop with a readable command error.
+fail() {
+    printf 'Error: %s\n' "$1" >&2
+    exit 1
+}
+# Show the available shop targets.
+show_help() {
+    cat <<'HELP'
+Usage: ./shop <target> [KEY=value ...] [--yes]
+Targets:
+  check            Check Docker, tools, drive format, and the app port.
+  install          Set up the client folder, start the shop, and show manual steps.
+  update           Back up the shop and update code and the develop image.
+  rollback         Restore the backup and version saved by the last update.
+  start            Start the shop without pulling anything.
+  stop             Stop the shop and keep its data.
+  status           Show containers, version, rollback state, and backup result.
+  logs             Show app and database logs; use LINES=<count> to change the limit.
+  backup           Run a backup and show its last log line.
+  backups          List backup archives, newest first.
+  restore          Restore an archive; use ARCHIVE=<file>.
+  schedule-backup  Schedule or remove Windows backups; Linux prints the cron line.
+HELP
+}
+# Detect the supported host platform.
+detect_platform() {
+    local system_name
+    system_name=$(uname -s)
+    case $system_name in
+        MINGW*|MSYS*|CYGWIN*) platform=windows ;;
+        Linux) platform=linux ;;
+        *) fail "Unsupported platform: $system_name" ;;
+    esac
+}
+# Read one setting without running the client configuration file.
+read_config_value() {
+    local file=$1 key=$2 required=${3:-optional}
+    local line raw pattern
+    config_value=''
+    config_matches=0
+    [[ -f $file ]] || {
+        [[ $required == optional ]] || fail "Config file does not exist: $file"
+        return 0
+    }
+    pattern="^[[:space:]]*${key//./\\.}[[:space:]]*=[[:space:]]*(.*)$"
+    while IFS= read -r line || [[ -n $line ]]; do
+        if [[ $line =~ $pattern ]]; then
+            config_matches=$((config_matches + 1))
+            raw=${BASH_REMATCH[1]}
+            raw="${raw#"${raw%%[![:space:]]*}"}"
+            raw="${raw%"${raw##*[![:space:]]}"}"
+            if [[ ${raw:0:1} == "'" ]]; then
+                [[ ${#raw} -ge 2 && ${raw: -1} == "'" ]] || fail "Invalid $key in $file."
+                config_value=${raw:1:${#raw}-2}
+            elif [[ ${raw:0:1} == '"' ]]; then
+                [[ ${#raw} -ge 2 && ${raw: -1} == '"' ]] || fail "Invalid $key in $file."
+                config_value=${raw:1:${#raw}-2}
+            else
+                raw=${raw%%#*}
+                raw="${raw#"${raw%%[![:space:]]*}"}"
+                raw="${raw%"${raw##*[![:space:]]}"}"
+                config_value=$raw
+            fi
+        fi
+    done < "$file"
+    (( config_matches <= 1 )) || fail "The config file contains more than one value for $key."
+    if [[ $required == required && $config_matches != 1 ]]; then
+        fail "The config file must contain one value for $key."
+    fi
+}
+# Read the HTTP port and backup folder from the client settings.
+read_client_settings() {
+    local port_number
+    [[ -n $data_dir ]] || fail 'The client data directory is not set.'
+    read_config_value "$data_dir/ospos.conf" OSPOS_HTTP_PORT optional
+    if (( config_matches == 1 )); then
+        [[ $config_value =~ ^[0-9]{1,5}$ ]] || fail 'OSPOS_HTTP_PORT must be a number from 1 to 65535.'
+        port_number=$((10#$config_value))
+        (( port_number >= 1 && port_number <= 65535 )) || fail 'OSPOS_HTTP_PORT must be a number from 1 to 65535.'
+        http_port=$port_number
+    fi
+    read_config_value "$data_dir/ospos.conf" OSPOS_BACKUP_DESTINATION optional
+    if (( config_matches == 1 )); then
+        if [[ $platform == windows ]]; then
+            config_value=${config_value//\\//}
+        fi
+        [[ -n $config_value && $config_value != /* ]] || fail 'OSPOS_BACKUP_DESTINATION must be a relative folder.'
+        case $config_value in
+            .|..|*../*|*/..|*'/..'*) fail 'OSPOS_BACKUP_DESTINATION contains an unsafe path.' ;;
+        esac
+        backup_destination="$data_dir/$config_value"
+    else
+        backup_destination="$data_dir/backups"
+    fi
+}
+# Load the rollback record without executing it.
+read_rollback_config() {
+    local file="$data_dir/rollback.conf"
+    rollback_exists=0
+    rollback_commit=''
+    rollback_archive=''
+    rollback_date=''
+    rollback_image=''
+    rollback_active=0
+    update_pending=0
+    [[ -f $file ]] || return 0
+    read_config_value "$file" ROLLBACK_COMMIT required
+    rollback_commit=$config_value
+    read_config_value "$file" ROLLBACK_ARCHIVE required
+    rollback_archive=$config_value
+    [[ $rollback_archive =~ ^ospos-backup-[0-9]{8}-[0-9]{6}\.tar\.gz$ ]] \
+        || fail 'The saved rollback archive name is invalid.'
+    read_config_value "$file" ROLLBACK_DATE required
+    rollback_date=$config_value
+    read_config_value "$file" ROLLBACK_IMAGE required
+    rollback_image=$config_value
+    [[ $rollback_image =~ ^sha256:[a-fA-F0-9]{64}$ ]] || fail 'The saved rollback image ID is invalid.'
+    read_config_value "$file" ROLLBACK_ACTIVE required
+    [[ $config_value == 0 || $config_value == 1 ]] || fail 'ROLLBACK_ACTIVE must be 0 or 1.'
+    rollback_active=$config_value
+    read_config_value "$file" UPDATE_PENDING optional
+    if (( config_matches == 1 )); then
+        [[ $config_value == 0 || $config_value == 1 ]] || fail 'UPDATE_PENDING must be 0 or 1.'
+        update_pending=$config_value
+    fi
+    rollback_exists=1
+}
+# Write a complete rollback record through a temporary file.
+write_rollback_config() {
+    local commit=$1 archive=$2 saved_date=$3 image=$4 active=$5 pending=$6 temporary
+    temporary=$(mktemp "$data_dir/rollback.conf.XXXXXX") || fail 'Could not create a temporary rollback record.'
+    if ! printf 'ROLLBACK_COMMIT=%s\nROLLBACK_ARCHIVE=%s\nROLLBACK_DATE=%s\nROLLBACK_IMAGE=%s\nROLLBACK_ACTIVE=%s\nUPDATE_PENDING=%s\n' \
+        "$commit" "$archive" "$saved_date" "$image" "$active" "$pending" > "$temporary"; then
+        rm -f -- "$temporary"
+        fail 'Could not write the rollback record.'
+    fi
+    mv -f -- "$temporary" "$data_dir/rollback.conf" || fail 'Could not save the rollback record.'
+}
+# Check that the saved rollback record, archive, commit, and image still match.
+validate_rollback_point() {
+    local archive_copy image_id
+    (( rollback_exists == 1 )) || fail 'There is no saved rollback point.'
+    [[ $rollback_commit =~ ^[a-fA-F0-9]{40,64}$ ]] || fail 'The saved rollback commit is invalid.'
+    archive_copy="$data_dir/rollback/$rollback_archive"
+    [[ -f $archive_copy && -r $archive_copy ]] || fail 'The saved rollback archive is missing.'
+    git cat-file -e "${rollback_commit}^{commit}" 2>/dev/null \
+        || fail 'The saved rollback commit does not exist in this checkout.'
+    image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:rollback 2>/dev/null) \
+        || fail 'The saved rollback image is missing.'
+    [[ $image_id == "$rollback_image" ]] \
+        || fail 'The rollback image tag does not match the saved rollback record.'
+}
+# Stop when a rollback started but did not finish, because the database state is unknown.
+refuse_unfinished_rollback() {
+    [[ ! -e $data_dir/rollback.unfinished ]] || fail 'A rollback did not finish, so the database state is unknown. Run ./shop rollback again.'
+}
+# Run Compose with the client configuration files.
+run_compose() {
+    export OSPOS_DATA_DIR=$data_dir OSPOS_IMAGE_TAG=$image_tag OSPOS_HTTP_PORT=$http_port
+    docker compose --env-file "$data_dir/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml "$@"
+}
+# Run the existing setup, backup, restore, or schedule launcher.
+run_launcher() {
+    local name=$1
+    shift
+    if [[ $platform == windows ]]; then
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$repo_root/scripts/$name.ps1")" "$@"
+    else
+        "$repo_root/scripts/$name.sh" "$@"
+    fi
+}
+# Ask for confirmation and stop safely when input is not interactive.
+confirm_action() {
+    local message=$1 answer
+    (( yes_flag == 1 )) && return 0
+    [[ -t 0 ]] || fail 'No terminal is available; rerun with --yes to confirm.'
+    read -r -p "$message Continue? [y/N] " answer || fail 'No confirmation was given.'
+    case $answer in
+        y|Y|yes|YES|Yes) ;;
+        *) fail 'Stopped without changing the shop.' ;;
+    esac
+}
+# Wait for the local app to answer and show logs if it does not.
+wait_for_app() {
+    local started=$SECONDS next_poll=$((SECONDS + 5)) status='' url
+    if (( http_port == 80 )); then
+        url='http://localhost/'
+    else
+        url="http://localhost:$http_port/"
+    fi
+    while (( SECONDS - started < 180 )); do
+        status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$url" || true)
+        [[ $status =~ ^[23][0-9]{2}$ ]] && return 0
+        if (( SECONDS < next_poll )); then sleep "$((next_poll - SECONDS))"; fi
+        next_poll=$((next_poll + 5))
+    done
+    printf 'The app did not answer at %s within 180 seconds. Recent ospos logs:\n' "$url" >&2
+    run_compose logs --tail 50 ospos >&2 || true
+    fail 'The app did not become ready.'
+}
+# Find this checkout's running app container by its Compose labels.
+project_ospos_container() {
+    docker ps --filter "label=com.docker.compose.project=$project_name" \
+        --filter 'label=com.docker.compose.service=ospos' --format '{{.ID}}' 2>/dev/null | sed -n '1p'
+}
+# Check whether this project's app container owns the configured host port.
+project_uses_http_port() {
+    local container port
+    container=$(project_ospos_container)
+    [[ -n $container ]] || return 1
+    port=$(docker inspect --format '{{range (index .NetworkSettings.Ports "80/tcp")}}{{.HostPort}}{{end}}' "$container" 2>/dev/null) || return 1
+    [[ $port == "$http_port" ]]
+}
+# Print each required host check. Return 1 when anything other than a busy HTTP port is missing, 3 when only the port is busy, and 0 when all pass.
+run_check() {
+    local failed=0 port_busy=0 docker_type filesystem listening port_result
+    if type -P docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+        printf 'ok: Docker is running.\n'
+    else
+        printf 'missing: start Docker Desktop or the Docker service.\n'
+        failed=1
+    fi
+    docker_type=''
+    if type -P docker >/dev/null 2>&1; then
+        docker_type=$(docker info --format '{{.OSType}}' 2>/dev/null || true)
+    fi
+    if [[ $docker_type == linux ]]; then
+        printf 'ok: Docker uses Linux containers.\n'
+    else
+        printf 'missing: switch Docker to Linux containers.\n'
+        failed=1
+    fi
+    if type -P git >/dev/null 2>&1; then printf 'ok: git is installed.\n'; else printf 'missing: install Git for Windows or Git on Linux.\n'; failed=1; fi
+    if type -P curl >/dev/null 2>&1; then printf 'ok: curl is installed.\n'; else printf 'missing: install curl.\n'; failed=1; fi
+    if [[ $platform == windows ]]; then
+        filesystem=$(powershell.exe -NoProfile -Command '(Get-Volume -DriveLetter C).FileSystem' 2>/dev/null | tr -d '\r' | tail -n 1 || true)
+        if [[ $filesystem == NTFS ]]; then printf 'ok: C: uses NTFS.\n'; else printf 'missing: put the client folder on an NTFS drive.\n'; failed=1; fi
+    fi
+    listening=0
+    if [[ $platform == windows ]]; then
+        if powershell.exe -NoProfile -Command "try { \$used = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { \$_.LocalPort -eq $http_port }).Count -gt 0 } catch { exit 2 }; if (\$used) { exit 1 } else { exit 0 }" >/dev/null 2>&1; then
+            listening=0
+        else
+            port_result=$?
+            if (( port_result == 1 )); then listening=1; else listening=2; fi
+        fi
+    elif ! type -P ss >/dev/null 2>&1; then listening=2
+    elif [[ -n $(ss -H -ltn "sport = :$http_port") ]]; then listening=1
+    fi
+    if (( listening == 2 )); then
+        if [[ $platform == windows ]]; then
+            printf 'missing: check that Windows can read listening TCP ports.\n'
+        else
+            printf 'missing: install iproute2 so the HTTP port can be checked.\n'
+        fi
+        failed=1
+    elif (( listening == 0 )) || project_uses_http_port; then
+        printf 'ok: HTTP port %s is free or used by this project.\n' "$http_port"
+    else
+        printf 'missing: free HTTP port %s or set OSPOS_HTTP_PORT in ospos.conf.\n' "$http_port"
+        port_busy=1
+    fi
+    (( failed == 0 )) || return 1
+    (( port_busy == 0 )) || return 3
+    return 0
+}
+# Print the Linux daily backup cron entry.
+print_cron_line() {
+    local hour=${time_value%:*} minute=${time_value#*:}
+    printf 'Add this line to the shop user crontab:\n%s %s * * * OSPOS_DATA_DIR=%s %s/scripts/backup.sh\n' "$((10#$minute))" "$((10#$hour))" "$data_dir" "$repo_root"
+}
+# Run the full install and show the remaining manual steps.
+run_install() {
+    local schedule_exists=0 check_status=0
+    refuse_unfinished_rollback
+    run_check || check_status=$?
+    (( check_status != 1 )) || fail 'One or more required checks are missing.'
+    if [[ -f $data_dir/ospos.conf ]]; then
+        printf 'Client folder already exists; skipping setup.\n'
+    elif [[ -e $data_dir ]]; then
+        fail "Client folder exists without ospos.conf; check that it is empty and delete it: $data_dir"
+    else
+        run_launcher setup-client --data-directory "$data_dir"
+    fi
+    if (( check_status == 3 )); then
+        fail "HTTP port $http_port is in use. Set OSPOS_HTTP_PORT to a free port in $data_dir/ospos.conf, then run ./shop install again."
+    fi
+    read_client_settings
+    if (( check_status == 3 )); then
+        fail "HTTP port $http_port is in use. Set OSPOS_HTTP_PORT to a free port in $data_dir/ospos.conf, then run ./shop install again."
+    fi
+    if docker image inspect hassanshamseddine/osposlb:develop >/dev/null 2>&1 \
+        && docker image inspect mariadb:10.5 >/dev/null 2>&1; then
+        printf 'The shop and database images are already present; skipping their first pull.\n'
+    else
+        run_compose pull
+    fi
+    read_rollback_config
+    if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
+    run_compose up -d --pull never
+    wait_for_app
+    if [[ $platform == windows ]]; then
+        if powershell.exe -NoProfile -Command "if (Get-ScheduledTask -TaskName 'OSPOS daily backup' -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >/dev/null 2>&1; then
+            schedule_exists=1
+        fi
+        if (( schedule_exists == 1 )); then
+            printf 'The OSPOS daily backup task already exists; skipping schedule.\n'
+        else
+            run_launcher schedule-backup --time "$time_value"
+        fi
+    else
+        print_cron_line
+    fi
+    cat <<'STEPS'
+Manual steps:
+  Set the timezone to Asia/Beirut in Settings > Localization.
+  Change the admin password.
+  Copy the client secrets folder somewhere safe away from the backup drive.
+  Install printer drivers and set the label paper size.
+  Create the two Chrome shortcuts (POS Register, POS Office); see docs/windows-client-install.md section 4.
+  Test the hardware; see docs/windows-client-install.md section 4.
+STEPS
+}
+# Resolve the configured backup log and return its last line.
+last_backup_line() {
+    local log_file="$backup_destination/backup.log"
+    if [[ -f $log_file ]]; then
+        tail -n 1 "$log_file"
+    else
+        printf 'No backup log.\n'
+    fi
+}
+# Run the backup launcher and print its last result line.
+run_backup() {
+    local line status=0
+    run_launcher backup || status=$?
+    line=$(last_backup_line)
+    printf '%s\n' "$line"
+    return "$status"
+}
+# Run a backup and check that it created a new, complete archive.
+take_update_backup() {
+    local line archive status=0 previous_file previous_name archive_path
+    local files=()
+    shopt -s nullglob
+    files=("$backup_destination"/ospos-backup-*.tar.gz)
+    shopt -u nullglob
+    backup_archives_before=()
+    for previous_file in "${files[@]}"; do
+        backup_archives_before+=("$(basename -- "$previous_file")")
+    done
+    run_launcher backup || status=$?
+    if [[ -f $backup_destination/backup.log ]]; then
+        line=$(awk '/ result=ok / { last = $0 } END { sub(/\r$/, "", last); print last }' "$backup_destination/backup.log")
+    else
+        line=''
+    fi
+    printf '%s\n' "$line"
+    (( status == 0 )) || fail 'The backup launcher failed.'
+    [[ $line == *' result=ok '* ]] || fail 'The backup log has no successful result=ok line.'
+    archive=${line#* archive=}
+    archive=${archive%%[[:space:]]*}
+    [[ $archive =~ ^ospos-backup-[0-9]{8}-[0-9]{6}\.tar\.gz$ ]] || fail 'The backup log has no valid archive name.'
+    archive_path="$backup_destination/$archive"
+    [[ -f $archive_path && -r $archive_path ]] || fail 'The archive named in the backup log is missing or unreadable.'
+    for previous_name in "${backup_archives_before[@]}"; do
+        [[ $archive != "$previous_name" ]] || fail 'The backup did not create a new archive.'
+    done
+    backup_archive=$archive
+}
+# Copy the backup, tag the old image, and publish the rollback record.
+save_rollback_point() {
+    local commit=$1 archive=$2 container image image_id saved_date rollback_dir archive_path copied_size source_size old_copy
+    local rollback_copies=()
+    rollback_dir="$data_dir/rollback"
+    archive_path="$backup_destination/$archive"
+    mkdir -p -- "$rollback_dir" || fail 'Could not create the rollback folder.'
+    cp -- "$archive_path" "$rollback_dir/$archive" || fail 'Could not copy the rollback archive.'
+    source_size=$(wc -c < "$archive_path") || fail 'Could not read the backup archive size.'
+    copied_size=$(wc -c < "$rollback_dir/$archive") || fail 'Could not read the rollback archive copy size.'
+    [[ $source_size == "$copied_size" ]] || fail 'The rollback archive copy is incomplete.'
+    container=$(project_ospos_container)
+    if [[ -n $container ]]; then
+        image=$(docker inspect --format '{{.Image}}' "$container")
+    else
+        image=hassanshamseddine/osposlb:develop
+        docker image inspect "$image" >/dev/null 2>&1 || fail 'The develop image is missing and no app container is running.'
+    fi
+    docker tag "$image" hassanshamseddine/osposlb:rollback
+    image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:rollback) \
+        || fail 'Could not read the tagged rollback image ID.'
+    [[ $image_id =~ ^sha256:[a-fA-F0-9]{64}$ ]] || fail 'Docker returned an invalid rollback image ID.'
+    saved_date=$(date '+%Y-%m-%d %H:%M:%S %Z')
+    write_rollback_config "$commit" "$archive" "$saved_date" "$image_id" "$rollback_active" 0
+    shopt -s nullglob
+    rollback_copies=("$rollback_dir"/ospos-backup-*.tar.gz)
+    shopt -u nullglob
+    for old_copy in "${rollback_copies[@]}"; do
+        [[ $(basename -- "$old_copy") == "$archive" ]] || rm -f -- "$old_copy"
+    done
+    rollback_exists=1
+    rollback_commit=$commit
+    rollback_archive=$archive
+    rollback_date=$saved_date
+    rollback_image=$image_id
+    update_pending=0
+    rollback_point_saved=1
+}
+# Print a recovery command if a saved update stops before it finishes.
+report_update_failure() {
+    local status=$?
+    if (( status != 0 && (rollback_point_saved == 1 || update_pending == 1) )); then
+        printf 'Run ./shop rollback to go back to the version before this update.\n' >&2
+    fi
+}
+# Compare the local develop image digest with the remote image digest.
+check_image_update() {
+    local local_references local_reference remote_digest local_matches_remote=0
+    local_references=$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' hassanshamseddine/osposlb:develop 2>/dev/null || true)
+    remote_digest=$(docker buildx imagetools inspect hassanshamseddine/osposlb:develop --format '{{json .Manifest.Digest}}') \
+        || fail 'Could not read the remote develop image digest.'
+    remote_digest=${remote_digest//\"/}
+    [[ $remote_digest =~ ^sha256:[a-fA-F0-9]{64}$ ]] || fail 'Docker returned an invalid remote image digest.'
+    while IFS= read -r local_reference; do
+        case $local_reference in
+            hassanshamseddine/osposlb@sha256:*|docker.io/hassanshamseddine/osposlb@sha256:*|index.docker.io/hassanshamseddine/osposlb@sha256:*)
+                [[ ${local_reference##*@} == "$remote_digest" ]] && local_matches_remote=1
+                ;;
+        esac
+    done <<< "$local_references"
+    if (( local_matches_remote == 1 )); then
+        printf 'No new image.\n'
+        return 1
+    fi
+    printf 'New image available.\n'
+    return 0
+}
+# Update code and image without replacing a point needed by rollback or a retry.
+run_update() {
+    local branch local_changes new_code image_changed=0 commit archive image_id keep_rollback=0
+    refuse_unfinished_rollback
+    read_rollback_config
+    if (( rollback_active == 1 || update_pending == 1 )); then
+        keep_rollback=1
+        validate_rollback_point
+    fi
+    local_changes=$(git status --porcelain --untracked-files=no) || fail 'Could not check the working tree.'
+    [[ -z $local_changes ]] || fail 'Update refused because tracked files have local changes.'
+    branch=$(git branch --show-current)
+    if [[ $branch != develop && $rollback_active != 1 && $update_pending != 1 ]]; then
+        fail "Update requires the develop branch; current branch is ${branch:-detached HEAD}."
+    fi
+    git fetch origin develop
+    new_code=$(git log --oneline HEAD..origin/develop)
+    if [[ -n $new_code ]]; then
+        printf 'New code:\n%s\n' "$new_code"
+    else
+        printf 'No new code.\n'
+    fi
+    if check_image_update; then
+        image_changed=1
+    fi
+    if [[ -n $new_code && $image_changed == 0 ]]; then
+        printf 'Warning: the image may not be published yet because the build takes a few minutes.\n'
+    fi
+    if [[ -z $new_code && $image_changed == 0 && $rollback_active != 1 && $update_pending != 1 ]]; then
+        printf 'Already up to date.\n'
+        return 0
+    fi
+    confirm_action 'This update will save a backup, switch the checkout to origin/develop, pull the develop image, and start the shop.'
+    take_update_backup
+    archive=$backup_archive
+    if (( keep_rollback == 1 )); then
+        printf 'Earlier rollback point is kept.\n'
+    else
+        commit=$(git rev-parse HEAD)
+        save_rollback_point "$commit" "$archive"
+    fi
+    write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" "$rollback_active" 1
+    update_pending=1
+    trap report_update_failure EXIT
+    if [[ -z $branch ]]; then
+        git switch develop
+    fi
+    git pull --ff-only origin develop
+    image_tag=develop
+    run_compose pull
+    run_compose up -d --pull never
+    read_client_settings
+    wait_for_app
+    write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" 0 0
+    rollback_active=0
+    update_pending=0
+    printf 'Updated to commit: '
+    git log -1 --oneline
+    image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:develop)
+    printf 'Develop image ID: %s\n' "$image_id"
+    rollback_point_saved=0
+    trap - EXIT
+}
+# Print a recovery message when rollback fails after changing the checkout.
+report_rollback_failure() {
+    local status=$?
+    if (( status != 0 && rollback_checkout_done == 1 )); then
+        printf 'Rollback did not finish. Run ./shop rollback again.\n' >&2
+    fi
+}
+# Stop the app and restore the saved database and code version.
+run_rollback() {
+    local changes archive_copy
+    read_rollback_config
+    validate_rollback_point
+    archive_copy="$data_dir/rollback/$rollback_archive"
+    changes=$(git status --porcelain --untracked-files=no) || fail 'Could not check the working tree.'
+    [[ -z $changes ]] || fail 'Rollback refused because tracked files have local changes.'
+    printf 'Saved commit: %s\nSaved archive: %s\nSaved date: %s\n' "$rollback_commit" "$rollback_archive" "$rollback_date"
+    printf 'This will stop the app, restore the saved database and uploads, and check out the saved commit.\n'
+    printf 'Every sale and change made after %s will be lost.\n' "$rollback_date"
+    confirm_action 'This rollback will replace the current shop data and code.'
+    if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
+    : > "$data_dir/rollback.unfinished" || fail 'Could not mark the rollback as started.'
+    run_compose stop ospos
+    run_compose up -d --pull never mysql
+    git checkout --detach "$rollback_commit"
+    rollback_checkout_done=1
+    trap report_rollback_failure EXIT
+    run_launcher restore --archive "$archive_copy" --yes
+    write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" 1 0
+    rollback_active=1
+    update_pending=0
+    read_client_settings
+    image_tag=rollback
+    run_compose up -d --pull never
+    wait_for_app
+    rm -f -- "$data_dir/rollback.unfinished"
+    printf 'Rollback is active. Run ./shop update to return to the latest version.\n'
+    trap - EXIT
+    rollback_checkout_done=0
+}
+# Start the app with the saved tag and wait for the local web page.
+run_start() {
+    refuse_unfinished_rollback
+    read_rollback_config
+    if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
+    read_client_settings
+    run_compose up -d --pull never
+    wait_for_app
+}
+# Stop the Compose services without deleting their data volumes.
+run_stop() {
+    read_rollback_config
+    if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
+    printf 'This will stop the shop containers and keep the database and uploads volumes.\n'
+    run_compose down
+}
+# Show the running state, code, image, rollback and pending flags, and last backup line.
+run_status() {
+    local container image_id image_created commit branch
+    read_rollback_config
+    if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
+    run_compose ps
+    commit=$(git log -1 --oneline)
+    branch=$(git branch --show-current)
+    printf 'Git: %s (%s)\n' "$commit" "${branch:-detached HEAD}"
+    container=$(project_ospos_container)
+    if [[ -n $container ]]; then
+        image_id=$(docker inspect --format '{{.Image}}' "$container")
+        image_created=$(docker image inspect --format '{{.Created}}' "$image_id")
+        printf 'Running app image ID: %s\nImage created: %s\n' "$image_id" "$image_created"
+    else printf 'Running app image: none\n'; fi
+    printf 'Rollback active: %s\n' "$rollback_active"
+    printf 'Update pending: %s\n' "$update_pending"
+    if (( update_pending == 1 )); then
+        printf 'The last update did not finish. Run ./shop update to retry or ./shop rollback to go back.\n'
+    fi
+    if [[ -e $data_dir/rollback.unfinished ]]; then
+        printf 'A rollback did not finish. Run ./shop rollback again before starting the shop.\n'
+    fi
+    printf 'Last backup: %s\n' "$(last_backup_line)"
+}
+# List backup archives with their sizes and dates.
+run_backups() {
+    local files=() names=() file name sorted_names
+    shopt -s nullglob
+    files=("$backup_destination"/ospos-backup-*.tar.gz)
+    shopt -u nullglob
+    if (( ${#files[@]} == 0 )); then
+        printf 'No backup archives in %s.\n' "$backup_destination"
+        return 0
+    fi
+    for file in "${files[@]}"; do
+        name=$(basename -- "$file")
+        [[ $name =~ ^ospos-backup-[0-9]{8}-[0-9]{6}\.tar\.gz$ ]] && names+=("$name")
+    done
+    if (( ${#names[@]} == 0 )); then
+        printf 'No backup archives in %s.\n' "$backup_destination"
+        return 0
+    fi
+    sorted_names=$(printf '%s\n' "${names[@]}" | LC_ALL=C sort -r)
+    while IFS= read -r name; do
+        [[ -n $name ]] && ls -lh --time-style=long-iso -- "$backup_destination/$name"
+    done <<< "$sorted_names"
+}
+# Find an archive by name and restore the database and uploads after confirmation.
+run_restore() {
+    local archive_path
+    refuse_unfinished_rollback
+    [[ -n $archive_value ]] || fail 'restore needs ARCHIVE=<file>.'
+    if [[ $archive_value == */* || $archive_value == *\\* ]]; then
+        archive_path=$archive_value
+    else
+        archive_path="$backup_destination/$archive_value"
+    fi
+    [[ -f $archive_path ]] || fail "Archive file does not exist: $archive_path"
+    printf 'This will replace the shop database and uploads with the contents of %s.\n' "$archive_path"
+    confirm_action 'This restore will replace current shop data.'
+    read_rollback_config
+    if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
+    run_compose stop ospos
+    run_compose up -d --pull never mysql
+    run_launcher restore --archive "$archive_path" --yes
+    run_start
+}
+# Schedule daily backups on Windows or print the Linux cron entry.
+run_schedule_backup() {
+    if [[ $platform == windows ]] && (( remove_flag == 1 )); then run_launcher schedule-backup --remove
+    elif [[ $platform == windows ]]; then run_launcher schedule-backup --time "$time_value"
+    else print_cron_line
+    fi
+}
+# Parse the target and its optional key-value settings.
+parse_arguments() {
+    target=${1:-help}
+    (( $# )) && shift
+    while (( $# > 0 )); do
+        case $1 in
+            --yes) (( yes_flag == 0 )) || fail '--yes was given more than once.'; yes_flag=1 ;;
+            *=*)
+                key=${1%%=*}
+                value=${1#*=}
+                [[ -n $value ]] || fail "$key must not be empty."
+                case $key in
+                    TIME)
+                        [[ $target == install || $target == schedule-backup ]] || fail 'TIME is only valid for install or schedule-backup.'
+                        [[ $value =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || fail 'TIME must use HH:MM.'
+                        time_value=$value ;;
+                    REMOVE) [[ $target == schedule-backup && $value == 1 ]] || fail 'REMOVE=1 is only valid for schedule-backup.'; remove_flag=1 ;;
+                    ARCHIVE) [[ $target == restore ]] || fail 'ARCHIVE is only valid for restore.'; archive_value=$value ;;
+                    LINES) [[ $target == logs && $value =~ ^[1-9][0-9]*$ ]] || fail 'LINES is only valid for logs and must be positive.'; lines_value=$value ;;
+                    *) fail "Unknown setting: $key" ;;
+                esac
+                ;;
+            *) fail "Unknown argument: $1" ;;
+        esac
+        shift
+    done
+}
+detect_platform
+if [[ -z $data_dir ]]; then
+    if [[ $platform == windows ]]; then data_dir='C:/OSPOS/Client'; else data_dir="$HOME/ospos-client"; fi
+fi
+if [[ $platform == windows ]]; then
+    export MSYS_NO_PATHCONV=1
+fi
+export OSPOS_DATA_DIR=$data_dir
+parse_arguments "$@"
+read_client_settings
+case $target in
+    help|-h|--help) show_help ;;
+    check) run_check ;; install) run_install ;; update) run_update ;; rollback) run_rollback ;;
+    start) run_start ;; stop) run_stop ;; status) run_status ;;
+    logs)
+        read_rollback_config
+        if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
+        run_compose logs --tail "$lines_value"
+        ;;
+    backup) run_backup ;; backups) run_backups ;; restore) run_restore ;; schedule-backup) run_schedule_backup ;;
+    *) fail "Unknown target: $target" ;;
+esac

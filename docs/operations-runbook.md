@@ -1,41 +1,45 @@
 # Shop operations runbook
 
+Run `./shop` from Git Bash in the repository folder.
+
+The client folder is `C:/OSPOS/Client` on Windows and defaults to `$HOME/ospos-client` on Linux.
+
+The exported `OSPOS_IMAGE_TAG` set by `./shop` takes priority over a value in `ospos.conf`.
+
 ## Start the shop
 
-Open PowerShell in the repository folder.
-
-Set `OSPOS_DATA_DIR` to the client folder.
-
-```powershell
-$env:OSPOS_DATA_DIR = 'C:\OSPOS\Client'
-docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
+```bash
+./shop start
 ```
 
-The web page is available on the shop computer at `http://localhost/`.
+Start does not pull new code or an image.
+
+The web page is available on the shop computer at `http://localhost/` or at the configured port.
 
 ## Stop the shop
 
-Run this command from the repository folder.
-
-```powershell
-docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml down
+```bash
+./shop stop
 ```
 
-Do not add `-v` when stopping the shop because that removes its database volume.
+Stop brings the containers down without removing the database volume.
+
+Never remove volumes when stopping the shop.
 
 ## Check shop health
 
-Check that both containers are running.
-
-```powershell
-docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml ps
+```bash
+./shop check
+./shop status
 ```
 
-Open `http://localhost/` in Google Chrome and sign in.
+Open the local shop page in Google Chrome and sign in.
 
 ## One-minute weekly backup check
 
-Open `backup.log` in Notepad once a week. It is in the backup folder set by `OSPOS_BACKUP_DESTINATION` in `ospos.conf`, normally `<client>\backups\backup.log`.
+Run `./shop backups` and check the last line from `./shop status`.
+
+The backup log is in the folder set by `OSPOS_BACKUP_DESTINATION` in `ospos.conf`, normally `<client>/backups/backup.log`.
 
 Confirm that there is one `result=ok` line for each day the shop was open.
 
@@ -49,19 +53,25 @@ See [backup and restore](backup-and-restore.md) for backup checks and restore st
 
 ## Restore a backup
 
-Use the restore steps in [backup and restore](backup-and-restore.md).
-
 Stop sales before restoring because restore replaces the selected database and uploads folder.
 
-Check the archive and target database before confirming the restore.
+Check the archive and target before confirming the restore.
 
-Stop the `ospos` container before the restore and start it after, because restore swaps in a new uploads folder and a running container keeps using the old one.
+```bash
+./shop restore ARCHIVE=ospos-backup-YYYYMMDD-HHMMSS.tar.gz
+```
+
+The command stops the app before restore and starts it after, because restore swaps in a new uploads folder and a running container keeps using the old one.
 
 After the restore, open Settings and check that item pictures show.
 
 ## Update and rollback
 
-The shop image version is pinned with `OSPOS_IMAGE_TAG`; see "Pin or roll back the client image" in [backup and restore](backup-and-restore.md).
+Use `./shop update` to fetch changes, take a backup, and update the checkout and image.
+
+The update checks Docker Hub with `docker buildx imagetools inspect` to see whether the `develop` image changed.
+
+The shop image uses the moving `develop` tag; `./shop` sets `OSPOS_IMAGE_TAG` itself.
 
 The container applies pending database migrations when it starts.
 
@@ -69,35 +79,34 @@ If it cannot reach the database or a migration fails, it stops and writes the re
 
 Because the container restarts automatically, a startup that keeps failing shows as a container that keeps restarting.
 
-Check `docker compose ps` and the `ospos` logs, then fix the database or restore the backup taken before the update.
+Check `./shop status` and `./shop logs`, then fix the database or restore the backup taken before the update.
 
-Always take a backup and confirm its `result=ok` line before changing the image version.
+The update command checks for tracked local changes and asks before it takes the backup and pulls.
 
-To update: take a backup, set `OSPOS_IMAGE_TAG` to the new version, pull, and start.
+If `./shop status` says an update is pending, run `./shop update` to retry or `./shop rollback` to return to the saved point.
 
-To roll back: set `OSPOS_IMAGE_TAG` back to the previous version and restore the backup taken before the update.
+To roll back, use `./shop rollback`; it restores the backup taken before the update along with the saved code and image.
 
 Rolling back only the image is not supported, because a newer version may have changed the database.
 
-If login keeps returning to the login page with "A database migration to ... will start after login", restore the backup taken before the update.
+If login keeps returning to the login page with "A database migration to ... will start after login", run `./shop rollback`.
 
 ## Collect logs for support
 
-Collect the output from `docker compose ps` and the recent application and database logs.
-
-```powershell
-docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml logs --tail 200
+```bash
+./shop status
+./shop logs LINES=200
 ```
 
 Also collect `backup.log` from the backup folder and the Task Scheduler task history.
 
-Do not send `secrets\`, passwords, customer data, or a full database backup unless support asks for it through an approved safe method.
+Do not send `secrets/`, passwords, customer data, or a full database backup unless support asks for it through an approved safe method.
 
 ## Install checklist
 
 - Change the `admin` password at the first login.
 - Set the timezone to Beirut in OSPOS Settings.
-- Schedule a daily backup with `scripts\schedule-backup.ps1`.
+- Run `./shop install` to schedule a daily backup on Windows or print the Linux cron line.
 - Copy the `secrets` folder to a safe place away from the backup drive.
 - Turn on Dependabot alerts in the GitHub repository settings.
 

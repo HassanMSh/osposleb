@@ -124,13 +124,17 @@ docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f 
 
 ### Pin or roll back the client image
 
-Set `OSPOS_IMAGE_TAG` to `develop-<sha>` in the shell or `ospos.conf` to pin a specific build.
+Set `OSPOS_IMAGE_TAG` to `develop-<sha>` in the shell or `ospos.conf` to pin a specific build when using the manual Compose commands.
 
 On Windows, set `$env:OSPOS_IMAGE_TAG = 'develop-<sha>'` in PowerShell; on Linux, run `export OSPOS_IMAGE_TAG=develop-<sha>`.
 
 After setting the tag, rerun the same full `up -d` command shown above for your system.
 
-To roll back, set `OSPOS_IMAGE_TAG` to an earlier `develop-<sha>` and rerun the same full `up -d` command shown above for your system.
+To return to the backup, code, and image saved before the last update, run `./shop rollback`.
+
+Do not use an image-only change as a rollback, because the database may have changed with the newer image.
+
+The `./shop` command sets `OSPOS_IMAGE_TAG` itself and uses the saved rollback image when a rollback is active.
 
 Keep this repository checkout on the same `develop` commit as the image tag because a fresh database is seeded from the checkout's tracked `tables.sql` and `constraints.sql` files.
 

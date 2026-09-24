@@ -12,7 +12,7 @@ Upstream files outside this directory are left as the original developers wrote 
 - `operations-runbook.md` — startup, checks, updates, support logs, and install tasks.
 - `test-plan.md` — critical workflow checks and recorded hardening proofs.
 - `qa-scenarios.md` — cashier item and sale scenarios, and how to run the browser QA suite in `tests/qa-e2e/`.
-- `windows-client-install.md` — step-by-step checklist for a new Windows shop computer, including the Chrome shortcuts for silent receipt printing, with the problems found on the first run.
+- `windows-client-install.md` — step-by-step checklist for a new Windows shop computer, the one-time switch to `./shop` for a shop installed by hand, and the Chrome shortcuts for silent receipt printing, with the problems found on the first run.
 
 Later phases may add hardware setup notes to this directory.
 

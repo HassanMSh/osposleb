@@ -102,7 +102,7 @@ docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f 
 
 See [the client setup steps](docs/backup-and-restore.md#client-installation-setup) for the full procedure.
 
-For a new Windows shop computer, follow [the Windows client install checklist](docs/windows-client-install.md).
+For a new Windows shop computer, follow [the Windows client install checklist](docs/windows-client-install.md). A shop installed by hand before `./shop` switches over with [these steps](docs/windows-client-install.md#shop-installed-by-hand-before-shop) instead of a reinstall.
 
 Set `OSPOS_IMAGE_TAG` to `develop-<sha>` to pin a build, then rerun the same full `up -d` command shown above for your system.
 

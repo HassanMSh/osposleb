@@ -183,7 +183,15 @@ write_rollback_config() {
     fi
     mv -f -- "$temporary" "$data_dir/rollback.conf" || fail 'Could not save the rollback record.'
 }
-# Check every backup entry, checksum, and configured database before an app stop.
+# Run tar on a backup archive. On Windows, --force-local stops Git Bash tar from reading the C: in C:/OSPOS/... as a remote host name.
+archive_tar() {
+    if [[ $platform == windows ]]; then
+        tar --force-local "$@"
+    else
+        tar "$@"
+    fi
+}
+# Check every backup entry, checksum, and configured database before an app stop; show tar errors when an archive cannot be read.
 validate_rollback_archive() {
     local archive_path=$1 validation_dir full_extract_dir members_file types_file member normalized line member_type
     local database_count=0 manifest_count=0 uploads_count=0 uploads_directory_count=0
@@ -201,7 +209,8 @@ validate_rollback_archive() {
         rm -rf -- "$validation_dir"
         fail 'The saved rollback archive is not a valid gzip archive.'
     fi
-    if ! tar -tzf "$archive_path" > "$members_file" 2>/dev/null; then
+    if ! archive_tar -tzf "$archive_path" > "$members_file" 2> "$validation_dir/tar-errors"; then
+        cat -- "$validation_dir/tar-errors" >&2 || true
         rm -rf -- "$validation_dir"
         fail 'The saved rollback archive member list could not be read.'
     fi
@@ -232,7 +241,8 @@ validate_rollback_archive() {
     (( database_count == 1 )) || { rm -rf -- "$validation_dir"; fail 'The rollback archive must contain one database.sql file.'; }
     (( manifest_count == 1 )) || { rm -rf -- "$validation_dir"; fail 'The rollback archive must contain one manifest.txt file.'; }
     (( uploads_count >= 1 )) || { rm -rf -- "$validation_dir"; fail 'The rollback archive must contain an uploads/ directory.'; }
-    if ! tar -tvzf "$archive_path" > "$types_file" 2>/dev/null; then
+    if ! archive_tar -tvzf "$archive_path" > "$types_file" 2> "$validation_dir/tar-errors"; then
+        cat -- "$validation_dir/tar-errors" >&2 || true
         rm -rf -- "$validation_dir"
         fail 'The rollback archive member types could not be read.'
     fi
@@ -272,12 +282,14 @@ validate_rollback_archive() {
         || { rm -rf -- "$validation_dir"; fail 'The rollback archive must contain one uploads/ directory.'; }
     full_extract_dir="$validation_dir/full-extract"
     mkdir -- "$full_extract_dir" || { rm -rf -- "$validation_dir"; fail 'Could not create a temporary folder to test the full rollback archive.'; }
-    if ! tar -xzf "$archive_path" -C "$full_extract_dir" --no-same-owner --no-same-permissions --no-overwrite-dir 2>/dev/null; then
+    if ! archive_tar -xzf "$archive_path" -C "$full_extract_dir" --no-same-owner --no-same-permissions --no-overwrite-dir 2> "$validation_dir/tar-errors"; then
+        cat -- "$validation_dir/tar-errors" >&2 || true
         rm -rf -- "$validation_dir"
         fail 'The rollback archive could not be fully extracted.'
     fi
     rm -rf -- "$full_extract_dir"
-    if ! tar -xzf "$archive_path" -C "$validation_dir" --no-same-owner --no-same-permissions --no-overwrite-dir database.sql manifest.txt 2>/dev/null; then
+    if ! archive_tar -xzf "$archive_path" -C "$validation_dir" --no-same-owner --no-same-permissions --no-overwrite-dir database.sql manifest.txt 2> "$validation_dir/tar-errors"; then
+        cat -- "$validation_dir/tar-errors" >&2 || true
         rm -rf -- "$validation_dir"
         fail 'The rollback archive database files could not be extracted for validation.'
     fi

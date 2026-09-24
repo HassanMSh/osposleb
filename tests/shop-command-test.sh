@@ -1398,6 +1398,52 @@ POWERSHELL
     [[ ! -e $case_root/wrong-data ]]
 }
 
+# Validate archives under C:/OSPOS/Client with a tar that, like Git Bash tar, reads C: as a remote host without --force-local.
+test_windows_archive_validation_uses_local_tar_paths() {
+    make_case windows-archive-tar
+    local real_tar
+    real_tar=$(type -P tar)
+    cat > "$bin_dir/uname" <<'UNAME'
+#!/usr/bin/env bash
+printf 'MINGW64_NT-10.0\n'
+UNAME
+    cat > "$bin_dir/powershell.exe" <<'POWERSHELL'
+#!/usr/bin/env bash
+if [[ $* == *Get-Volume* ]]; then printf 'NTFS\n'; fi
+POWERSHELL
+    cat > "$bin_dir/tar" <<TAR
+#!/usr/bin/env bash
+force_local=0
+for argument in "\$@"; do
+    [[ \$argument == --force-local ]] && force_local=1
+done
+if (( force_local == 0 )); then
+    for argument in "\$@"; do
+        if [[ \$argument =~ ^[A-Za-z]: ]]; then
+            printf 'tar (child): Cannot connect to %s: resolve failed\n' "\${argument%%:*}" >&2
+            exit 2
+        fi
+    done
+fi
+exec "$real_tar" "\$@"
+TAR
+    chmod +x "$bin_dir/uname" "$bin_dir/powershell.exe" "$bin_dir/tar"
+    data_dir="$checkout/C:/OSPOS/Client"
+    prepare_client_data
+    create_backup_archive "$data_dir/backups/ospos-backup-20260924-010002.tar.gz" \
+        "$data_dir/db-state.txt" other_shop
+    if run_shop restore ARCHIVE=ospos-backup-20260924-010002.tar.gz --yes; then
+        printf 'Expected a backup for another database to be refused.\n' >&2
+        exit 1
+    fi
+    assert_contains "$output_file" 'belongs to database other_shop, not the configured shop database ospos'
+    if grep -Fq 'Cannot connect to' "$output_file"; then
+        cat "$output_file" >&2
+        exit 1
+    fi
+    [[ ! -s $docker_log ]]
+}
+
 # Let status inspect a held lock, log a failed scheduled backup, and protect a live owner's lock.
 test_shared_lock_blocks_parallel_commands() {
     make_case shared-lock
@@ -1651,6 +1697,7 @@ run_all_tests() {
     test_backup_refuses_partial_database_state
     test_container_restore_reports_both_failure_phases
     test_windows_client_path_ignores_environment
+    test_windows_archive_validation_uses_local_tar_paths
     test_shared_lock_blocks_parallel_commands
     test_recovery_advice_commands_are_allowed
     test_concurrent_first_installs_share_the_lock

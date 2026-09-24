@@ -21,6 +21,18 @@ COPY . .
 # Generate license files separately from the default asset build.
 RUN npx gulp update-licenses && npm run build
 
+# Keeps only the files the shop needs to run. The final image copies from here, so tests,
+# notes, docs, and build tooling are in none of its layers.
+FROM alpine:3.20 AS app-files
+
+WORKDIR /app
+COPY . .
+RUN rm -rf .claude .github .phpunit.cache branding build design docs scripts tests tools \
+        AGENTS.md BUILD.md CHANGELOG.md CLAUDE.md CODE_OF_CONDUCT.md INSTALL.md README.md SECURITY.md UPGRADE.md \
+        .dockerignore .editorconfig .gitattributes .gitignore .php-cs-fixer.no-header.php .travis.yml \
+        Dockerfile docker-compose*.yml build*.ps1 gulpfile.js package.json package-lock.json phpunit.xml.dist \
+    && find docker -mindepth 1 -maxdepth 1 ! -name migrations.php -exec rm -rf {} +
+
 FROM php:8.2-apache AS ospos
 LABEL maintainer="jekkos"
 
@@ -30,7 +42,7 @@ RUN docker-php-ext-install mysqli bcmath intl gd
 RUN echo "date.timezone = \"\${PHP_TIMEZONE}\"" > /usr/local/etc/php/conf.d/timezone.ini
 
 WORKDIR /app
-COPY . /app
+COPY --from=app-files /app /app
 COPY --from=php-dependencies /app/vendor /app/vendor
 COPY --from=frontend-build /app/public/resources /app/public/resources
 COPY --from=frontend-build /app/public/images/menubar /app/public/images/menubar
@@ -45,6 +57,9 @@ ENTRYPOINT ["/usr/local/bin/ospos-entrypoint"]
 FROM ospos AS ospos_test
 
 COPY --from=php-dependencies /usr/bin/composer /usr/bin/composer
+# The shop image leaves these out, so the test image adds them back.
+COPY tests /app/tests
+COPY phpunit.xml.dist gulpfile.js /app/
 
 RUN apt-get install -y libzip-dev wget git
 RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh -O /bin/wait-for-it.sh && chmod +x /bin/wait-for-it.sh

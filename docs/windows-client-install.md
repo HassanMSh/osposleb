@@ -119,6 +119,20 @@ Result of the first run: pending. Record the device models and any settings need
 - The scheduled task runs only while the shop's Windows account is logged in.
 - Windows backups do not include item pictures yet (issue #82).
 
+### Backup copy to another drive
+
+Set this up so each backup is also copied to a second drive. The target can be any other drive: a USB drive, a second disk, or another partition.
+
+1. In Explorer, create the target folder, for example `E:\OSPOS-Backups`.
+2. Open `C:\OSPOS\Client\ospos.conf` and set `OSPOS_BACKUP_COPY_TO='E:\OSPOS-Backups'`. Use single quotes and the full Windows path.
+3. In Docker Desktop, open Settings, Resources, File Sharing, add the drive, then select Apply and Restart. Without this, the whole backup can fail, not only the copy.
+4. Run `./shop backup` and check that it prints `Backup copy: ok`. `missing` means the folder is not there; the backup itself still succeeds.
+
+- The copy keeps the same number of archives as `backups\` (7 by default).
+- It deletes only old `ospos-backup-*.tar.gz` files, so other files on the drive are safe.
+- On an exFAT or FAT32 drive, anyone holding the drive can read the archive (see [Backup and restore](backup-and-restore.md)).
+- `./shop check` reports whether the copy folder is available.
+
 Do one practice restore before the shop starts selling, because it replaces the database. Record how long it takes. The command asks before it replaces anything, stops the app, restores, and starts the app again.
 
 After restore, check the printed item, sale, and employee counts and the elapsed time.

@@ -1740,7 +1740,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Change a given item name. Used in app/Views/sales/register.php.
+     * Changes a register item name unless the sanitized stored name is longer than 255 characters.
      *
      * @noinspection PhpUnused
      */
@@ -1748,6 +1748,14 @@ class Sales extends Secure_Controller
     {
         $item_id = $this->request->getPost('item_id', FILTER_SANITIZE_NUMBER_INT);
         $name    = $this->request->getPost('item_name', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+
+        $validation_error = Items::getItemNameValidationError((string) $name);
+
+        if ($validation_error !== null) {
+            echo json_encode(['success' => false, 'message' => $validation_error]);
+
+            return;
+        }
 
         $this->item->update_item_name($item_id, $name);
 
@@ -1759,6 +1767,7 @@ class Sales extends Secure_Controller
         }
 
         $this->sale_lib->set_cart($cart);
+        echo json_encode(['success' => true, 'message' => lang('Items.successful_updating')]);
     }
 
     /**

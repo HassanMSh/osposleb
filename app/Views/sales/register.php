@@ -161,7 +161,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                             <?php if ((int) $item['item_type'] === ITEM_TEMP) { ?>
                                 <td><?= form_input(['name' => 'item_number', 'id' => 'item_number', 'class' => 'form-control input-sm', 'value' => $item['item_number'], 'tabindex' => ++$tabindex, 'form' => "cart_{$line}"]) ?></td>
                                 <td style="align: center;">
-                                    <?= form_input(['name' => 'name', 'id' => 'name', 'class' => 'form-control input-sm', 'value' => $item['name'], 'tabindex' => ++$tabindex, 'form' => "cart_{$line}"]) ?>
+                                    <?= form_input(['name' => 'name', 'id' => 'name', 'class' => 'form-control input-sm', 'value' => $item['name'], 'data-saved-item-name' => $item['name'], 'tabindex' => ++$tabindex, 'form' => "cart_{$line}"]) ?>
                                 </td>
                             <?php } else { ?>
                                 <td><?= esc($item['item_number']) ?></td>
@@ -738,16 +738,38 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             });
 
             $("input[name='name']").off('change.register').on('change.register', function() {
-                var item_id = $(this).parents('tr').find("input[name='item_id']").val();
-                var item_name = $(this).val();
+                var $input = $(this);
+                var item_id = $input.parents('tr').find("input[name='item_id']").val();
+                var item_name = $input.val();
+                var previous_item_name = $input.data('saved-item-name');
+
+                if (previous_item_name === undefined) {
+                    previous_item_name = $input[0].defaultValue;
+                }
+
                 $.ajax({
                     url: "<?= site_url('sales/changeItemName') ?>",
                     method: 'post',
+                    dataType: 'json',
                     data: {
                         'item_id': item_id,
                         'item_name': item_name,
                     },
-                    dataType: 'json'
+                    success: function(response) {
+                        if (response.success) {
+                            $input.data('saved-item-name', item_name);
+                        } else {
+                            $.notify({
+                                message: response.message
+                            }, {
+                                type: 'danger'
+                            });
+                            $input.val(previous_item_name);
+                        }
+                    },
+                    error: function() {
+                        $input.val(previous_item_name);
+                    }
                 });
             });
 

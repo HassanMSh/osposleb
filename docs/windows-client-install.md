@@ -45,14 +45,15 @@ Keep the checkout on the `develop` branch. `./shop update` refuses to run from a
 
 The command does these steps and skips any step that is already done, so it is safe to run again:
 
-- Checks Docker Desktop, Linux containers, Git, curl, the NTFS drive and the app port, and prints `missing: ...` for anything that needs fixing.
-- Creates `C:\OSPOS\Client` with its secrets, unless it already exists. If a failed try left the folder behind without `ospos.conf`, the command stops; check the folder is empty and delete it first.
+- Checks Docker Desktop, Linux containers, Git, curl, `sha256sum`, `gzip`, `tar`, the NTFS drive and the app port, and prints `missing: ...` for anything that needs fixing.
+- Creates `C:\OSPOS\Client` with its secrets and locks the folder before setup; setup accepts the lock but stops if the folder has any other files and no `ospos.conf`.
 - Downloads the app and database images the first time, starts the app, and waits until it answers.
 - Schedules the daily backup at 23:30 (`./shop install TIME=HH:MM` picks another time).
 - Prints the manual steps that are left.
 
 Then:
 
+- In Git Bash, confirm `sha256sum`, `gzip`, and `tar` are installed; `./shop check` reports each tool.
 - The setup output should include a line starting with `Protected secrets for`.
 - Copy `C:\OSPOS\Client\secrets` to a safe place that is not the backup drive. It holds the database passwords and the encryption key.
 - Check that `C:\OSPOS\Client\ospos.conf` contains `OSPOS_UPLOADS=client_uploads`. Windows setup adds it so item pictures are kept in a Docker volume.
@@ -120,6 +121,12 @@ Result of the first run: pending. Record the device models and any settings need
 
 Do one practice restore before the shop starts selling, because it replaces the database. Record how long it takes. The command asks before it replaces anything, stops the app, restores, and starts the app again.
 
+The restore launcher writes `restore.unfinished` before it runs; a new marker is cleared after code 20, while an earlier marker and code-21 or unknown failures keep it.
+
+If `restore.unfinished` exists, a full restore has not succeeded, so do not run `./shop start` or `./shop update`.
+
+Retry with `./shop restore ARCHIVE=<known-good-backup>`; a successful restore clears the marker.
+
 ```bash
 ./shop restore ARCHIVE=ospos-backup-YYYYMMDD-HHMMSS.tar.gz
 ```
@@ -128,6 +135,7 @@ Result of the first run: pending.
 
 ## 6. Finish
 
+- In the issue #70 Windows run, test an update that changes `shop` itself, then run another `./shop` command.
 - Tick the passed items on the client install issue (#70) and open an issue for anything that failed.
 - Leave Docker Desktop set to start when Windows starts.
 
@@ -135,15 +143,27 @@ Result of the first run: pending.
 
 | Command | What it does |
 | --- | --- |
-| `./shop status` | Shows the containers, code version, running image, rollback state, pending update, and last backup result. |
-| `./shop start` / `./shop stop` | Starts or stops the shop. Neither downloads anything, and stop keeps the data. |
-| `./shop update` | Refuses if tracked files have local changes. Shows the new code and whether a new image is published, then asks. Takes a backup, saves a rollback point, pulls `develop` and its image, and starts the shop. |
-| `./shop rollback` | Goes back to the code, image, and backup saved by the last update. Every sale made after that update is lost, so it asks first. If it stops partway, `./shop start` and `./shop update` refuse until `./shop rollback` is run again. `./shop update` returns to the latest version. |
+| `./shop status` | Shows the containers, code version, running image, recovery markers, lock age and owner, recovery command, and last backup result. |
+| `./shop start` / `./shop stop` | Starts or stops the shop without downloading anything, and start refuses while update or rollback recovery is needed. |
+| `./shop update` | Refuses local changes and previews code and image changes before asking; stop sales first because it downloads the app image before the rollback backup, then saves a rollback point, pulls code, and starts the shop without changing the database image. |
+| `./shop rollback` | Restores the code, app image, and backup saved by the last update after confirmation; it checks and fully extracts the archive before stopping, and an interrupted rollback can be retried with `./shop rollback`. |
 | `./shop backup` / `./shop backups` | Takes a backup now, or lists the backups newest first. |
-| `./shop restore ARCHIVE=<file>` | Restores a backup by file name or path, after asking. |
+| `./shop restore ARCHIVE=<file>` | Validates and restores a backup by file name or path, after asking; it refuses while update or rollback recovery is unfinished. |
+| `./shop unlock` | Shows the lock owner and clears the lock only after you type `UNLOCK SHOP LOCK`; `--yes` does not bypass the prompt. |
 | `./shop logs` | Shows the last 200 lines of container logs (`LINES=<count>` changes the number). |
 
-The image used after an update is the newest published `develop` image. Right after a merge, the image build takes a few minutes; `./shop update` warns when there is new code but no new image yet.
+The image used after an update is the newest published `develop` image.
+Right after a merge, the image build takes a few minutes; `./shop update` warns when there is new code but no new image yet and refuses if either the digest or downloaded image ID matches the version rolled back.
+
+If rollback could not record either the source image ID or digest, `./shop update` requires `--allow-unknown-image` and the exact typed phrase `ALLOW UNKNOWN IMAGE`; `--yes` does not bypass this check.
+
+An update retry keeps the saved rollback point; `./shop status` advises update retry before a point is saved and rollback after one is saved.
+
+An update after a completed rollback saves a fresh point with the sales made since that rollback.
+
+Shop commands and the scheduled backup share a lock in `C:\OSPOS\Client`, and failed scheduled runs record lock age and unlock advice in `backup.log`.
+
+After a forced shutdown, use `./shop status` to check the lock owner and run `./shop unlock` only after checking that no shop command or backup is running.
 
 ## Problems found on the first run
 

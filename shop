@@ -5,32 +5,46 @@ cd "$script_dir"
 repo_root=$PWD
 repo_name=$(basename -- "$repo_root")
 project_name=${COMPOSE_PROJECT_NAME:-$repo_name}
-platform='' data_dir=${OSPOS_DATA_DIR:-} image_tag=develop http_port=80 yes_flag=0
+platform='' data_dir=${OSPOS_DATA_DIR:-} image_tag=develop http_port=80 yes_flag=0 allow_unknown_image_flag=0
 time_value=23:30 remove_flag=0 archive_value='' lines_value=200 config_value='' config_matches=0
 backup_destination='' backup_archive='' rollback_exists=0 rollback_commit=''
-rollback_archive='' rollback_date='' rollback_image='' rollback_active=0 update_pending=0 rollback_point_saved=0
-rollback_checkout_done=0 backup_archives_before=()
+rollback_archive='' rollback_archive_sha256='' rollback_archive_sha256_present=0 rollback_date='' rollback_image='' rollback_active=0 update_pending=0
+rollback_from_commit='' rollback_from_digest='' rollback_from_image_id='' remote_image_digest='' update_source_image_id=''
+shop_lock_dir='' shop_lock_acquired=0 update_checkout_ready=0
+restore_marker_preexisting=0
+backup_archives_before=()
+recovery_advice_printed=0
+# Stop after a refusal that did not change the shop and name one safe next command.
+refuse_without_changes() {
+    local message=$1 command=$2
+    printf 'Error: %s\nNothing was changed. Safe next step: %s\n' "$message" "$command" >&2
+    recovery_advice_printed=1
+    exit 1
+}
 # Stop with a readable command error.
 fail() {
     printf 'Error: %s\n' "$1" >&2
+    recovery_advice >&2
     exit 1
 }
 # Show the available shop targets.
 show_help() {
     cat <<'HELP'
-Usage: ./shop <target> [KEY=value ...] [--yes]
+Usage: ./shop <target> [KEY=value ...] [--yes] [--allow-unknown-image]
 Targets:
   check            Check Docker, tools, drive format, and the app port.
   install          Set up the client folder, start the shop, and show manual steps.
-  update           Back up the shop and update code and the develop image.
+  update           Back up the shop, pull the app image, and update code.
+                   Use --allow-unknown-image only when rollback saved no image ID or digest.
   rollback         Restore the backup and version saved by the last update.
   start            Start the shop without pulling anything.
   stop             Stop the shop and keep its data.
-  status           Show containers, version, rollback state, and backup result.
+  status           Show containers, recovery state, lock owner, and backup result.
   logs             Show app and database logs; use LINES=<count> to change the limit.
   backup           Run a backup and show its last log line.
   backups          List backup archives, newest first.
   restore          Restore an archive; use ARCHIVE=<file>.
+  unlock           Clear a lock after reviewing its owner and typing a confirmation phrase.
   schedule-backup  Schedule or remove Windows backups; Linux prints the cron line.
 HELP
 }
@@ -111,10 +125,15 @@ read_rollback_config() {
     rollback_exists=0
     rollback_commit=''
     rollback_archive=''
+    rollback_archive_sha256=''
+    rollback_archive_sha256_present=0
     rollback_date=''
     rollback_image=''
     rollback_active=0
     update_pending=0
+    rollback_from_commit=''
+    rollback_from_digest=''
+    rollback_from_image_id=''
     [[ -f $file ]] || return 0
     read_config_value "$file" ROLLBACK_COMMIT required
     rollback_commit=$config_value
@@ -122,6 +141,9 @@ read_rollback_config() {
     rollback_archive=$config_value
     [[ $rollback_archive =~ ^ospos-backup-[0-9]{8}-[0-9]{6}\.tar\.gz$ ]] \
         || fail 'The saved rollback archive name is invalid.'
+    read_config_value "$file" ROLLBACK_ARCHIVE_SHA256 optional
+    rollback_archive_sha256=$config_value
+    (( config_matches == 0 )) || rollback_archive_sha256_present=1
     read_config_value "$file" ROLLBACK_DATE required
     rollback_date=$config_value
     read_config_value "$file" ROLLBACK_IMAGE required
@@ -135,39 +157,426 @@ read_rollback_config() {
         [[ $config_value == 0 || $config_value == 1 ]] || fail 'UPDATE_PENDING must be 0 or 1.'
         update_pending=$config_value
     fi
+    read_config_value "$file" ROLLBACK_FROM_COMMIT optional
+    rollback_from_commit=$config_value
+    [[ -z $rollback_from_commit || $rollback_from_commit =~ ^[a-fA-F0-9]{40,64}$ ]] \
+        || fail 'The saved rolled-back commit is invalid.'
+    read_config_value "$file" ROLLBACK_FROM_DIGEST optional
+    rollback_from_digest=$config_value
+    [[ -z $rollback_from_digest || $rollback_from_digest =~ ^sha256:[a-fA-F0-9]{64}$ ]] \
+        || fail 'The saved rolled-back image digest is invalid.'
+    read_config_value "$file" ROLLBACK_FROM_IMAGE_ID optional
+    rollback_from_image_id=$config_value
+    [[ -z $rollback_from_image_id || $rollback_from_image_id =~ ^sha256:[a-fA-F0-9]{64}$ ]] \
+        || fail 'The saved rolled-back image ID is invalid.'
     rollback_exists=1
 }
-# Write a complete rollback record through a temporary file.
+# Atomically write the rollback record with the backup checksum and source image details.
 write_rollback_config() {
     local commit=$1 archive=$2 saved_date=$3 image=$4 active=$5 pending=$6 temporary
     temporary=$(mktemp "$data_dir/rollback.conf.XXXXXX") || fail 'Could not create a temporary rollback record.'
-    if ! printf 'ROLLBACK_COMMIT=%s\nROLLBACK_ARCHIVE=%s\nROLLBACK_DATE=%s\nROLLBACK_IMAGE=%s\nROLLBACK_ACTIVE=%s\nUPDATE_PENDING=%s\n' \
-        "$commit" "$archive" "$saved_date" "$image" "$active" "$pending" > "$temporary"; then
+    if ! printf 'ROLLBACK_COMMIT=%s\nROLLBACK_ARCHIVE=%s\nROLLBACK_ARCHIVE_SHA256=%s\nROLLBACK_DATE=%s\nROLLBACK_IMAGE=%s\nROLLBACK_ACTIVE=%s\nUPDATE_PENDING=%s\nROLLBACK_FROM_COMMIT=%s\nROLLBACK_FROM_DIGEST=%s\nROLLBACK_FROM_IMAGE_ID=%s\n' \
+        "$commit" "$archive" "$rollback_archive_sha256" "$saved_date" "$image" "$active" "$pending" \
+        "$rollback_from_commit" "$rollback_from_digest" "$rollback_from_image_id" > "$temporary"; then
         rm -f -- "$temporary"
         fail 'Could not write the rollback record.'
     fi
     mv -f -- "$temporary" "$data_dir/rollback.conf" || fail 'Could not save the rollback record.'
 }
-# Check that the saved rollback record, archive, commit, and image still match.
+# Check every backup entry, checksum, and configured database before an app stop.
+validate_rollback_archive() {
+    local archive_path=$1 validation_dir full_extract_dir members_file types_file member normalized line member_type
+    local database_count=0 manifest_count=0 uploads_count=0 uploads_directory_count=0
+    local manifest_line manifest_format='' manifest_database='' manifest_contents='' manifest_checksum='' configured_database
+    local format_count=0 database_manifest_count=0 contents_count=0 checksum_count=0 actual_checksum_line actual_checksum
+    read_config_value "$data_dir/secrets/app.env" database.default.database required
+    configured_database=$config_value
+    [[ $configured_database =~ ^[A-Za-z0-9_][A-Za-z0-9_-]*$ ]] \
+        || fail 'The configured shop database name is invalid.'
+    validation_dir=$(mktemp -d "${TMPDIR:-$data_dir}/shop-rollback-validation.XXXXXX") \
+        || fail 'Could not create a temporary folder to validate the rollback archive.'
+    members_file="$validation_dir/members"
+    types_file="$validation_dir/member-types"
+    if ! gzip -t -- "$archive_path" 2>/dev/null; then
+        rm -rf -- "$validation_dir"
+        fail 'The saved rollback archive is not a valid gzip archive.'
+    fi
+    if ! tar -tzf "$archive_path" > "$members_file" 2>/dev/null; then
+        rm -rf -- "$validation_dir"
+        fail 'The saved rollback archive member list could not be read.'
+    fi
+    while IFS= read -r member || [[ -n $member ]]; do
+        [[ -n $member ]] || { rm -rf -- "$validation_dir"; fail 'The rollback archive contains an empty member name.'; }
+        [[ $member != /* ]] || { rm -rf -- "$validation_dir"; fail 'The rollback archive contains an absolute path.'; }
+        case "/$member/" in
+            */../*|*/..//*) rm -rf -- "$validation_dir"; fail 'The rollback archive contains a path traversal entry.' ;;
+        esac
+        case $member in
+            */./*|./*|*/.) rm -rf -- "$validation_dir"; fail 'The rollback archive contains a dot path.' ;;
+        esac
+        normalized=${member%/}
+        case ${normalized,,} in
+            .env|*/.env|app.env|*/app.env|mysql.env|*/mysql.env|db.env|*/db.env)
+                rm -rf -- "$validation_dir"
+                fail 'The rollback archive contains a secrets file.'
+                ;;
+        esac
+        case $normalized in
+            database.sql) database_count=$((database_count + 1)) ;;
+            manifest.txt) manifest_count=$((manifest_count + 1)) ;;
+            uploads) uploads_count=$((uploads_count + 1)) ;;
+            uploads/*) ;;
+            *) rm -rf -- "$validation_dir"; fail "The rollback archive contains an unexpected member: $member" ;;
+        esac
+    done < "$members_file"
+    (( database_count == 1 )) || { rm -rf -- "$validation_dir"; fail 'The rollback archive must contain one database.sql file.'; }
+    (( manifest_count == 1 )) || { rm -rf -- "$validation_dir"; fail 'The rollback archive must contain one manifest.txt file.'; }
+    (( uploads_count >= 1 )) || { rm -rf -- "$validation_dir"; fail 'The rollback archive must contain an uploads/ directory.'; }
+    if ! tar -tvzf "$archive_path" > "$types_file" 2>/dev/null; then
+        rm -rf -- "$validation_dir"
+        fail 'The rollback archive member types could not be read.'
+    fi
+    exec 3< "$members_file"
+    while IFS= read -r line || [[ -n $line ]]; do
+        [[ -n $line ]] || { exec 3<&-; rm -rf -- "$validation_dir"; fail 'The rollback archive has an empty member type.'; }
+        if ! IFS= read -r member <&3; then
+            exec 3<&-
+            rm -rf -- "$validation_dir"
+            fail 'The rollback archive member types do not match its file list.'
+        fi
+        normalized=${member%/}
+        member_type=${line:0:1}
+        case $member_type in
+            -|d|h) ;;
+            *) exec 3<&-; rm -rf -- "$validation_dir"; fail 'The rollback archive contains a symlink or unsupported file type.' ;;
+        esac
+        case $normalized in
+            database.sql|manifest.txt)
+                [[ $member_type == - || $member_type == h ]] \
+                    || { exec 3<&-; rm -rf -- "$validation_dir"; fail "The rollback archive $normalized entry is not a file."; }
+                ;;
+            uploads)
+                [[ $member_type == d ]] \
+                    || { exec 3<&-; rm -rf -- "$validation_dir"; fail 'The rollback archive uploads/ entry is not a directory.'; }
+                uploads_directory_count=$((uploads_directory_count + 1))
+                ;;
+        esac
+    done < "$types_file"
+    if IFS= read -r member <&3; then
+        exec 3<&-
+        rm -rf -- "$validation_dir"
+        fail 'The rollback archive member types do not match its file list.'
+    fi
+    exec 3<&-
+    (( uploads_directory_count == 1 )) \
+        || { rm -rf -- "$validation_dir"; fail 'The rollback archive must contain one uploads/ directory.'; }
+    full_extract_dir="$validation_dir/full-extract"
+    mkdir -- "$full_extract_dir" || { rm -rf -- "$validation_dir"; fail 'Could not create a temporary folder to test the full rollback archive.'; }
+    if ! tar -xzf "$archive_path" -C "$full_extract_dir" --no-same-owner --no-same-permissions --no-overwrite-dir 2>/dev/null; then
+        rm -rf -- "$validation_dir"
+        fail 'The rollback archive could not be fully extracted.'
+    fi
+    rm -rf -- "$full_extract_dir"
+    if ! tar -xzf "$archive_path" -C "$validation_dir" --no-same-owner --no-same-permissions --no-overwrite-dir database.sql manifest.txt 2>/dev/null; then
+        rm -rf -- "$validation_dir"
+        fail 'The rollback archive database files could not be extracted for validation.'
+    fi
+    [[ -f $validation_dir/database.sql && ! -L $validation_dir/database.sql && -s $validation_dir/database.sql ]] \
+        || { rm -rf -- "$validation_dir"; fail 'The rollback archive database.sql is missing, empty, or not a regular file.'; }
+    [[ -f $validation_dir/manifest.txt && ! -L $validation_dir/manifest.txt ]] \
+        || { rm -rf -- "$validation_dir"; fail 'The rollback archive manifest.txt is missing or not a regular file.'; }
+    while IFS= read -r manifest_line || [[ -n $manifest_line ]]; do
+        case $manifest_line in
+            'Backup format: '*) format_count=$((format_count + 1)); manifest_format=${manifest_line#Backup format: } ;;
+            'Database name: '*) database_manifest_count=$((database_manifest_count + 1)); manifest_database=${manifest_line#Database name: } ;;
+            'Contents: '*) contents_count=$((contents_count + 1)); manifest_contents=${manifest_line#Contents: } ;;
+            'Database SHA-256: '*) checksum_count=$((checksum_count + 1)); manifest_checksum=${manifest_line#Database SHA-256: } ;;
+        esac
+    done < "$validation_dir/manifest.txt"
+    [[ $format_count == 1 && $manifest_format == 1 ]] \
+        || { rm -rf -- "$validation_dir"; fail 'The rollback archive manifest format is invalid.'; }
+    [[ $database_manifest_count == 1 && $manifest_database =~ ^[A-Za-z0-9_][A-Za-z0-9_-]*$ ]] \
+        || { rm -rf -- "$validation_dir"; fail 'The rollback archive manifest has no safe database name.'; }
+    [[ $manifest_database == "$configured_database" ]] \
+        || { rm -rf -- "$validation_dir"; fail "The rollback archive belongs to database $manifest_database, not the configured shop database $configured_database."; }
+    [[ $contents_count == 1 && $manifest_contents == 'database.sql, uploads/' ]] \
+        || { rm -rf -- "$validation_dir"; fail 'The rollback archive manifest contents are invalid.'; }
+    [[ $checksum_count == 1 && $manifest_checksum =~ ^[a-fA-F0-9]{64}$ ]] \
+        || { rm -rf -- "$validation_dir"; fail 'The rollback archive manifest checksum is invalid.'; }
+    actual_checksum_line=$(sha256sum -- "$validation_dir/database.sql") \
+        || { rm -rf -- "$validation_dir"; fail 'Could not check the rollback archive database checksum.'; }
+    actual_checksum=${actual_checksum_line%%[[:space:]]*}
+    [[ $actual_checksum == "$manifest_checksum" ]] \
+        || { rm -rf -- "$validation_dir"; fail 'The rollback archive database checksum does not match its manifest.'; }
+    rm -rf -- "$validation_dir"
+}
+# Validate the rollback record, archive, commit, and pinned image before saving legacy checksums or stopping the shop.
 validate_rollback_point() {
-    local archive_copy image_id
+    local archive_copy image_id archive_hash_line archive_hash
     (( rollback_exists == 1 )) || fail 'There is no saved rollback point.'
     [[ $rollback_commit =~ ^[a-fA-F0-9]{40,64}$ ]] || fail 'The saved rollback commit is invalid.'
     archive_copy="$data_dir/rollback/$rollback_archive"
     [[ -f $archive_copy && -r $archive_copy ]] || fail 'The saved rollback archive is missing.'
+    if (( rollback_archive_sha256_present == 1 )); then
+        [[ $rollback_archive_sha256 =~ ^[a-fA-F0-9]{64}$ ]] \
+            || fail 'The saved rollback archive checksum is invalid.'
+        archive_hash_line=$(sha256sum -- "$archive_copy") || fail 'Could not check the saved rollback archive checksum.'
+        archive_hash=${archive_hash_line%%[[:space:]]*}
+        [[ $archive_hash == "$rollback_archive_sha256" ]] || fail 'The saved rollback archive checksum does not match.'
+    fi
+    validate_rollback_archive "$archive_copy"
     git cat-file -e "${rollback_commit}^{commit}" 2>/dev/null \
         || fail 'The saved rollback commit does not exist in this checkout.'
     image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:rollback 2>/dev/null) \
         || fail 'The saved rollback image is missing.'
     [[ $image_id == "$rollback_image" ]] \
         || fail 'The rollback image tag does not match the saved rollback record.'
+    if (( rollback_archive_sha256_present == 0 )); then
+        archive_hash_line=$(sha256sum -- "$archive_copy") || fail 'Could not calculate the saved rollback archive checksum.'
+        archive_hash=${archive_hash_line%%[[:space:]]*}
+        [[ $archive_hash =~ ^[a-fA-F0-9]{64}$ ]] || fail 'Could not calculate a valid saved rollback archive checksum.'
+        rollback_archive_sha256=$archive_hash
+        rollback_archive_sha256_present=1
+        write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" "$rollback_active" "$update_pending"
+        printf 'The old rollback record had no archive checksum; the validated backup checksum has been saved.\n'
+    fi
+}
+# Check for tracked edits and non-ignored untracked files before changing the shop.
+check_clean_worktree() {
+    local action=$1 changes
+    changes=$(git status --porcelain --untracked-files=all) || fail 'Could not check the working tree.'
+    [[ -z $changes ]] || {
+        printf '%s refused because the working tree has local files:\n%s\nMove or delete these files before continuing.\n' "$action" "$changes" >&2
+        refuse_without_changes "$action refused because the working tree is not clean." './shop status'
+    }
+}
+# Check the local tools used to verify and extract rollback backups.
+require_archive_tools() {
+    local tool missing=()
+    for tool in sha256sum gzip tar; do
+        type -P "$tool" >/dev/null 2>&1 || missing+=("$tool")
+    done
+    (( ${#missing[@]} == 0 )) || fail "Missing required update and rollback tools: ${missing[*]}. Install them before continuing."
+}
+# Save the pre-update app image ID before downloading an image.
+write_update_marker() {
+    local image_id=$1 marker_file="$data_dir/update.in-progress" temporary
+    temporary=$(mktemp "$data_dir/update.in-progress.XXXXXX") || fail 'Could not create the update recovery marker.'
+    if ! printf 'UPDATE_SOURCE_IMAGE_ID=%s\n' "$image_id" > "$temporary"; then
+        rm -f -- "$temporary"
+        fail 'Could not write the update recovery marker.'
+    fi
+    mv -f -- "$temporary" "$marker_file" || fail 'Could not save the update recovery marker.'
+}
+# Load and verify the pinned image saved by an interrupted update.
+read_update_marker() {
+    local marker_file="$data_dir/update.in-progress" pinned_image_id
+    [[ -f $marker_file ]] || return 1
+    read_config_value "$marker_file" UPDATE_SOURCE_IMAGE_ID required
+    update_source_image_id=$config_value
+    [[ $update_source_image_id =~ ^sha256:[a-fA-F0-9]{64}$ ]] || fail 'The update recovery marker has an invalid image ID.'
+    pinned_image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:update-source 2>/dev/null) \
+        || pinned_image_id=''
+    if [[ $pinned_image_id != "$update_source_image_id" ]]; then
+        docker image inspect "$update_source_image_id" >/dev/null 2>&1 \
+            || fail 'The pinned app image is missing. Follow the manual steps in docs/operations-runbook.md#recover-a-missing-pinned-image.'
+        docker tag "$update_source_image_id" hassanshamseddine/osposlb:update-source \
+            || fail 'Could not restore the pinned image for this update retry.'
+    fi
+}
+# Pin the current app image and write the recovery marker before pulling.
+prepare_update_marker() {
+    if [[ -f $data_dir/update.in-progress ]]; then
+        read_update_marker
+        return 0
+    fi
+    if (( update_pending == 1 )); then
+        update_source_image_id=$rollback_image
+    else
+        capture_update_source_image
+    fi
+    docker tag "$update_source_image_id" hassanshamseddine/osposlb:update-source \
+        || fail 'Could not pin the current app image before the update pull.'
+    local pinned_image_id
+    pinned_image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:update-source) \
+        || fail 'Could not read the pinned image ID before the update pull.'
+    [[ $pinned_image_id == "$update_source_image_id" ]] || fail 'The pinned image does not match the running app image.'
+    write_update_marker "$update_source_image_id"
+}
+# Refuse to start the app while an update is between image download and code switch.
+refuse_incomplete_update_start() {
+    if (( update_checkout_ready == 1 )); then return 0; fi
+    if [[ -e $data_dir/update.in-progress ]] || (( update_pending == 1 )); then
+        fail 'An update did not finish.'
+    fi
+}
+# Check that a lock contains only the metadata written by shop commands.
+shop_lock_has_known_files() {
+    local entry name
+    for entry in "$data_dir/.shop-command.lock"/* "$data_dir/.shop-command.lock"/.[!.]* "$data_dir/.shop-command.lock"/..?*; do
+        [[ -e $entry || -L $entry ]] || continue
+        name=${entry##*/}
+        case $name in
+            pid|host|command|started|started_epoch) ;;
+            *) return 1 ;;
+        esac
+    done
+}
+# Print one command that is safe and accepted for the current recovery state.
+recovery_advice() {
+    local lock_directory="${data_dir:-}/.shop-command.lock"
+    local command=''
+    (( recovery_advice_printed == 0 )) || return 0
+    if [[ -d $lock_directory ]] && (( shop_lock_acquired == 0 )); then
+        command='./shop unlock'
+    elif [[ -e ${data_dir:-}/rollback.unfinished ]]; then
+        command='./shop rollback'
+    elif (( update_pending == 1 )); then
+        command='./shop rollback'
+    elif [[ -e ${data_dir:-}/restore.unfinished ]]; then
+        if [[ -e ${data_dir:-}/update.in-progress ]]; then
+            command='./shop status'
+        else
+            command='./shop restore ARCHIVE=<known-good-backup>'
+        fi
+    elif [[ -e ${data_dir:-}/update.in-progress ]]; then
+        command='./shop update'
+    elif (( rollback_active == 1 )); then
+        command='./shop start'
+    elif [[ $target != status ]]; then
+        return 0
+    fi
+    [[ -n $command ]] && printf 'Recovery command: %s\n' "$command"
+    recovery_advice_printed=1
+}
+# Read lock metadata and show its owner and age without judging its owner process.
+show_shop_lock() {
+    local lock_directory="$data_dir/.shop-command.lock" owner_pid=unknown owner_host=unknown owner_command=unknown
+    local started=unknown started_epoch='' now_epoch age_seconds age_text
+    [[ -d $lock_directory ]] || return 0
+    [[ ! -r $lock_directory/pid ]] || owner_pid=$(<"$lock_directory/pid")
+    [[ ! -r $lock_directory/host ]] || owner_host=$(<"$lock_directory/host")
+    [[ ! -r $lock_directory/command ]] || owner_command=$(<"$lock_directory/command")
+    [[ ! -r $lock_directory/started ]] || started=$(<"$lock_directory/started")
+    if [[ -r $lock_directory/started_epoch ]]; then
+        started_epoch=$(<"$lock_directory/started_epoch")
+    fi
+    age_text=unknown
+    if [[ $started_epoch =~ ^[0-9]+$ ]]; then
+        now_epoch=$(date +%s)
+        age_seconds=$((now_epoch - started_epoch))
+        (( age_seconds >= 0 )) || age_seconds=0
+        if (( age_seconds < 60 )); then age_text="${age_seconds}s"
+        else age_text="$((age_seconds / 60))m$((age_seconds % 60))s"; fi
+    fi
+    printf 'Shop command lock: held (age=%s pid=%s host=%s command=%s started=%s)\n' \
+        "$age_text" "$owner_pid" "$owner_host" "$owner_command" "$started"
+}
+# Remove a lock only after showing its owner and receiving the exact typed phrase.
+run_unlock() {
+    local answer
+    [[ -d $data_dir/.shop-command.lock ]] || fail 'There is no shop command lock to clear.'
+    show_shop_lock
+    shop_lock_has_known_files || fail 'The lock folder contains unexpected files; inspect it before clearing the lock.'
+    read -r -p 'Type UNLOCK SHOP LOCK to clear this lock: ' answer || fail 'No lock confirmation was given; the lock was not cleared.'
+    [[ $answer == 'UNLOCK SHOP LOCK' ]] || fail 'The lock confirmation did not match; the lock was not cleared.'
+    rm -f -- "$data_dir/.shop-command.lock/pid" "$data_dir/.shop-command.lock/host" \
+        "$data_dir/.shop-command.lock/command" "$data_dir/.shop-command.lock/started" \
+        "$data_dir/.shop-command.lock/started_epoch" \
+        || fail 'Could not remove the shop lock metadata.'
+    rmdir -- "$data_dir/.shop-command.lock" || fail 'The shop lock folder contains unexpected files and was not removed.'
+    printf 'Shop command lock cleared.\n'
+}
+# Lock shop commands and scheduled backups by client data folder.
+acquire_shop_lock() {
+    mkdir -p -- "$data_dir" || fail "Could not create the client data directory: $data_dir"
+    shop_lock_dir="$data_dir/.shop-command.lock"
+    if ! mkdir -- "$shop_lock_dir" 2>/dev/null; then
+        fail "Another shop command or backup is running. If none is running, remove the lock folder: $shop_lock_dir"
+    fi
+    shop_lock_acquired=1
+    trap finish_shop_command EXIT
+    printf '%s\n' "$$" > "$shop_lock_dir/pid" || fail 'Could not write the shop lock file.'
+    printf '%s\n' "$(hostname 2>/dev/null || uname -n)" > "$shop_lock_dir/host" || fail 'Could not write the shop lock owner.'
+    printf '%s\n' "$target" > "$shop_lock_dir/command" || fail 'Could not write the shop lock command.'
+    printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$shop_lock_dir/started" || fail 'Could not write the shop lock start time.'
+    printf '%s\n' "$(date +%s)" > "$shop_lock_dir/started_epoch" || fail 'Could not write the shop lock age.'
+    export OSPOS_SHOP_LOCK_HELD=1
+}
+# Remove the shared client-data lock when this command exits.
+release_shop_lock() {
+    (( shop_lock_acquired == 1 )) || return 0
+    rm -f -- "$shop_lock_dir/pid" "$shop_lock_dir/host" "$shop_lock_dir/command" \
+        "$shop_lock_dir/started" "$shop_lock_dir/started_epoch"
+    rmdir -- "$shop_lock_dir" 2>/dev/null || true
+    shop_lock_acquired=0
+}
+# Show the allowed recovery command after failures and release the lock on every exit path.
+finish_shop_command() {
+    local status=$?
+    if (( status != 0 )); then recovery_advice >&2; fi
+    release_shop_lock
 }
 # Stop when a rollback started but did not finish, because the database state is unknown.
 refuse_unfinished_rollback() {
-    [[ ! -e $data_dir/rollback.unfinished ]] || fail 'A rollback did not finish, so the database state is unknown. Run ./shop rollback again.'
+    [[ ! -e $data_dir/rollback.unfinished ]] || fail 'A rollback did not finish, so the database state is unknown.'
 }
-# Run Compose with the client configuration files.
+# Refuse to start or update while the restore recovery marker remains.
+refuse_unfinished_restore() {
+    [[ ! -e $data_dir/restore.unfinished ]] \
+        || fail 'A restore did not complete successfully.'
+}
+# Atomically save the marker that blocks unsafe starts after an interrupted restore.
+write_restore_marker() {
+    local marker_file="$data_dir/restore.unfinished" temporary
+    [[ -e $marker_file ]] && return 0
+    temporary=$(mktemp "$data_dir/restore.unfinished.XXXXXX") \
+        || fail 'Could not create the restore recovery marker.'
+    if ! : > "$temporary"; then
+        rm -f -- "$temporary"
+        fail 'Could not write the restore recovery marker.'
+    fi
+    if ! mv -f -- "$temporary" "$marker_file"; then
+        rm -f -- "$temporary"
+        fail 'Could not save the restore recovery marker.'
+    fi
+}
+# Clear the restore marker only after a complete successful restore.
+clear_restore_marker() {
+    rm -f -- "$data_dir/restore.unfinished" \
+        || fail 'Could not clear the restore recovery marker; do not start the shop.'
+}
+# Preserve an earlier restore marker and keep a new one only if import may have started.
+run_marked_restore() {
+    local archive_path=$1 restore_status=0
+    restore_marker_preexisting=0
+    [[ ! -e $data_dir/restore.unfinished ]] || restore_marker_preexisting=1
+    write_restore_marker
+    if run_launcher restore --archive "$archive_path" --yes; then
+        clear_restore_marker
+        return 0
+    else
+        restore_status=$?
+    fi
+    if (( restore_status == 20 && restore_marker_preexisting == 0 )); then
+        clear_restore_marker
+    fi
+    return "$restore_status"
+}
+# Run Compose with the client configuration files and block unsafe app starts.
 run_compose() {
+    local argument found_up=0 app_requested=0 service_requested=0
+    for argument in "$@"; do
+        case $argument in
+            up) found_up=1 ;;
+            ospos) app_requested=1; service_requested=1 ;;
+            mysql) service_requested=1 ;;
+        esac
+    done
+    if (( found_up == 1 && (app_requested == 1 || service_requested == 0) )); then
+        refuse_unfinished_restore
+        if (( update_checkout_ready == 0 )); then refuse_incomplete_update_start; fi
+    fi
     export OSPOS_DATA_DIR=$data_dir OSPOS_IMAGE_TAG=$image_tag OSPOS_HTTP_PORT=$http_port
     docker compose --env-file "$data_dir/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml "$@"
 }
@@ -191,6 +600,14 @@ confirm_action() {
         y|Y|yes|YES|Yes) ;;
         *) fail 'Stopped without changing the shop.' ;;
     esac
+}
+# Require a separate typed confirmation when rollback recorded neither image identifier.
+confirm_unknown_image() {
+    local answer
+    (( allow_unknown_image_flag == 1 )) || fail 'Rollback saved no source image ID or digest. Update is blocked; use --allow-unknown-image and type ALLOW UNKNOWN IMAGE to continue. --yes cannot override this check.'
+    [[ -t 0 ]] || fail 'Rollback saved no source image ID or digest. Run update in a terminal with --allow-unknown-image and type ALLOW UNKNOWN IMAGE; --yes cannot override this check.'
+    read -r -p 'Type ALLOW UNKNOWN IMAGE to continue without an image comparison: ' answer || fail 'No typed confirmation was given.'
+    [[ $answer == 'ALLOW UNKNOWN IMAGE' ]] || fail 'The typed confirmation did not match. Update stopped.'
 }
 # Wait for the local app to answer and show logs if it does not.
 wait_for_app() {
@@ -225,7 +642,7 @@ project_uses_http_port() {
 }
 # Print each required host check. Return 1 when anything other than a busy HTTP port is missing, 3 when only the port is busy, and 0 when all pass.
 run_check() {
-    local failed=0 port_busy=0 docker_type filesystem listening port_result
+    local failed=0 port_busy=0 docker_type filesystem listening port_result utility
     if type -P docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
         printf 'ok: Docker is running.\n'
     else
@@ -244,6 +661,9 @@ run_check() {
     fi
     if type -P git >/dev/null 2>&1; then printf 'ok: git is installed.\n'; else printf 'missing: install Git for Windows or Git on Linux.\n'; failed=1; fi
     if type -P curl >/dev/null 2>&1; then printf 'ok: curl is installed.\n'; else printf 'missing: install curl.\n'; failed=1; fi
+    for utility in sha256sum gzip tar; do
+        if type -P "$utility" >/dev/null 2>&1; then printf 'ok: %s is installed.\n' "$utility"; else printf 'missing: install %s in Git Bash or the Linux shell.\n' "$utility"; failed=1; fi
+    done
     if [[ $platform == windows ]]; then
         filesystem=$(powershell.exe -NoProfile -Command '(Get-Volume -DriveLetter C).FileSystem' 2>/dev/null | tr -d '\r' | tail -n 1 || true)
         if [[ $filesystem == NTFS ]]; then printf 'ok: C: uses NTFS.\n'; else printf 'missing: put the client folder on an NTFS drive.\n'; failed=1; fi
@@ -281,21 +701,29 @@ print_cron_line() {
     local hour=${time_value%:*} minute=${time_value#*:}
     printf 'Add this line to the shop user crontab:\n%s %s * * * OSPOS_DATA_DIR=%s %s/scripts/backup.sh\n' "$((10#$minute))" "$((10#$hour))" "$data_dir" "$repo_root"
 }
-# Run the full install and show the remaining manual steps.
+# Lock setup and the full install, refusing to start after an unfinished restore.
 run_install() {
-    local schedule_exists=0 check_status=0
+    local schedule_exists=0 check_status=0 client_entry
+    local client_entries=()
+    acquire_shop_lock
+    read_rollback_config
     refuse_unfinished_rollback
+    refuse_unfinished_restore
+    read_client_settings
+    refuse_incomplete_update_start
     run_check || check_status=$?
     (( check_status != 1 )) || fail 'One or more required checks are missing.'
     if [[ -f $data_dir/ospos.conf ]]; then
         printf 'Client folder already exists; skipping setup.\n'
-    elif [[ -e $data_dir ]]; then
-        fail "Client folder exists without ospos.conf; check that it is empty and delete it: $data_dir"
     else
-        run_launcher setup-client --data-directory "$data_dir"
-    fi
-    if (( check_status == 3 )); then
-        fail "HTTP port $http_port is in use. Set OSPOS_HTTP_PORT to a free port in $data_dir/ospos.conf, then run ./shop install again."
+        shopt -s dotglob nullglob
+        client_entries=("$data_dir"/*)
+        shopt -u dotglob nullglob
+        for client_entry in "${client_entries[@]}"; do
+            [[ $client_entry == "$shop_lock_dir" ]] && continue
+            fail "Client folder exists without ospos.conf; check that it is empty and delete it: $data_dir"
+        done
+        run_launcher setup-client --data-directory "$data_dir" --locked-directory
     fi
     read_client_settings
     if (( check_status == 3 )); then
@@ -380,9 +808,9 @@ take_update_backup() {
     done
     backup_archive=$archive
 }
-# Copy the backup, tag the old image, and publish the rollback record.
+# Copy and verify the backup, tag the image captured before the pull, and publish the rollback record.
 save_rollback_point() {
-    local commit=$1 archive=$2 container image image_id saved_date rollback_dir archive_path copied_size source_size old_copy
+    local commit=$1 archive=$2 source_image_id=$3 image_id saved_date rollback_dir archive_path copied_size source_size old_copy archive_hash_line
     local rollback_copies=()
     rollback_dir="$data_dir/rollback"
     archive_path="$backup_destination/$archive"
@@ -391,19 +819,18 @@ save_rollback_point() {
     source_size=$(wc -c < "$archive_path") || fail 'Could not read the backup archive size.'
     copied_size=$(wc -c < "$rollback_dir/$archive") || fail 'Could not read the rollback archive copy size.'
     [[ $source_size == "$copied_size" ]] || fail 'The rollback archive copy is incomplete.'
-    container=$(project_ospos_container)
-    if [[ -n $container ]]; then
-        image=$(docker inspect --format '{{.Image}}' "$container")
-    else
-        image=hassanshamseddine/osposlb:develop
-        docker image inspect "$image" >/dev/null 2>&1 || fail 'The develop image is missing and no app container is running.'
-    fi
-    docker tag "$image" hassanshamseddine/osposlb:rollback
+    validate_rollback_archive "$rollback_dir/$archive"
+    archive_hash_line=$(sha256sum -- "$rollback_dir/$archive") || fail 'Could not calculate the rollback archive checksum.'
+    rollback_archive_sha256=${archive_hash_line%%[[:space:]]*}
+    [[ $rollback_archive_sha256 =~ ^[a-fA-F0-9]{64}$ ]] || fail 'Could not calculate a valid rollback archive checksum.'
+    [[ $source_image_id =~ ^sha256:[a-fA-F0-9]{64}$ ]] || fail 'The image captured before the pull is invalid.'
+    docker tag "$source_image_id" hassanshamseddine/osposlb:rollback
     image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:rollback) \
         || fail 'Could not read the tagged rollback image ID.'
     [[ $image_id =~ ^sha256:[a-fA-F0-9]{64}$ ]] || fail 'Docker returned an invalid rollback image ID.'
     saved_date=$(date '+%Y-%m-%d %H:%M:%S %Z')
-    write_rollback_config "$commit" "$archive" "$saved_date" "$image_id" "$rollback_active" 0
+    write_rollback_config "$commit" "$archive" "$saved_date" "$image_id" "$rollback_active" 1
+    update_pending=1
     shopt -s nullglob
     rollback_copies=("$rollback_dir"/ospos-backup-*.tar.gz)
     shopt -u nullglob
@@ -415,28 +842,35 @@ save_rollback_point() {
     rollback_archive=$archive
     rollback_date=$saved_date
     rollback_image=$image_id
-    update_pending=0
-    rollback_point_saved=1
 }
-# Print a recovery command if a saved update stops before it finishes.
-report_update_failure() {
-    local status=$?
-    if (( status != 0 && (rollback_point_saved == 1 || update_pending == 1) )); then
-        printf 'Run ./shop rollback to go back to the version before this update.\n' >&2
+# Capture the app image that is running before an update pulls a new image.
+capture_update_source_image() {
+    local container image_reference
+    container=$(project_ospos_container)
+    if [[ -n $container ]]; then
+        update_source_image_id=$(docker inspect --format '{{.Image}}' "$container") \
+            || fail 'Could not read the running app image ID before the pull.'
+    else
+        image_reference=hassanshamseddine/osposlb:develop
+        (( rollback_active == 0 )) || image_reference=hassanshamseddine/osposlb:rollback
+        update_source_image_id=$(docker image inspect --format '{{.Id}}' "$image_reference") \
+            || fail 'The current app image is missing and no app container is running.'
     fi
+    [[ $update_source_image_id =~ ^sha256:[a-fA-F0-9]{64}$ ]] \
+        || fail 'Docker returned an invalid running app image ID.'
 }
 # Compare the local develop image digest with the remote image digest.
 check_image_update() {
-    local local_references local_reference remote_digest local_matches_remote=0
+    local local_references local_reference local_matches_remote=0
     local_references=$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' hassanshamseddine/osposlb:develop 2>/dev/null || true)
-    remote_digest=$(docker buildx imagetools inspect hassanshamseddine/osposlb:develop --format '{{json .Manifest.Digest}}') \
+    remote_image_digest=$(docker buildx imagetools inspect hassanshamseddine/osposlb:develop --format '{{json .Manifest.Digest}}') \
         || fail 'Could not read the remote develop image digest.'
-    remote_digest=${remote_digest//\"/}
-    [[ $remote_digest =~ ^sha256:[a-fA-F0-9]{64}$ ]] || fail 'Docker returned an invalid remote image digest.'
+    remote_image_digest=${remote_image_digest//\"/}
+    [[ $remote_image_digest =~ ^sha256:[a-fA-F0-9]{64}$ ]] || fail 'Docker returned an invalid remote image digest.'
     while IFS= read -r local_reference; do
         case $local_reference in
             hassanshamseddine/osposlb@sha256:*|docker.io/hassanshamseddine/osposlb@sha256:*|index.docker.io/hassanshamseddine/osposlb@sha256:*)
-                [[ ${local_reference##*@} == "$remote_digest" ]] && local_matches_remote=1
+                [[ ${local_reference##*@} == "$remote_image_digest" ]] && local_matches_remote=1
                 ;;
         esac
     done <<< "$local_references"
@@ -447,17 +881,20 @@ check_image_update() {
     printf 'New image available.\n'
     return 0
 }
-# Update code and image without replacing a point needed by rollback or a retry.
+# Refuse partial-restore state, then download the app image, back up the shop, and switch code safely.
 run_update() {
-    local branch local_changes new_code image_changed=0 commit archive image_id keep_rollback=0
-    refuse_unfinished_rollback
+    local branch new_code image_changed=0 commit archive image_id pulled_image_id keep_rollback=0 marker_exists=0
+    local unknown_rollback_source=0
     read_rollback_config
-    if (( rollback_active == 1 || update_pending == 1 )); then
+    refuse_unfinished_restore
+    require_archive_tools
+    check_clean_worktree 'Update'
+    refuse_unfinished_rollback
+    if (( update_pending == 1 )); then
         keep_rollback=1
         validate_rollback_point
     fi
-    local_changes=$(git status --porcelain --untracked-files=no) || fail 'Could not check the working tree.'
-    [[ -z $local_changes ]] || fail 'Update refused because tracked files have local changes.'
+    [[ ! -e $data_dir/update.in-progress ]] || marker_exists=1
     branch=$(git branch --show-current)
     if [[ $branch != develop && $rollback_active != 1 && $update_pending != 1 ]]; then
         fail "Update requires the develop branch; current branch is ${branch:-detached HEAD}."
@@ -472,34 +909,67 @@ run_update() {
     if check_image_update; then
         image_changed=1
     fi
+    if (( rollback_active == 1 )); then
+        if [[ -n $rollback_from_digest ]]; then
+            if [[ $remote_image_digest == "$rollback_from_digest" ]]; then
+                if (( marker_exists == 1 )); then
+                    read_update_marker
+                    rm -f -- "$data_dir/update.in-progress" \
+                        || fail 'The rolled-back image is still published, and the update marker could not be cleared.'
+                fi
+                refuse_without_changes "The latest app image still has the rolled-back digest $rollback_from_digest. Update is blocked until the published image digest changes." './shop start'
+            fi
+        elif [[ -z $rollback_from_image_id ]]; then
+            unknown_rollback_source=1
+        else
+            printf 'The source image digest is unknown; update will compare the downloaded image ID with the image that was rolled back.\n'
+        fi
+    fi
     if [[ -n $new_code && $image_changed == 0 ]]; then
         printf 'Warning: the image may not be published yet because the build takes a few minutes.\n'
     fi
-    if [[ -z $new_code && $image_changed == 0 && $rollback_active != 1 && $update_pending != 1 ]]; then
+    if [[ -z $new_code && $image_changed == 0 && $rollback_active != 1 && $update_pending != 1 && $marker_exists == 0 ]]; then
         printf 'Already up to date.\n'
         return 0
     fi
-    confirm_action 'This update will save a backup, switch the checkout to origin/develop, pull the develop image, and start the shop.'
+    if (( unknown_rollback_source == 1 )); then
+        confirm_unknown_image
+    fi
+    printf 'Stop sales at the register before continuing; the update backup is taken after the app image download.\n'
+    confirm_action 'This update will pull the app image, save a backup, switch the checkout, and start the shop.'
+    prepare_update_marker
+    run_compose pull ospos
+    if (( rollback_active == 1 )) && [[ -n $rollback_from_image_id ]]; then
+        pulled_image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:develop) || fail 'Could not read the downloaded app image ID.'
+        if [[ $pulled_image_id == "$rollback_from_image_id" ]]; then
+            rm -f -- "$data_dir/update.in-progress" || fail 'The downloaded app image matches the image that was rolled back, and its update marker could not be cleared.'
+            refuse_without_changes "The downloaded app image ID matches the image that was rolled back ($rollback_from_image_id). Update is blocked until the published app image changes." './shop start'
+        fi
+    fi
     take_update_backup
     archive=$backup_archive
     if (( keep_rollback == 1 )); then
         printf 'Earlier rollback point is kept.\n'
+        write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" "$rollback_active" 1
     else
         commit=$(git rev-parse HEAD)
-        save_rollback_point "$commit" "$archive"
+        save_rollback_point "$commit" "$archive" "$update_source_image_id"
     fi
-    write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" "$rollback_active" 1
     update_pending=1
-    trap report_update_failure EXIT
     if [[ -z $branch ]]; then
         git switch develop
     fi
     git pull --ff-only origin develop
     image_tag=develop
-    run_compose pull
+    update_checkout_ready=1
     run_compose up -d --pull never
+    update_checkout_ready=0
     read_client_settings
     wait_for_app
+    rm -f -- "$data_dir/update.in-progress" || fail 'The app is running, but the update marker could not be cleared.'
+    rollback_from_commit=''
+    rollback_from_digest=''
+    rollback_from_image_id=''
     write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" 0 0
     rollback_active=0
     update_pending=0
@@ -507,52 +977,78 @@ run_update() {
     git log -1 --oneline
     image_id=$(docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:develop)
     printf 'Develop image ID: %s\n' "$image_id"
-    rollback_point_saved=0
-    trap - EXIT
 }
-# Print a recovery message when rollback fails after changing the checkout.
-report_rollback_failure() {
-    local status=$?
-    if (( status != 0 && rollback_checkout_done == 1 )); then
-        printf 'Rollback did not finish. Run ./shop rollback again.\n' >&2
-    fi
-}
-# Stop the app and restore the saved database and code version.
+# Validate the rollback point, restore its database, code, and image, then clear restore state on success.
 run_rollback() {
-    local changes archive_copy
+    local archive_copy source_commit source_container source_image source_references source_reference source_digest='' source_image_id=''
     read_rollback_config
+    require_archive_tools
+    check_clean_worktree 'Rollback'
+    if (( rollback_active == 1 && update_pending == 0 )) && [[ ! -e $data_dir/rollback.unfinished ]]; then
+        refuse_without_changes 'A rollback is already active.' './shop start'
+    fi
     validate_rollback_point
     archive_copy="$data_dir/rollback/$rollback_archive"
-    changes=$(git status --porcelain --untracked-files=no) || fail 'Could not check the working tree.'
-    [[ -z $changes ]] || fail 'Rollback refused because tracked files have local changes.'
     printf 'Saved commit: %s\nSaved archive: %s\nSaved date: %s\n' "$rollback_commit" "$rollback_archive" "$rollback_date"
     printf 'This will stop the app, restore the saved database and uploads, and check out the saved commit.\n'
     printf 'Every sale and change made after %s will be lost.\n' "$rollback_date"
     confirm_action 'This rollback will replace the current shop data and code.'
     if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
+    if [[ ! -e $data_dir/rollback.unfinished || -z $rollback_from_commit ]]; then
+        source_commit=$(git rev-parse HEAD) || fail 'Could not read the current commit before rollback.'
+        source_container=$(project_ospos_container)
+        if [[ -n $source_container ]]; then
+            source_image=$(docker inspect --format '{{.Image}}' "$source_container") \
+                || fail 'Could not read the running app image before rollback.'
+        else
+            source_image=$(docker image inspect --format '{{.Id}}' "hassanshamseddine/osposlb:$image_tag") \
+                || fail 'Could not read the current app image before rollback.'
+        fi
+        source_references=$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$source_image" 2>/dev/null || true)
+        while IFS= read -r source_reference; do
+            case $source_reference in
+                hassanshamseddine/osposlb@sha256:*|docker.io/hassanshamseddine/osposlb@sha256:*|index.docker.io/hassanshamseddine/osposlb@sha256:*)
+                    source_digest=${source_reference##*@}
+                    break
+                    ;;
+            esac
+        done <<< "$source_references"
+        [[ $source_image =~ ^sha256:[a-fA-F0-9]{64}$ ]] && source_image_id=$source_image
+        [[ $source_commit =~ ^[a-fA-F0-9]{40,64}$ ]] || fail 'The current commit before rollback is invalid.'
+        if [[ ! $source_digest =~ ^sha256:[a-fA-F0-9]{64}$ ]]; then
+            source_digest=''
+            if [[ -n $source_image_id ]]; then
+                printf 'Warning: the current app image digest could not be recorded; the next update will compare the downloaded image ID.\n'
+            else
+                printf 'Warning: neither the current app image digest nor image ID could be recorded; the next update will need typed confirmation.\n'
+            fi
+        fi
+        rollback_from_commit=$source_commit
+        rollback_from_digest=$source_digest
+        rollback_from_image_id=$source_image_id
+    fi
+    write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" "$rollback_active" "$update_pending"
     : > "$data_dir/rollback.unfinished" || fail 'Could not mark the rollback as started.'
     run_compose stop ospos
     run_compose up -d --pull never mysql
     git checkout --detach "$rollback_commit"
-    rollback_checkout_done=1
-    trap report_rollback_failure EXIT
-    run_launcher restore --archive "$archive_copy" --yes
+    run_marked_restore "$archive_copy"
     write_rollback_config "$rollback_commit" "$rollback_archive" "$rollback_date" "$rollback_image" 1 0
     rollback_active=1
     update_pending=0
     read_client_settings
+    rm -f -- "$data_dir/update.in-progress" || fail 'Could not clear the interrupted update marker during rollback.'
     image_tag=rollback
     run_compose up -d --pull never
     wait_for_app
     rm -f -- "$data_dir/rollback.unfinished"
     printf 'Rollback is active. Run ./shop update to return to the latest version.\n'
-    trap - EXIT
-    rollback_checkout_done=0
 }
-# Start the app with the saved tag and wait for the local web page.
+# Start the app only when no update, rollback, or restore needs recovery, then check the page.
 run_start() {
-    refuse_unfinished_rollback
     read_rollback_config
+    refuse_unfinished_restore
+    refuse_unfinished_rollback
     if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
     read_client_settings
     run_compose up -d --pull never
@@ -565,7 +1061,7 @@ run_stop() {
     printf 'This will stop the shop containers and keep the database and uploads volumes.\n'
     run_compose down
 }
-# Show the running state, code, image, rollback and pending flags, and last backup line.
+# Show the running state, recovery markers, lock owner, advice, and last backup line.
 run_status() {
     local container image_id image_created commit branch
     read_rollback_config
@@ -582,12 +1078,23 @@ run_status() {
     else printf 'Running app image: none\n'; fi
     printf 'Rollback active: %s\n' "$rollback_active"
     printf 'Update pending: %s\n' "$update_pending"
-    if (( update_pending == 1 )); then
-        printf 'The last update did not finish. Run ./shop update to retry or ./shop rollback to go back.\n'
+    if [[ -e $data_dir/update.in-progress ]]; then
+        printf 'Update in progress: yes\n'
+    else
+        printf 'Update in progress: no\n'
     fi
     if [[ -e $data_dir/rollback.unfinished ]]; then
-        printf 'A rollback did not finish. Run ./shop rollback again before starting the shop.\n'
+        printf 'Rollback unfinished: yes\n'
+    else
+        printf 'Rollback unfinished: no\n'
     fi
+    if [[ -e $data_dir/restore.unfinished ]]; then
+        printf 'Restore unfinished: yes\n'
+    else
+        printf 'Restore unfinished: no\n'
+    fi
+    show_shop_lock
+    recovery_advice
     printf 'Last backup: %s\n' "$(last_backup_line)"
 }
 # List backup archives with their sizes and dates.
@@ -613,10 +1120,20 @@ run_backups() {
         [[ -n $name ]] && ls -lh --time-style=long-iso -- "$backup_destination/$name"
     done <<< "$sorted_names"
 }
-# Find an archive by name and restore the database and uploads after confirmation.
+# Validate an archive and restore it only when no update or rollback is unfinished; restart after a first pre-import failure.
 run_restore() {
-    local archive_path
+    local archive_path restore_status=0 recovery_command='./shop update'
+    read_rollback_config
     refuse_unfinished_rollback
+    if [[ -e $data_dir/update.in-progress ]] || (( update_pending == 1 )); then
+        if (( update_pending == 1 )); then
+            recovery_command='./shop rollback'
+        elif [[ -e $data_dir/restore.unfinished ]]; then
+            recovery_command='./shop status'
+        fi
+        refuse_without_changes 'Restore is refused while an update is unfinished.' "$recovery_command"
+    fi
+    require_archive_tools
     [[ -n $archive_value ]] || fail 'restore needs ARCHIVE=<file>.'
     if [[ $archive_value == */* || $archive_value == *\\* ]]; then
         archive_path=$archive_value
@@ -624,13 +1141,28 @@ run_restore() {
         archive_path="$backup_destination/$archive_value"
     fi
     [[ -f $archive_path ]] || fail "Archive file does not exist: $archive_path"
+    validate_rollback_archive "$archive_path"
     printf 'This will replace the shop database and uploads with the contents of %s.\n' "$archive_path"
     confirm_action 'This restore will replace current shop data.'
-    read_rollback_config
     if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
     run_compose stop ospos
     run_compose up -d --pull never mysql
-    run_launcher restore --archive "$archive_path" --yes
+    if run_marked_restore "$archive_path"; then
+        :
+    else
+        restore_status=$?
+        if (( restore_status == 20 )); then
+            if (( restore_marker_preexisting == 0 )); then
+                printf 'Restore failed before database import. Nothing was changed; restarting the shop.\n' >&2
+                run_start
+            else
+                printf 'Restore did not complete before database changes; the earlier recovery marker remains.\n' >&2
+            fi
+        else
+            printf 'Restore failed after database changes may have started. The database may be partial.\n' >&2
+        fi
+        return "$restore_status"
+    fi
     run_start
 }
 # Schedule daily backups on Windows or print the Linux cron entry.
@@ -647,6 +1179,11 @@ parse_arguments() {
     while (( $# > 0 )); do
         case $1 in
             --yes) (( yes_flag == 0 )) || fail '--yes was given more than once.'; yes_flag=1 ;;
+            --allow-unknown-image)
+                [[ $target == update ]] || fail '--allow-unknown-image is only valid for update.'
+                (( allow_unknown_image_flag == 0 )) || fail '--allow-unknown-image was given more than once.'
+                allow_unknown_image_flag=1
+                ;;
             *=*)
                 key=${1%%=*}
                 value=${1#*=}
@@ -667,25 +1204,48 @@ parse_arguments() {
         shift
     done
 }
-detect_platform
-if [[ -z $data_dir ]]; then
-    if [[ $platform == windows ]]; then data_dir='C:/OSPOS/Client'; else data_dir="$HOME/ospos-client"; fi
-fi
-if [[ $platform == windows ]]; then
-    export MSYS_NO_PATHCONV=1
-fi
-export OSPOS_DATA_DIR=$data_dir
-parse_arguments "$@"
-read_client_settings
-case $target in
-    help|-h|--help) show_help ;;
-    check) run_check ;; install) run_install ;; update) run_update ;; rollback) run_rollback ;;
-    start) run_start ;; stop) run_stop ;; status) run_status ;;
-    logs)
-        read_rollback_config
-        if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
-        run_compose logs --tail "$lines_value"
-        ;;
-    backup) run_backup ;; backups) run_backups ;; restore) run_restore ;; schedule-backup) run_schedule_backup ;;
-    *) fail "Unknown target: $target" ;;
-esac
+# Set the host paths, acquire the command lock, and dispatch one target.
+main() {
+    detect_platform
+    if [[ $platform == windows ]]; then
+        data_dir='C:/OSPOS/Client'
+        export MSYS_NO_PATHCONV=1
+    elif [[ -z $data_dir ]]; then
+        data_dir="$HOME/ospos-client"
+    fi
+    export OSPOS_DATA_DIR=$data_dir
+    parse_arguments "$@"
+    case $target in
+        help|-h|--help) show_help; return 0 ;;
+        install) run_install ;;
+        status)
+            read_client_settings
+            run_status
+            ;;
+        unlock)
+            run_unlock
+            ;;
+        *)
+            acquire_shop_lock
+            read_client_settings
+            case $target in
+                check) run_check ;;
+                update) run_update ;;
+                rollback) run_rollback ;;
+                start) run_start ;;
+                stop) run_stop ;;
+                logs)
+                    read_rollback_config
+                    if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
+                    run_compose logs --tail "$lines_value"
+                    ;;
+                backup) run_backup ;;
+                backups) run_backups ;;
+                restore) run_restore ;;
+                schedule-backup) run_schedule_backup ;;
+                *) fail "Unknown target: $target" ;;
+            esac
+            ;;
+    esac
+}
+main "$@"; exit $?

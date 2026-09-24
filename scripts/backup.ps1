@@ -27,6 +27,8 @@ $envSet = $false
 $dataDirectorySet = $false
 $networkSet = $false
 $waitForDockerSet = $false
+$shopLockDirectory = $null
+$shopLockOwned = $false
 
 # Read one client setting without executing the config file.
 function Read-ConfiguredValue {
@@ -104,6 +106,56 @@ function Write-LauncherFailureLog {
         [System.IO.File]::AppendAllText($Path, $line, $encoding)
     } catch {
         Write-Warning "Could not write the backup failure log: $Path"
+    }
+}
+
+# Lock a client backup, record its owner, and report a held-lock failure.
+function Enter-BackupLock {
+    if ($null -eq $dataDirectory -or $env:OSPOS_SHOP_LOCK_HELD -eq '1') { return }
+    $script:shopLockDirectory = Join-Path $dataDirectory '.shop-command.lock'
+    try {
+        New-Item -ItemType Directory -Path $shopLockDirectory -ErrorAction Stop | Out-Null
+    } catch {
+        $ownerPid = if (Test-Path -LiteralPath (Join-Path $shopLockDirectory 'pid')) { Get-Content -LiteralPath (Join-Path $shopLockDirectory 'pid') -Raw } else { 'unknown' }
+        $ownerHost = if (Test-Path -LiteralPath (Join-Path $shopLockDirectory 'host')) { Get-Content -LiteralPath (Join-Path $shopLockDirectory 'host') -Raw } else { 'unknown' }
+        $ownerCommand = if (Test-Path -LiteralPath (Join-Path $shopLockDirectory 'command')) { Get-Content -LiteralPath (Join-Path $shopLockDirectory 'command') -Raw } else { 'unknown' }
+        $startedPath = Join-Path $shopLockDirectory 'started_epoch'
+        $age = 'unknown'
+        if (Test-Path -LiteralPath $startedPath) {
+            $startedEpoch = Get-Content -LiteralPath $startedPath -Raw
+            if ($startedEpoch -match '^[0-9]+$') { $age = [Math]::Max(0, [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [long]$startedEpoch).ToString() + 's' }
+        }
+        throw "Shop_lock_held_age_${age}_clear_stale_lock_with_shop_unlock_pid_${ownerPid}_host_${ownerHost}_command_${ownerCommand}"
+    }
+    $script:shopLockOwned = $true
+    $started = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+    Set-Content -LiteralPath (Join-Path $shopLockDirectory 'pid') -Value $PID -NoNewline
+    Set-Content -LiteralPath (Join-Path $shopLockDirectory 'host') -Value $env:COMPUTERNAME -NoNewline
+    Set-Content -LiteralPath (Join-Path $shopLockDirectory 'command') -Value 'backup' -NoNewline
+    Set-Content -LiteralPath (Join-Path $shopLockDirectory 'started') -Value $started -NoNewline
+    Set-Content -LiteralPath (Join-Path $shopLockDirectory 'started_epoch') -Value ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -NoNewline
+}
+
+# Remove the standalone backup lock after the launcher exits.
+function Exit-BackupLock {
+    if (-not $shopLockOwned) { return }
+    Remove-Item -LiteralPath (Join-Path $shopLockDirectory 'pid') -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Join-Path $shopLockDirectory 'host') -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Join-Path $shopLockDirectory 'command') -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Join-Path $shopLockDirectory 'started') -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Join-Path $shopLockDirectory 'started_epoch') -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $shopLockDirectory -Force -ErrorAction SilentlyContinue
+    $script:shopLockOwned = $false
+}
+
+# Refuse backups while a restore or rollback may have left the database partial.
+function Assert-BackupDatabaseSafe {
+    if ($null -eq $dataDirectory) { return }
+    if (Test-Path -LiteralPath (Join-Path $dataDirectory 'restore.unfinished')) {
+        throw 'A restore is unfinished; backup and retention were not run because the database may be partial.'
+    }
+    if (Test-Path -LiteralPath (Join-Path $dataDirectory 'rollback.unfinished')) {
+        throw 'A rollback is unfinished; backup and retention were not run because the database may be partial.'
     }
 }
 
@@ -219,6 +271,8 @@ if ($null -ne $dataDirectory) {
 }
 
 try {
+    Enter-BackupLock
+    Assert-BackupDatabaseSafe
     if ($null -ne $dataDirectory) { Read-ClientBackupOptions }
     if ($destinationSet) {
         if (-not (Test-Path -LiteralPath $destinationArg -PathType Container)) { throw "Destination directory does not exist: $destinationArg" }
@@ -294,4 +348,6 @@ try {
 } catch {
     Write-LauncherFailureLog -Path $logFile -Reason $_.Exception.Message
     throw
+} finally {
+    Exit-BackupLock
 }

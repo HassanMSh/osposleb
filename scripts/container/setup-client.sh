@@ -7,11 +7,14 @@ platform=''
 data_dir=''
 host_data_dir=''
 prepared_directory=0
+locked_directory=0
+client_entry=''
+client_entries=()
 
 # Print the setup command help.
 show_help() {
     cat <<'HELP'
-Usage: scripts/container/setup-client.sh --data-directory <path> --host-data-directory <path> --platform <linux|windows> [--prepared-directory]
+Usage: scripts/container/setup-client.sh --data-directory <path> --host-data-directory <path> --platform <linux|windows> [--prepared-directory] [--locked-directory]
 
 Create one client configuration directory.
 
@@ -20,6 +23,8 @@ not created here; the client Compose override keeps them in a Docker named volum
 
 Windows callers must prepare the target and its secrets directory before using
 --prepared-directory, including any host filesystem and ACL protection.
+
+Shop callers may use --locked-directory when the target contains only the active shop command lock.
 HELP
 }
 
@@ -67,6 +72,11 @@ parse_args() {
                 prepared_directory=1
                 shift
                 ;;
+            --locked-directory)
+                (( locked_directory == 0 )) || fail '--locked-directory was given more than once.'
+                locked_directory=1
+                shift
+                ;;
             *)
                 fail "Unknown option: $option"
                 ;;
@@ -78,6 +88,9 @@ parse_args() {
     [[ $platform == linux || $platform == windows ]] || fail '--platform must be linux or windows.'
     if [[ $platform == windows && $prepared_directory -eq 0 ]]; then
         fail '--prepared-directory is required for Windows setup.'
+    fi
+    if [[ $locked_directory == 1 && $platform == windows && $prepared_directory -eq 0 ]]; then
+        fail 'Windows locked-directory setup requires --prepared-directory.'
     fi
 }
 
@@ -101,7 +114,28 @@ print_layout() {
 
 parse_args "$@"
 
-if (( prepared_directory == 1 )); then
+if (( locked_directory == 1 )); then
+    [[ -d $data_dir && ! -L $data_dir ]] || fail "Locked client directory is not available: $host_data_dir"
+    [[ -d $data_dir/.shop-command.lock && ! -L $data_dir/.shop-command.lock && -f $data_dir/.shop-command.lock/pid ]] \
+        || fail 'The shop command lock is missing from the client directory.'
+    shopt -s dotglob nullglob
+    client_entries=("$data_dir"/*)
+    shopt -u dotglob nullglob
+    for client_entry in "${client_entries[@]}"; do
+        [[ $client_entry == "$data_dir/.shop-command.lock" ]] && continue
+        if (( prepared_directory == 1 )) && [[ $client_entry == "$data_dir/secrets" ]]; then continue; fi
+        fail "Refusing to set up a client directory with unexpected files: $host_data_dir"
+    done
+    (( ${#client_entries[@]} == 1 + prepared_directory )) || fail "Refusing to set up a client directory with unexpected files: $host_data_dir"
+    if (( prepared_directory == 1 )); then
+        [[ -d $data_dir/secrets && ! -L $data_dir/secrets ]] || fail "Prepared secrets directory is not available: $host_data_dir/secrets"
+    elif [[ $platform == linux ]]; then
+        mkdir -m 700 -- "$data_dir/secrets"
+    fi
+    [[ ! -e $data_dir/secrets/app.env && ! -L $data_dir/secrets/app.env ]] || fail "Prepared secrets directory already contains app.env: $host_data_dir/secrets"
+    [[ ! -e $data_dir/secrets/mysql.env && ! -L $data_dir/secrets/mysql.env ]] || fail "Prepared secrets directory already contains mysql.env: $host_data_dir/secrets"
+    [[ ! -e $data_dir/secrets/db.env && ! -L $data_dir/secrets/db.env ]] || fail "Prepared secrets directory already contains db.env: $host_data_dir/secrets"
+elif (( prepared_directory == 1 )); then
     [[ -d $data_dir && ! -L $data_dir ]] || fail "Prepared client directory is not available: $host_data_dir"
     [[ -d $data_dir/secrets && ! -L $data_dir/secrets ]] || fail "Prepared secrets directory is not available: $host_data_dir/secrets"
     [[ ! -e $data_dir/secrets/app.env && ! -L $data_dir/secrets/app.env ]] || fail "Prepared secrets directory already contains app.env: $host_data_dir/secrets"
@@ -111,7 +145,7 @@ else
     [[ ! -e $data_dir && ! -L $data_dir ]] || fail "Refusing to run against an existing installation: $host_data_dir"
 fi
 
-if (( prepared_directory == 1 )); then
+if (( prepared_directory == 1 || locked_directory == 1 )); then
     mkdir -p "$data_dir/uploads" "$data_dir/uploads/item_pics" "$data_dir/backups"
 else
     mkdir -p "$data_dir/secrets" "$data_dir/uploads" "$data_dir/uploads/item_pics" "$data_dir/backups"

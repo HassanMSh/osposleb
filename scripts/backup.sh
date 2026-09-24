@@ -26,6 +26,8 @@ launcher_failure_logged=0
 destination_option_set=0
 uploads_option_set=0
 env_option_set=0
+backup_lock_dir=''
+backup_lock_acquired=0
 
 # Stop with a readable launcher error.
 fail() {
@@ -34,6 +36,55 @@ fail() {
     fi
     printf 'Error: %s\n' "$1" >&2
     exit 1
+}
+
+# Lock a client backup against shop commands and log any held-lock failure.
+acquire_backup_lock() {
+    [[ -z $data_dir || ${OSPOS_SHOP_LOCK_HELD:-0} == 1 ]] && return 0
+    backup_lock_dir="$data_dir/.shop-command.lock"
+    if ! mkdir -- "$backup_lock_dir" 2>/dev/null; then
+        local owner_pid=unknown owner_host=unknown owner_command=unknown started_epoch='' age=unknown now_epoch
+        [[ ! -r $backup_lock_dir/pid ]] || owner_pid=$(<"$backup_lock_dir/pid")
+        [[ ! -r $backup_lock_dir/host ]] || owner_host=$(<"$backup_lock_dir/host")
+        [[ ! -r $backup_lock_dir/command ]] || owner_command=$(<"$backup_lock_dir/command")
+        if [[ -r $backup_lock_dir/started_epoch ]]; then
+            started_epoch=$(<"$backup_lock_dir/started_epoch")
+            if [[ $started_epoch =~ ^[0-9]+$ ]]; then
+                now_epoch=$(date +%s)
+                age=$((now_epoch - started_epoch))
+                (( age >= 0 )) || age=0
+                age="${age}s"
+            fi
+        fi
+        append_failure_log "Shop_lock_held_age_${age}_pid_${owner_pid}_host_${owner_host}_command_${owner_command}_clear_stale_lock_with_shop_unlock"
+        printf 'Error: Another shop command or backup is running (age: %s, pid: %s, host: %s, command: %s). Check ./shop status, then run ./shop unlock only if the owner process is gone.\n' \
+            "$age" "$owner_pid" "$owner_host" "$owner_command" >&2
+        exit 1
+    fi
+    backup_lock_acquired=1
+    trap release_backup_lock EXIT
+    printf '%s\n' "$$" > "$backup_lock_dir/pid" || fail 'Could not write the shop lock file.'
+    printf '%s\n' "$(hostname 2>/dev/null || uname -n)" > "$backup_lock_dir/host" || fail 'Could not write the shop lock owner.'
+    printf '%s\n' backup > "$backup_lock_dir/command" || fail 'Could not write the shop lock command.'
+    printf '%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$backup_lock_dir/started" || fail 'Could not write the shop lock start time.'
+    printf '%s\n' "$(date +%s)" > "$backup_lock_dir/started_epoch" || fail 'Could not write the shop lock age.'
+}
+
+# Remove a standalone backup's client-data lock when the process exits.
+release_backup_lock() {
+    (( backup_lock_acquired == 1 )) || return 0
+    rm -f -- "$backup_lock_dir/pid" "$backup_lock_dir/host" "$backup_lock_dir/command" \
+        "$backup_lock_dir/started" "$backup_lock_dir/started_epoch"
+    rmdir -- "$backup_lock_dir" 2>/dev/null || true
+    backup_lock_acquired=0
+}
+
+# Refuse backups while a restore or rollback may have left the database partial.
+refuse_partial_database_backup() {
+    [[ -z $data_dir || ! -e $data_dir/restore.unfinished ]] \
+        || fail 'A restore is unfinished; backup and retention were not run because the database may be partial.'
+    [[ -z $data_dir || ! -e $data_dir/rollback.unfinished ]] \
+        || fail 'A rollback is unfinished; backup and retention were not run because the database may be partial.'
 }
 
 # Read one client setting without executing the config file.
@@ -257,6 +308,9 @@ if [[ -n $data_dir ]]; then
         fi
     fi
 fi
+
+acquire_backup_lock
+refuse_partial_database_backup
 
 if ! docker info >/dev/null 2>&1; then
     append_failure_log Docker_is_not_running

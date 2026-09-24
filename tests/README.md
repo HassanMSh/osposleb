@@ -69,6 +69,8 @@ It checks that every icon produced by the `copy-menubar` task exists.
 It checks that `header.php` has no inject markers or content-hashed asset names.
 Run `npm run build` from the project root before running this test.
 
+`AssetCacheControlTest` checks the year-long cache rule against sample names and against every built file under `public/resources/`, and that the copied theme folders are left out.
+
 Every test needs a test case class.
 CodeIgniter provides the `CodeIgniter\Test\CIUnitTestCase` class for this purpose.
 Create shared test setup in a custom class when several tests need the same helpers.

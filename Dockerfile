@@ -37,11 +37,13 @@ FROM php:8.2-apache AS ospos
 LABEL maintainer="jekkos"
 
 RUN apt update && apt-get install -y libicu-dev libgd-dev
-RUN a2enmod rewrite
+RUN a2enmod rewrite headers
 RUN docker-php-ext-install mysqli bcmath intl gd
 RUN echo "date.timezone = \"\${PHP_TIMEZONE}\"" > /usr/local/etc/php/conf.d/timezone.ini
 
 WORKDIR /app
+COPY docker/asset-cache.conf /etc/apache2/conf-available/asset-cache.conf
+RUN a2enconf asset-cache
 COPY --from=app-files /app /app
 COPY --from=php-dependencies /app/vendor /app/vendor
 COPY --from=frontend-build /app/public/resources /app/public/resources
@@ -59,6 +61,7 @@ FROM ospos AS ospos_test
 COPY --from=php-dependencies /usr/bin/composer /usr/bin/composer
 # The shop image leaves these out, so the test image adds them back.
 COPY tests /app/tests
+COPY docker/asset-cache.conf /app/docker/asset-cache.conf
 COPY phpunit.xml.dist gulpfile.js /app/
 
 RUN apt-get install -y libzip-dev wget git

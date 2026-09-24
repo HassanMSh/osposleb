@@ -11,6 +11,8 @@ services:
         depends_on:
             - mysql
         container_name: ospos_test
+        networks:
+            - app_net
         environment:
             - CI_ENVIRONMENT=testing
             - ENCRYPTION_KEY=

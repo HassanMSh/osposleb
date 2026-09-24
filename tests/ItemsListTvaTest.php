@@ -214,7 +214,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
     }
 
     /**
-     * Ensures item searches return the taxability fields needed by the list formatter.
+     * Inserts an item and matching inventory row, then checks the taxability fields returned by search.
      *
      * Skips the database-backed check when the test database is unavailable.
      */
@@ -227,6 +227,10 @@ final class ItemsListTvaTest extends CIUnitTestCase
         } catch (Throwable $exception) {
             $this->markTestSkipped('The test database is unavailable: ' . $exception->getMessage());
         }
+
+        $item_name    = 'TVA list fixture ' . bin2hex(random_bytes(4));
+        $item_id      = null;
+        $inventory_id = null;
 
         $filters = [
             'start_date'        => '2000-01-01',
@@ -242,11 +246,61 @@ final class ItemsListTvaTest extends CIUnitTestCase
             'definition_ids'    => [],
         ];
 
-        $rows = (new Item())->search('', $filters, 1)->getResult();
+        try {
+            $database->table('items')->insert([
+                'name'                  => $item_name,
+                'category'              => 'Test',
+                'supplier_id'           => null,
+                'item_number'           => 'tva-list-' . bin2hex(random_bytes(4)),
+                'description'           => 'Items list TVA test fixture',
+                'cost_price'            => '1.00',
+                'unit_price'            => '2.00',
+                'reorder_level'         => 0,
+                'receiving_quantity'    => 1,
+                'allow_alt_description' => 0,
+                'is_serialized'         => 0,
+                'deleted'               => 0,
+                'stock_type'            => HAS_STOCK,
+                'item_type'             => ITEM,
+                'tax_category_id'       => null,
+                'taxable'               => 1,
+                'tax_exemption_reason'  => 'exempt',
+                'pic_filename'          => '',
+                'qty_per_pack'          => 1,
+                'pack_name'             => 'Each',
+                'low_sell_item_id'      => 0,
+                'hsn_code'              => '',
+            ]);
+            $item_id = (int) $database->insertID();
 
-        $this->assertNotEmpty($rows);
-        $this->assertObjectHasProperty('taxable', $rows[0]);
-        $this->assertObjectHasProperty('tax_exemption_reason', $rows[0]);
+            $employee_id = $database->table('employees')->select('person_id')->orderBy('person_id')->get()->getRow('person_id');
+            $location_id = $database->table('stock_locations')->select('location_id')->orderBy('location_id')->get()->getRow('location_id');
+
+            $database->table('inventory')->insert([
+                'trans_items'     => $item_id,
+                'trans_user'      => $employee_id,
+                'trans_date'      => date('Y-m-d H:i:s'),
+                'trans_comment'   => 'Items list TVA test fixture',
+                'trans_location'  => $location_id,
+                'trans_inventory' => 1,
+            ]);
+            $inventory_id = (int) $database->insertID();
+
+            $rows = (new Item())->search($item_name, $filters, 10)->getResult();
+
+            $this->assertCount(1, $rows);
+            $this->assertSame($item_id, (int) $rows[0]->item_id);
+            $this->assertObjectHasProperty('taxable', $rows[0]);
+            $this->assertObjectHasProperty('tax_exemption_reason', $rows[0]);
+        } finally {
+            if ($inventory_id !== null) {
+                $database->table('inventory')->where('trans_id', $inventory_id)->delete();
+            }
+
+            if ($item_id !== null) {
+                $database->table('items')->where('item_id', $item_id)->delete();
+            }
+        }
     }
 
     /**

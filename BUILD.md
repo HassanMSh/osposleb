@@ -23,6 +23,16 @@ The default asset build does not run Composer or update license files.
 The Docker image build runs `npx gulp update-licenses` with Composer and PHP in its build stage.
 The final image includes the generated Composer, npm, and project license files under `public/license`.
 
+## What the shop image contains
+
+The shop image holds only the files the app needs to run: `app`, `public`, `writable`, `vendor`, `spark`, `preload.php`, `composer.json`, `composer.lock`, `.env-example`, `.htaccess`, `LICENSE`, and `docker/migrations.php`.
+The `app-files` build stage deletes everything else, such as tests, docs, notes, CI files, build scripts, and design files.
+The final image copies from that stage, so the deleted files are in none of its layers.
+When you add a file or folder at the project root that the app needs at run time, check that the `app-files` stage keeps it.
+Keep `LICENSE` in the image, because the MIT license needs the original copyright notice to ship with the code.
+The `ospos_test` image adds `tests`, `phpunit.xml.dist`, and `gulpfile.js` back so the test suite can run.
+This does not hide the PHP code, because the app needs it to run.
+
 ## Running OSPOS outside Docker
 
 Install the PHP packages with `composer install` when you run OSPOS outside Docker.

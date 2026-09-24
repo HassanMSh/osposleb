@@ -12,16 +12,18 @@ The full reference for the client folder, secrets, and backups is [backup and re
 - Git for Windows, which also installs Git Bash.
 - Internet access, to download the app image.
 - The shop hardware (scanner, receipt printer, cash drawer) connected to the computer.
-- The client folder must be on an NTFS drive. The internal `C:` drive is NTFS. Do not use a USB stick formatted as exFAT or FAT32.
+- The client folder is always `C:\OSPOS\Client`, so the `C:` drive must be NTFS. The internal `C:` drive is NTFS.
 
 ## Which window to type in
 
-The commands below are for Git Bash. Git Bash has two traps:
+The commands below are for Git Bash, run from the repository folder. `./shop` handles the Git Bash path rules and the PowerShell execution policy for its own commands.
+
+For any other command you type by hand, Git Bash has two traps:
 
 - It rewrites any argument that starts with `/` (for example `/app/public/uploads`) into a Windows path. Put `MSYS_NO_PATHCONV=1` in front of any command that passes a container path, or run that command in PowerShell instead.
 - It removes backslashes in unquoted Windows paths. Wrap Windows paths in single quotes (`'C:\OSPOS\Client'`) or use forward slashes (`C:/OSPOS/Client`).
 
-Windows blocks local PowerShell scripts by default. Always run the project's `.ps1` scripts as `powershell.exe -ExecutionPolicy Bypass -File ./scripts/<name>.ps1 ...`.
+Windows blocks local PowerShell scripts by default. When you run one of the project's `.ps1` scripts by hand, use `powershell.exe -ExecutionPolicy Bypass -File ./scripts/<name>.ps1 ...`.
 
 ## 1. Get the repository
 
@@ -33,43 +35,41 @@ cd osposleb
 git switch develop
 ```
 
-Keep the checkout on the same `develop` commit as the app image. A new database is created from the SQL files in this checkout.
+Keep the checkout on the `develop` branch. `./shop update` refuses to run from any other branch, and a new database is created from the SQL files in this checkout.
 
-## 2. Create the client folder
+## 2. Install and start
 
 ```bash
-powershell.exe -ExecutionPolicy Bypass -File ./scripts/setup-client.ps1 --data-directory 'C:\OSPOS\Client'
+./shop install
 ```
 
-- The folder must not exist yet. If a failed try left it behind, check it is empty and delete it first.
-- The output should include a line starting with `Protected secrets for`.
-- The command creates the database passwords and the encryption key in `C:\OSPOS\Client\secrets`. Copy the `secrets` folder to a safe place that is not the backup drive.
+The command does these steps and skips any step that is already done, so it is safe to run again:
+
+- Checks Docker Desktop, Linux containers, Git, curl, `sha256sum`, `gzip`, `tar`, the NTFS drive and the app port, and prints `missing: ...` for anything that needs fixing.
+- Creates `C:\OSPOS\Client` with its secrets and locks the folder before setup; setup accepts the lock but stops if the folder has any other files and no `ospos.conf`.
+- Downloads the app and database images the first time, starts the app, and waits until it answers.
+- Schedules the daily backup at 23:30 (`./shop install TIME=HH:MM` picks another time).
+- Prints the manual steps that are left.
+
+Then:
+
+- In Git Bash, confirm `sha256sum`, `gzip`, and `tar` are installed; `./shop check` reports each tool.
+- The setup output should include a line starting with `Protected secrets for`.
+- Copy `C:\OSPOS\Client\secrets` to a safe place that is not the backup drive. It holds the database passwords and the encryption key.
 - Check that `C:\OSPOS\Client\ospos.conf` contains `OSPOS_UPLOADS=client_uploads`. Windows setup adds it so item pictures are kept in a Docker volume.
+- If port 80 is already used, `./shop install` creates the client folder and then stops. Set `OSPOS_HTTP_PORT=8080` in `ospos.conf`, run `./shop install` again, and use `http://localhost:8080/`.
+- `./shop status` shows the containers, the code version, the running image, and the last backup result.
 
-## 3. Start the app
+## 3. First login and settings
 
-```bash
-export OSPOS_DATA_DIR='C:/OSPOS/Client'
-docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml pull
-docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
-docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f docker-compose.client.yml ps
-```
-
-- Both `ospos` and `mysql` must show as running.
-- Every new Git Bash window needs the `export` line again.
-- If port 80 is already used, set `OSPOS_HTTP_PORT=8080` in `ospos.conf`, rerun `up -d`, and use `http://localhost:8080/`.
-- The app container is named after the repository folder, for example `osposleb-ospos-1`. `docker ps --format '{{.Names}}'` lists the names. You can use `docker exec <name> ...` for quick checks instead of the long `docker compose` command.
-
-## 4. First login and settings
-
-1. Open `http://localhost/` in Google Chrome. After section 5, use the Chrome shortcuts described there instead. The first start creates the database, so wait about a minute if the page shows a database error.
+1. Open `http://localhost/` in Google Chrome. After section 4, use the Chrome shortcuts described there instead. The first start creates the database, so wait about a minute if the page shows a database error.
 2. Log in with `admin` / `pointofsale`.
 3. Change the admin password under Employees.
 4. In Settings, Localization tab, set the timezone to `Asia/Beirut` and save. The default is `America/New_York`, which stamps sales 7 hours early.
 5. Leave the shop language on Arabic (Lebanon).
 6. Upload a company logo in Settings to prove that pictures can be saved.
 
-## 5. Hardware
+## 4. Hardware
 
 The app runs in Chrome, so Windows and Chrome handle the hardware. Docker is not involved.
 
@@ -85,6 +85,8 @@ The app runs in Chrome, so Windows and Chrome handle the hardware. Docker is not
 
 ### Chrome shortcuts for printing
 
+`./shop install` does not create these shortcuts. Create them by hand.
+
 Receipts must print with no Chrome print window, but barcode labels need the window so the label printer can be picked. Chrome's `--kiosk-printing` option skips the window for everything that Chrome prints, so the shop uses two desktop shortcuts. Each one has its own `--user-data-dir`, which makes it a separate Chrome with its own settings and login (issue #93).
 
 | Shortcut | Target | Use it for |
@@ -92,7 +94,7 @@ Receipts must print with no Chrome print window, but barcode labels need the win
 | POS Register | `"C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing --user-data-dir="C:\POS\chrome-register" http://localhost/sales` | Selling. Receipts go straight to the default printer. |
 | POS Office | `"C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="C:\POS\chrome-office" http://localhost/` | Items, barcode labels, reports and settings. Chrome shows its normal print window. |
 
-1. Create each shortcut: right-click the desktop, New, Shortcut, and paste the target. If port 80 was changed, use the same port in the address.
+1. Create each shortcut: right-click the desktop, New, Shortcut, and paste the target. If port 80 was changed, use the same port in the address. If Chrome is installed elsewhere, use its real `chrome.exe` path.
 2. Close every Chrome window before you open each shortcut for the first time. If another Chrome is already running, the new window can join it and ignore the options.
 3. Log in once in each shortcut. They do not share a login.
 4. In Settings, Receipt tab, set "Print Receipt checkbox" to "Always checked" and "Autoreturn to Sale delay" to `1`. With `0`, the page can go back to the sale before the receipt is sent.
@@ -103,32 +105,65 @@ Do not print labels from POS Register, because they would go to the receipt prin
 
 Result of the first run: pending. Record the device models and any settings needed here.
 
-## 6. Backups
+## 5. Backups
+
+`./shop install` already scheduled the daily backup. Take one manual backup now:
 
 ```bash
-export OSPOS_DATA_DIR='C:/OSPOS/Client'
-powershell.exe -ExecutionPolicy Bypass -File ./scripts/backup.ps1
-powershell.exe -ExecutionPolicy Bypass -File ./scripts/schedule-backup.ps1 --time 23:30
+./shop backup
+./shop backups
 ```
 
-- After the manual backup, `C:\OSPOS\Client\backups\backup.log` must end with a `result=ok` line.
+- `./shop backup` prints the last line of `C:\OSPOS\Client\backups\backup.log`, which must be a `result=ok` line.
+- To change the daily time, run `./shop schedule-backup TIME=HH:MM`. To remove the task, run `./shop schedule-backup REMOVE=1`.
 - The scheduled task runs only while the shop's Windows account is logged in.
 - Windows backups do not include item pictures yet (issue #82).
 
-Do one practice restore before the shop starts selling, because it replaces the database. Record how long it takes.
+Do one practice restore before the shop starts selling, because it replaces the database. Record how long it takes. The command asks before it replaces anything, stops the app, restores, and starts the app again.
+
+The restore launcher writes `restore.unfinished` before it runs; a new marker is cleared after code 20, while an earlier marker and code-21 or unknown failures keep it.
+
+If `restore.unfinished` exists, a full restore has not succeeded, so do not run `./shop start` or `./shop update`.
+
+Retry with `./shop restore ARCHIVE=<known-good-backup>`; a successful restore clears the marker.
 
 ```bash
-docker stop osposleb-ospos-1
-powershell.exe -ExecutionPolicy Bypass -File ./scripts/restore.ps1 --archive 'C:\OSPOS\Client\backups\ospos-backup-YYYYMMDD-HHMMSS.tar.gz' --yes
-docker start osposleb-ospos-1
+./shop restore ARCHIVE=ospos-backup-YYYYMMDD-HHMMSS.tar.gz
 ```
 
 Result of the first run: pending.
 
-## 7. Finish
+## 6. Finish
 
+- In the issue #70 Windows run, test an update that changes `shop` itself, then run another `./shop` command.
 - Tick the passed items on the client install issue (#70) and open an issue for anything that failed.
 - Leave Docker Desktop set to start when Windows starts.
+
+## Daily use
+
+| Command | What it does |
+| --- | --- |
+| `./shop status` | Shows the containers, code version, running image, recovery markers, lock age and owner, recovery command, and last backup result. |
+| `./shop start` / `./shop stop` | Starts or stops the shop without downloading anything, and start refuses while update or rollback recovery is needed. |
+| `./shop update` | Refuses local changes and previews code and image changes before asking; stop sales first because it downloads the app image before the rollback backup, then saves a rollback point, pulls code, and starts the shop without changing the database image. |
+| `./shop rollback` | Restores the code, app image, and backup saved by the last update after confirmation; it checks and fully extracts the archive before stopping, and an interrupted rollback can be retried with `./shop rollback`. |
+| `./shop backup` / `./shop backups` | Takes a backup now, or lists the backups newest first. |
+| `./shop restore ARCHIVE=<file>` | Validates and restores a backup by file name or path, after asking; it refuses while update or rollback recovery is unfinished. |
+| `./shop unlock` | Shows the lock owner and clears the lock only after you type `UNLOCK SHOP LOCK`; `--yes` does not bypass the prompt. |
+| `./shop logs` | Shows the last 200 lines of container logs (`LINES=<count>` changes the number). |
+
+The image used after an update is the newest published `develop` image.
+Right after a merge, the image build takes a few minutes; `./shop update` warns when there is new code but no new image yet and refuses if either the digest or downloaded image ID matches the version rolled back.
+
+If rollback could not record either the source image ID or digest, `./shop update` requires `--allow-unknown-image` and the exact typed phrase `ALLOW UNKNOWN IMAGE`; `--yes` does not bypass this check.
+
+An update retry keeps the saved rollback point; `./shop status` advises update retry before a point is saved and rollback after one is saved.
+
+An update after a completed rollback saves a fresh point with the sales made since that rollback.
+
+Shop commands and the scheduled backup share a lock in `C:\OSPOS\Client`, and failed scheduled runs record lock age and unlock advice in `backup.log`.
+
+After a forced shutdown, use `./shop status` to check the lock owner and run `./shop unlock` only after checking that no shop command or backup is running.
 
 ## Problems found on the first run
 
@@ -142,7 +177,7 @@ All three came from one cause: Docker Desktop shows folders shared from Windows 
 
 If one of these comes back, first check that the checkout is on the latest `develop`, then check `ospos.conf` for `OSPOS_UPLOADS=client_uploads`.
 
-To see the real error behind a "Whoops" page, read the app log:
+To see the real error behind a "Whoops" page, read the app log. The app container is named after the repository folder, for example `osposleb-ospos-1`; `docker ps --format '{{.Names}}'` lists the names.
 
 ```bash
 MSYS_NO_PATHCONV=1 docker exec osposleb-ospos-1 sh -c 'tail -n 60 /app/writable/logs/log-*.log'

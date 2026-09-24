@@ -1,41 +1,61 @@
 # Shop operations runbook
 
+Run `./shop` from Git Bash in the repository folder.
+
+The client folder is always `C:/OSPOS/Client` on Windows, even if the shell has another `OSPOS_DATA_DIR` value, and defaults to `$HOME/ospos-client` on Linux.
+
+Shop commands and standalone backup and restore launchers share a lock in the client folder, so they cannot overlap.
+
+The lock records its process ID, host, command, start time, and age for `./shop status`.
+
+Client backups refuse to run or apply retention while `restore.unfinished` or `rollback.unfinished` exists.
+
+If a command says another shop command or backup is running, check its owner with `./shop status`.
+
+After a forced shutdown, inspect the owner with `./shop status` and use `./shop unlock` only after checking that no shop command or backup is running.
+
+`./shop unlock` shows the owner details again and requires the exact phrase `UNLOCK SHOP LOCK`; `--yes` does not skip this prompt.
+
+The backup log records a failed result, lock age, and unlock advice when a scheduled backup cannot get the lock.
+
+The first install takes this lock before setup begins; setup accepts only that lock as a pre-existing entry, then creates the client files.
+
+The exported `OSPOS_IMAGE_TAG` set by `./shop` takes priority over a value in `ospos.conf`.
+
 ## Start the shop
 
-Open PowerShell in the repository folder.
-
-Set `OSPOS_DATA_DIR` to the client folder.
-
-```powershell
-$env:OSPOS_DATA_DIR = 'C:\OSPOS\Client'
-docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml up -d
+```bash
+./shop start
 ```
 
-The web page is available on the shop computer at `http://localhost/`.
+Start does not pull new code or an image.
+
+The web page is available on the shop computer at `http://localhost/` or at the configured port.
 
 ## Stop the shop
 
-Run this command from the repository folder.
-
-```powershell
-docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml down
+```bash
+./shop stop
 ```
 
-Do not add `-v` when stopping the shop because that removes its database volume.
+Stop brings the containers down without removing the database volume.
+
+Never remove volumes when stopping the shop.
 
 ## Check shop health
 
-Check that both containers are running.
-
-```powershell
-docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml ps
+```bash
+./shop check
+./shop status
 ```
 
-Open `http://localhost/` in Google Chrome and sign in.
+Open the local shop page in Google Chrome and sign in.
 
 ## One-minute weekly backup check
 
-Open `backup.log` in Notepad once a week. It is in the backup folder set by `OSPOS_BACKUP_DESTINATION` in `ospos.conf`, normally `<client>\backups\backup.log`.
+Run `./shop backups` and check the last line from `./shop status`.
+
+The backup log is in the folder set by `OSPOS_BACKUP_DESTINATION` in `ospos.conf`, normally `<client>/backups/backup.log`.
 
 Confirm that there is one `result=ok` line for each day the shop was open.
 
@@ -49,19 +69,37 @@ See [backup and restore](backup-and-restore.md) for backup checks and restore st
 
 ## Restore a backup
 
-Use the restore steps in [backup and restore](backup-and-restore.md).
-
 Stop sales before restoring because restore replaces the selected database and uploads folder.
 
-Check the archive and target database before confirming the restore.
+Check the archive and target before confirming the restore.
 
-Stop the `ospos` container before the restore and start it after, because restore swaps in a new uploads folder and a running container keeps using the old one.
+```bash
+./shop restore ARCHIVE=ospos-backup-YYYYMMDD-HHMMSS.tar.gz
+```
+
+The command stops the app before restore and starts it after, because restore swaps in a new uploads folder and a running container keeps using the old one.
+
+`./shop` writes `restore.unfinished` before restore; a first code-20 failure clears the new marker and restarts the app, while an earlier marker or a code-21/unknown failure keeps it.
+
+If the marker exists, a full restore has not succeeded, so `./shop start` and `./shop update` refuse to run.
+
+Retry with `./shop restore ARCHIVE=<known-good-backup>`; a successful restore clears the marker.
+
+Do not start the services with raw Compose commands while the marker exists, because Compose does not check it.
 
 After the restore, open Settings and check that item pictures show.
 
 ## Update and rollback
 
-The shop image version is pinned with `OSPOS_IMAGE_TAG`; see "Pin or roll back the client image" in [backup and restore](backup-and-restore.md).
+Before `./shop update`, stop sales at the register; it downloads only the app image while the old app is still running, then takes the backup used for rollback.
+
+Update never downloads or changes the database image.
+
+After the backup, update switches the checkout and starts the new app image.
+
+The update checks Docker Hub with `docker buildx imagetools inspect` to see whether the `develop` image changed.
+
+The shop image uses the moving `develop` tag; `./shop` sets `OSPOS_IMAGE_TAG` itself.
 
 The container applies pending database migrations when it starts.
 
@@ -69,35 +107,82 @@ If it cannot reach the database or a migration fails, it stops and writes the re
 
 Because the container restarts automatically, a startup that keeps failing shows as a container that keeps restarting.
 
-Check `docker compose ps` and the `ospos` logs, then fix the database or restore the backup taken before the update.
+Check `./shop status` and `./shop logs`, then fix the database or restore the backup taken before the update.
 
-Always take a backup and confirm its `result=ok` line before changing the image version.
+The update command refuses tracked changes and non-ignored untracked files; move or delete the listed files before retrying.
 
-To update: take a backup, set `OSPOS_IMAGE_TAG` to the new version, pull, and start.
+The update command asks before it downloads the app image and takes the backup.
 
-To roll back: set `OSPOS_IMAGE_TAG` back to the previous version and restore the backup taken before the update.
+If `./shop status` shows a recovery marker, use its single recovery command and wait for the marker to clear before opening the shop.
+
+An update writes a recovery marker and pins the current app image before the image download; `./shop status` prints one allowed recovery command if the update does not finish.
+
+If an update marker exists but no rollback point was saved, retry with `./shop update`.
+
+If a rollback point was saved, recover with `./shop rollback`.
+
+Restore stays refused while the update marker exists, and only a successful rollback clears that marker.
+
+An unfinished rollback is retried with `./shop rollback`, and a second completed rollback is refused until a new update saves a fresh point.
+
+Restore is advised only when `restore.unfinished` shows that database changes may be partial.
+
+### Recover a missing pinned image
+
+If `./shop update` reports that its pinned image is missing, do not start the app or use raw Compose commands while the update marker remains.
+
+If `./shop status` shows `Update pending: 1`, use the advised `./shop rollback`; its saved rollback image is the recovery image.
+
+If no rollback point was saved, read the exact `UPDATE_SOURCE_IMAGE_ID` from `update.in-progress` in the client folder.
+
+Ask the project owner or administrator to find that exact image in a trusted Docker image archive or another shop host.
+
+Load the trusted archive with `docker load --input <archive-file>`.
+
+Tag the exact recorded image ID with `docker tag <recorded-image-id> hassanshamseddine/osposlb:update-source`.
+
+Confirm the tag with `docker image inspect --format '{{.Id}}' hassanshamseddine/osposlb:update-source` and compare its result with the marker.
+
+After the exact image is back under that tag, retry with `./shop update`.
+
+If the exact image cannot be recovered, leave the app stopped and contact the project owner; do not clear the marker by hand.
+
+An update retry keeps the saved rollback point; a new update after a completed rollback saves a fresh point with the sales made since that rollback.
+
+To roll back, use `./shop rollback`; it checks the saved archive checksum, manifest and database checksum, and fully extracts every archive entry before stopping the app, then restores the backup taken before the update along with the saved code and image.
+
+After one rollback finishes, a second rollback is refused until a new `./shop update` saves a fresh rollback point.
+
+Older rollback records without an archive checksum are accepted after validation, and the command saves the calculated checksum only after its archive, commit, and image checks pass.
+
+If a saved rollback archive fails validation, rollback stops before stopping the app and nothing was changed; ask the project owner to replace the saved archive and its recorded checksum from a trusted copy, then retry `./shop rollback`.
+
+After a rollback, `./shop update` stops if either the published digest or downloaded image ID matches the image that was rolled back, even if the code has advanced.
+
+If rollback recorded neither the source image ID nor digest, update requires `--allow-unknown-image` and the exact typed phrase `ALLOW UNKNOWN IMAGE`; `--yes` does not bypass this check.
+
+Restore returns exit code 20 for failures before database import and 21 once import may have started; the Linux and Windows launchers pass 20 and 21 through and map every other Docker failure to 21.
 
 Rolling back only the image is not supported, because a newer version may have changed the database.
 
-If login keeps returning to the login page with "A database migration to ... will start after login", restore the backup taken before the update.
+If login keeps returning to the login page with "A database migration to ... will start after login", run `./shop rollback`.
 
 ## Collect logs for support
 
-Collect the output from `docker compose ps` and the recent application and database logs.
-
-```powershell
-docker compose --env-file "$env:OSPOS_DATA_DIR\ospos.conf" -f docker-compose.yml -f docker-compose.client.yml logs --tail 200
+```bash
+./shop status
+./shop logs LINES=200
 ```
 
 Also collect `backup.log` from the backup folder and the Task Scheduler task history.
 
-Do not send `secrets\`, passwords, customer data, or a full database backup unless support asks for it through an approved safe method.
+Do not send `secrets/`, passwords, customer data, or a full database backup unless support asks for it through an approved safe method.
 
 ## Install checklist
 
 - Change the `admin` password at the first login.
 - Set the timezone to Beirut in OSPOS Settings.
-- Schedule a daily backup with `scripts\schedule-backup.ps1`.
+- Run `./shop install` to schedule a daily backup on Windows or print the Linux cron line.
 - Copy the `secrets` folder to a safe place away from the backup drive.
 - Turn on Dependabot alerts in the GitHub repository settings.
 

@@ -124,13 +124,33 @@ docker compose --env-file "$OSPOS_DATA_DIR/ospos.conf" -f docker-compose.yml -f 
 
 ### Pin or roll back the client image
 
-Set `OSPOS_IMAGE_TAG` to `develop-<sha>` in the shell or `ospos.conf` to pin a specific build.
+Set `OSPOS_IMAGE_TAG` to `develop-<sha>` in the shell or `ospos.conf` to pin a specific build when using the manual Compose commands.
 
 On Windows, set `$env:OSPOS_IMAGE_TAG = 'develop-<sha>'` in PowerShell; on Linux, run `export OSPOS_IMAGE_TAG=develop-<sha>`.
 
 After setting the tag, rerun the same full `up -d` command shown above for your system.
 
-To roll back, set `OSPOS_IMAGE_TAG` to an earlier `develop-<sha>` and rerun the same full `up -d` command shown above for your system.
+To return to the backup, code, and image saved before the last update, run `./shop rollback`.
+
+Do not use an image-only change as a rollback, because the database may have changed with the newer image.
+
+The `./shop` command sets `OSPOS_IMAGE_TAG` itself and uses the saved rollback image when a rollback is active.
+
+`./shop update` pulls only the `ospos` app image, then takes the rollback backup; it never pulls or changes the database image.
+
+Before pulling, update pins the current app image and saves a recovery marker; if the pinned image is missing, follow [the manual recovery steps](operations-runbook.md#recover-a-missing-pinned-image).
+
+If an update stops before its rollback point is saved, retry `./shop update`; if the point was saved, use `./shop rollback`.
+
+`./shop restore` validates its archive before stopping the app and stays refused while an update or rollback is unfinished.
+
+Before rollback stops the app, it checks the archive checksum, its manifest and database checksum, and fully extracts every archive entry into a temporary folder.
+
+An older rollback record without an archive checksum is accepted after validation, and rollback saves the calculated checksum only after its archive, commit, and image checks pass.
+
+Rollback records the source image ID and repository digest; after pulling an update, `./shop` stops if the downloaded image ID matches the image that was rolled back.
+
+If rollback records neither image ID nor digest, update requires `--allow-unknown-image` and the exact typed phrase `ALLOW UNKNOWN IMAGE`; `--yes` does not bypass this check.
 
 Keep this repository checkout on the same `develop` commit as the image tag because a fresh database is seeded from the checkout's tracked `tables.sql` and `constraints.sql` files.
 
@@ -214,13 +234,33 @@ The task runs only while the shop account is logged in.
 
 It runs after logon if the computer missed the scheduled time while it was off.
 
-Do not start two manual backups at the same time; the scheduled task ignores a new run while one is active.
+Standalone backup and restore launchers and `./shop` use the same client-folder lock, so they cannot overlap.
+
+The lock records the process ID, host, command, start time, and age for `./shop status`.
+
+If a backup cannot get the lock, it writes a failed result with the lock age and the `./shop unlock` recovery command to `backup.log`.
+
+Use `./shop status` to inspect the lock owner before running `./shop unlock`.
+
+`./shop unlock` shows the owner details again and requires the exact phrase `UNLOCK SHOP LOCK`; `--yes` does not bypass the prompt.
+
+The command does not decide whether a lock is stale because process IDs do not match across Windows shells and other hosts.
+
+Client backups refuse to run or apply retention while `restore.unfinished` or `rollback.unfinished` exists.
+
+An `update.in-progress` marker alone does not block backups because it does not mean the database is partial.
+
+The scheduled Windows task also ignores a second scheduled run while one is active.
 
 On Linux, add a crontab entry with the client directory and repository path.
 
 ```cron
 30 23 * * * OSPOS_DATA_DIR=/path/to/client /path/to/osposleb/scripts/backup.sh
 ```
+
+The Linux backup script uses the same client-folder lock, so it cannot overlap a shop command.
+
+If the lock is held, the Linux and Windows launchers write its age and the `./shop unlock` recovery command to `backup.log`.
 
 The log file is plain text with one `key=value` line per run.
 
@@ -367,6 +407,18 @@ $env:OSPOS_DOCKER_NETWORK = "osposleb_app_net"
 
 The launcher prints the target database name before the restore tool imports it.
 
+The Windows launcher honors `OSPOS_DATA_DIR` when set and defaults to `C:\OSPOS\Client`.
+
+The direct shell launcher honors `OSPOS_DATA_DIR` when set and defaults to `C:/OSPOS/Client`; set it to the client folder on Linux.
+
+Restore returns exit code 20 for failures before database import and 21 once import may have started; both launchers pass 20 and 21 through and map every other Docker failure to 21.
+
+The direct launcher takes the shared client-folder lock and writes `restore.unfinished` before starting the container.
+
+With `./shop restore`, `./shop` owns the shared lock and the recovery marker while the launcher runs.
+
+A successful restore clears `restore.unfinished`; a first code-20 failure also clears the marker it just created, while an earlier marker stays and code-21 or unknown failures keep the marker.
+
 The tool checks the archive members and the database checksum before importing the database.
 
 The restore removes tables and views that are not in the backup, so the database holds only the backed-up tables and views.
@@ -383,7 +435,15 @@ If the database import fails, the uploads directory is not changed.
 
 If restore fails and cannot put the old uploads back, it keeps them in a hidden sibling folder named in the error.
 
-Start the application after the restore and check that you can log in.
+When a first restore through `./shop` fails with code 20 before database import, the new marker is cleared and the app starts again because the database is intact.
+
+An existing `restore.unfinished` marker means a full restore has not succeeded, so `./shop start` and `./shop update` refuse to run.
+
+`./shop status` advises `./shop rollback` for an unfinished rollback, `./shop update` before an update rollback point exists, and `./shop restore` only for an unfinished restore with no update marker.
+
+A retry keeps an earlier marker after code 20, and code-21 or unknown failures keep the marker because the database may be partial.
+
+Run `./shop restore ARCHIVE=<known-good-backup>`; a successful restore clears the marker.
 
 Check a recent sale, item picture, company logo, report, and receipt before reopening the shop.
 
@@ -481,11 +541,22 @@ Use `--yes` only after the operator has approved the exact restore.
 
 ```bash
 cd /path/to/osposleb
+export OSPOS_DATA_DIR=/path/to/client
 export OSPOS_DOCKER_NETWORK=osposleb_app_net
 scripts/restore.sh --archive /media/shop-backup/ospos-backup-YYYYMMDD-HHMMSS.tar.gz --yes
 ```
 
 The tool checks the archive contents and database checksum before importing the database.
+
+The direct shell launcher honors `OSPOS_DATA_DIR` when set and defaults to `C:/OSPOS/Client`; set it to the client folder on Linux.
+
+Restore returns exit code 20 for failures before database import and 21 once import may have started; both launchers pass 20 and 21 through and map every other Docker failure to 21.
+
+The direct launcher takes the shared client-folder lock and writes `restore.unfinished` before starting the container.
+
+With `./shop restore`, `./shop` owns the shared lock and the recovery marker while the launcher runs.
+
+A successful restore clears `restore.unfinished`; a first code-20 failure also clears the marker it just created, while an earlier marker stays and code-21 or unknown failures keep the marker.
 
 The restore removes tables and views that are not in the backup, so the database holds only the backed-up tables and views.
 
@@ -499,9 +570,17 @@ If the database import fails, the uploads directory is not changed.
 
 If restore fails and cannot put the old uploads back, it keeps them in a hidden sibling folder named in the error.
 
-Start the application after the restore and check that you can log in.
+When a first restore through `./shop` fails with code 20 before database import, the new marker is cleared and the app starts again because the database is intact.
+
+An existing `restore.unfinished` marker means a full restore has not succeeded, so `./shop start` and `./shop update` refuse to run.
+
+A retry keeps an earlier marker after code 20, and code-21 or unknown failures keep the marker because the database may be partial.
+
+Run `./shop restore ARCHIVE=<known-good-backup>`; a successful restore clears the marker.
 
 ### Linux restore drill
+
+`./shop status` advises `./shop rollback` for an unfinished rollback, `./shop update` before an update rollback point exists, and `./shop restore` only for an unfinished restore with no update marker.
 
 Use a separate empty database and a separate uploads directory for a drill.
 

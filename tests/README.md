@@ -42,6 +42,13 @@ You can pass a test directory to run only the tests in that directory.
 ./vendor/bin/phpunit app/Models
 ```
 
+Run the shop-command tests from the project root with `bash tests/shop-command-test.sh`.
+They use a throwaway local Git origin and stub Docker, curl, backup, and restore commands; they do not use a real shop or Docker stack.
+
+The shop-command cases cover update ordering, missing pinned-image guidance, advice across marker and lock combinations, rollback-active and update-pending states, typed lock clearing, rollback image guards, archive validation, restore exit phases, concurrent installs, and partial-database backup refusals.
+
+The test runner creates its temporary files under `$TMPDIR`, with the current directory as a fallback.
+
 ## Generating code coverage
 
 Run PHPUnit with coverage options to create text and HTML reports.

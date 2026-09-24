@@ -80,6 +80,10 @@ This application can be set up in _many_ different ways and we only support the 
 
 The client install pulls this fork's published image and never builds it.
 
+From Git Bash, run `./shop install` for the guided setup and see the [Windows client install checklist](docs/windows-client-install.md) for first login, hardware, and restore practice.
+
+The raw Compose commands below are the manual alternative.
+
 On Windows, open PowerShell in the repository directory and set the client data directory.
 
 ```powershell
@@ -102,7 +106,17 @@ For a new Windows shop computer, follow [the Windows client install checklist](d
 
 Set `OSPOS_IMAGE_TAG` to `develop-<sha>` to pin a build, then rerun the same full `up -d` command shown above for your system.
 
-To roll back, set `OSPOS_IMAGE_TAG` to an earlier `develop-<sha>` and rerun the same full `up -d` command shown above for your system.
+Use `./shop rollback` to return to the backup and version saved before the last update; it validates the archive before stopping the app and refuses a second rollback until a new update saves a fresh point.
+
+Before `./shop update`, stop sales at the register; it downloads only the app image first and then takes the backup used for rollback, so sales during the download are included.
+
+If a recovery marker remains, `./shop status` prints one command allowed by the current state: retry update before a rollback point is saved, roll back after one is saved, and restore only when `restore.unfinished` shows that the database may be partial.
+
+`./shop restore ARCHIVE=<known-good-backup>` validates the archive before stopping the app and stays refused while an update or rollback is unfinished.
+
+`./shop status` shows a held lock's age and owner, and `./shop unlock` requires the phrase `UNLOCK SHOP LOCK` after showing the same details.
+
+After rollback, `./shop update` compares the saved image digest and downloaded image ID; if neither was recorded, it requires `--allow-unknown-image` and a typed confirmation even when `--yes` is used.
 
 Keep the checkout on the same `develop` commit as the image tag because a fresh database is seeded from the checkout's tracked schema files.
 

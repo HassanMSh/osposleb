@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eEuo pipefail
 
 umask 077
 
@@ -33,6 +33,9 @@ old_uploads_dir=''
 new_uploads_dir=''
 old_uploads_moved=0
 restore_success=0
+database_restore_started=0
+restore_validation_exit=20
+restore_database_may_be_partial_exit=21
 
 # Print the command-line help for the restore tool.
 show_help() {
@@ -57,11 +60,34 @@ This command never restores .env and never drops or recreates the database itsel
 HELP
 }
 
-# Stop with a readable error message without exposing database credentials.
+# Stop with a readable message and return the current restore phase.
 fail() {
     printf 'Error: %s\n' "$1" >&2
-    exit 1
+    if (( database_restore_started == 1 )); then
+        exit "$restore_database_may_be_partial_exit"
+    fi
+    exit "$restore_validation_exit"
 }
+
+# Preserve the restore phase when the operator interrupts the restore.
+restore_signal_exit() {
+    if (( database_restore_started == 1 )); then
+        exit "$restore_database_may_be_partial_exit"
+    fi
+    exit "$restore_validation_exit"
+}
+
+# Convert an unhandled command failure to the restore phase's public exit code.
+restore_command_error() {
+    local command_status=$?
+    printf 'Error: Restore command failed with status %s.\n' "$command_status" >&2
+    if (( database_restore_started == 1 )); then
+        exit "$restore_database_may_be_partial_exit"
+    fi
+    exit "$restore_validation_exit"
+}
+
+trap restore_command_error ERR
 
 # Check that one required external command is available.
 require_command() {
@@ -496,7 +522,7 @@ resolve_uploads_target
 
 stage_dir=$(mktemp -d "${TMPDIR:-/tmp}/ospos-restore.XXXXXX")
 trap cleanup EXIT
-trap 'exit 1' HUP INT TERM
+trap restore_signal_exit HUP INT TERM
 create_defaults_file
 validate_archive_members
 tar -xzf "$archive_path" -C "$stage_dir" --no-same-owner --no-same-permissions --no-overwrite-dir \
@@ -525,6 +551,7 @@ if ! run_mysql -e 'SELECT 1' >/dev/null 2> "$stage_dir/mysql-target-error"; then
     fi
     fail 'Could not access the target database.'
 fi
+database_restore_started=1
 if ! restore_database 2> "$stage_dir/mysql-restore-error"; then
     fail 'Database restore failed; the uploads directory was not changed.'
 fi

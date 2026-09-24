@@ -8,6 +8,7 @@ test_root=$(mktemp -d "$test_tmp_dir/shop-command-test.XXXXXX") || {
     exit 1
 }
 real_git=$(type -P git)
+real_uname=$(type -P uname)
 trap cleanup EXIT
 
 # Remove the throwaway repositories and stub commands after the test run.
@@ -93,7 +94,7 @@ Contents: database.sql, uploads/
 Database SHA-256: $database_checksum
 MANIFEST
 tar -czf "$OSPOS_DATA_DIR/backups/$archive" -C "$stage" database.sql manifest.txt uploads
-printf '2026-09-24T07:17:21Z result=ok archive=%s size=1 deleted=0 copy=none copy_deleted=0 message=ok\n' "$archive" \
+printf '2026-09-24T07:17:21Z result=ok archive=%s size=1 deleted=0 copy=%s copy_deleted=0 message=ok\n' "$archive" "${BACKUP_COPY_VALUE:-none}" \
     >> "$OSPOS_DATA_DIR/backups/backup.log"
 rm -rf -- "$stage"
 BACKUP
@@ -106,7 +107,7 @@ RESTORE
     chmod +x "$script_dir/backup.sh" "$script_dir/restore.sh"
 }
 
-# Install command stubs that record calls and simulate an image pull without Docker.
+# Install Docker, PowerShell, path, platform, curl, Git, and socket stubs for isolated commands.
 write_stub_commands() {
     cat > "$bin_dir/docker" <<'DOCKER'
 #!/usr/bin/env bash
@@ -121,7 +122,15 @@ if [[ $1 == buildx ]]; then
     exit 0
 fi
 if [[ $1 == ps ]]; then
-    printf 'container1\n'
+    if [[ " $* " == *' -a '* ]]; then
+        if [[ " $* " == *'service=ospos'* ]]; then
+            [[ ${NO_OSPOS_CONTAINER:-0} == 1 ]] || printf 'app-container\n'
+        elif [[ " $* " == *'service=mysql'* ]]; then
+            [[ ${NO_MYSQL_CONTAINER:-0} == 1 ]] || printf 'mysql-container\n'
+        fi
+    else
+        printf 'container1\n'
+    fi
     exit 0
 fi
 if [[ $1 == run ]]; then
@@ -135,6 +144,9 @@ if [[ $1 == inspect ]]; then
         if [[ $1 == --format ]]; then format=$2; shift 2; else target=$1; shift; fi
     done
     case $format in
+        *RestartPolicy.Name*)
+            if [[ $target == mysql-container ]]; then printf '%s\n' "${MYSQL_RESTART_POLICY:-always}"; else printf '%s\n' "${OSPOS_RESTART_POLICY:-always}"; fi
+            ;;
         *RepoDigests*)
             if [[ ${SOURCE_DIGEST_MISSING:-0} == 1 && ( $target == sha256:* || -z $target ) ]]; then exit 0; fi
             if [[ $target == hassanshamseddine/osposlb:develop ]]; then
@@ -204,6 +216,11 @@ if [[ $1 == tag ]]; then
     exit 0
 fi
 if [[ $1 == compose ]]; then
+    if [[ " $* " == *' exec -T mysql sh -c '* ]]; then
+        [[ ${RESTORE_COUNTS_FAIL:-0} != 1 ]] || exit 1
+        printf '%s\n' "${RESTORE_COUNTS:-12 34 56}"
+        exit 0
+    fi
     if [[ " $* " == *' pull ospos '* ]]; then
         marker_image=$(<"$OSPOS_DATA_DIR/update.in-progress")
         pinned_image=$(<"$STATE_DIR/update_source_image_id")
@@ -247,6 +264,77 @@ if [[ ${1:-} == pull && ${GIT_PULL_FAIL:-0} == 1 ]]; then exit 1; fi
 exec "$REAL_GIT" "$@"
 GIT
     chmod +x "$bin_dir/docker" "$bin_dir/curl" "$bin_dir/git"
+    cat > "$bin_dir/powershell.exe" <<'POWERSHELL'
+#!/usr/bin/env bash
+set -euo pipefail
+command_text="$*"
+if [[ $command_text == *'-File'*'backup.ps1'* ]]; then
+    mkdir -p -- "$OSPOS_DATA_DIR/backups"
+    printf '2026-09-24T07:17:21Z result=ok archive=ospos-backup-20260924-010101.tar.gz size=1 deleted=0 copy=%s copy_deleted=0 message=ok\n' \
+        "${BACKUP_COPY_VALUE:-none}" >> "$OSPOS_DATA_DIR/backups/backup.log"
+    exit 0
+fi
+if [[ $command_text == *'Get-Volume'* ]]; then printf 'NTFS\r\n'; exit 0; fi
+if [[ $command_text == *'Get-NetTCPConnection'* ]]; then exit "${PS_LISTENER_STATUS:-0}"; fi
+if [[ $command_text == *'Get-Acl'* ]]; then
+    case ${PS_ACL_MODE:-ok} in
+        ok) printf 'ok\r\n' ;;
+        inherited) printf 'inherited\r\n' ;;
+        everyone) printf 'S-1-1-0\r\n' ;;
+        authenticated) printf 'S-1-5-11\r\n' ;;
+        users) printf 'S-1-5-32-545\r\n' ;;
+        unreadable) exit 1 ;;
+    esac
+    exit 0
+fi
+if [[ $command_text == *'ConvertFrom-Json'* ]]; then
+    case ${PS_DOCKER_SETTING:-true} in
+        true|false) printf '%s\r\n' "$PS_DOCKER_SETTING" ;;
+        *) exit 1 ;;
+    esac
+    exit 0
+fi
+if [[ $command_text == *'Get-ScheduledTaskInfo'* ]]; then
+    case ${PS_TASK_MODE:-present} in
+        present) printf 'present|2026-09-25 23:30:00|0\r\n' ;;
+        missing) printf 'missing\r\n' ;;
+        failed) exit 1 ;;
+    esac
+    exit 0
+fi
+if [[ $command_text == *'Get-ScheduledTask'* ]]; then
+    case ${PS_TASK_MODE:-present} in
+        missing) printf 'missing\r\n'; exit 0 ;;
+        failed) exit 1 ;;
+        *) printf 'present\r\n'; exit 0 ;;
+    esac
+fi
+exit 0
+POWERSHELL
+    cat > "$bin_dir/cygpath" <<'CYGPATH'
+#!/usr/bin/env bash
+set -euo pipefail
+case $1 in
+    -w)
+        case $2 in
+            *backup.ps1) printf 'C:\\shop\\scripts\\backup.ps1\r\n' ;;
+            *) printf 'C:\\OSPOS\\Client\\secrets\r\n' ;;
+        esac
+        ;;
+    -u) printf '%s\r\n' "${COPY_FOLDER_LOCAL:-$2}" ;;
+    *) exit 1 ;;
+esac
+CYGPATH
+    cat > "$bin_dir/uname" <<'UNAME'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ ${WINDOWS_MODE:-0} == 1 ]]; then printf 'MINGW64_NT-10.0\n'; else exec "${REAL_UNAME:-/usr/bin/uname}" "$@"; fi
+UNAME
+    cat > "$bin_dir/ss" <<'SS'
+#!/usr/bin/env bash
+exit 0
+SS
+    chmod +x "$bin_dir/powershell.exe" "$bin_dir/cygpath" "$bin_dir/uname" "$bin_dir/ss"
     printf '%s\n' "$old_image_id" > "$state_dir/app_image_id"
     printf '%s\n' "$old_image_id" > "$state_dir/develop_image_id"
     printf '%s\n' "$old_image_id" > "$state_dir/rollback_image_id"
@@ -264,6 +352,26 @@ prepare_client_data() {
     printf 'database.default.database=ospos\n' > "$data_dir/secrets/app.env"
     printf 'Monday sale\n' > "$data_dir/db-state.txt"
     create_backup_archive "$data_dir/backups/ospos-backup-20260924-010001.tar.gz" "$data_dir/db-state.txt"
+}
+
+# Prepare the fixed Windows client path inside the throwaway checkout.
+prepare_windows_client() {
+    windows_client_dir="$checkout/C:/OSPOS/Client"
+    mkdir -p -- "$windows_client_dir/backups" "$windows_client_dir/rollback" "$windows_client_dir/secrets"
+    printf "OSPOS_HTTP_PORT=18080\nOSPOS_BACKUP_DESTINATION=backups\nOSPOS_BACKUP_COPY_TO=''\n" > "$windows_client_dir/ospos.conf"
+    printf 'database.default.database=ospos\ndatabase.default.username=admin\ndatabase.default.password=shop-test-secret\ndatabase.default.DBPrefix=ospos_\n' \
+        > "$windows_client_dir/secrets/app.env"
+    printf 'Windows shop test\n' > "$windows_client_dir/db-state.txt"
+}
+
+# Fail if an output file contains text that should be absent.
+assert_not_contains() {
+    local file=$1 unexpected=$2
+    if grep -Fq -- "$unexpected" "$file"; then
+        printf 'Expected not to find %s in %s\n' "$unexpected" "$file" >&2
+        cat "$file" >&2
+        exit 1
+    fi
 }
 
 # Create a backup archive with the restore files and an optional database name.
@@ -346,7 +454,7 @@ run_shop() {
     shift
     (
         cd "$checkout"
-        REAL_GIT="$real_git" STATE_DIR="$state_dir" DOCKER_LOG="$docker_log" EVENTS="$event_file" \
+        REAL_GIT="$real_git" REAL_UNAME="$real_uname" STATE_DIR="$state_dir" DOCKER_LOG="$docker_log" EVENTS="$event_file" \
             REMOTE_DIGEST="$remote_digest" PULLED_IMAGE_ID="$new_image_id" \
             OSPOS_DATA_DIR="$data_dir" HOME="$case_root/home" PATH="${SHOP_TEST_PATH:-$bin_dir:$PATH}" \
             ./shop "$target" "$@"
@@ -359,7 +467,7 @@ run_shop_with_input() {
     shift 2
     (
         cd "$checkout"
-        printf '%s\n' "$input" | REAL_GIT="$real_git" STATE_DIR="$state_dir" DOCKER_LOG="$docker_log" EVENTS="$event_file" \
+        printf '%s\n' "$input" | REAL_GIT="$real_git" REAL_UNAME="$real_uname" STATE_DIR="$state_dir" DOCKER_LOG="$docker_log" EVENTS="$event_file" \
             REMOTE_DIGEST="$remote_digest" PULLED_IMAGE_ID="$new_image_id" \
             OSPOS_DATA_DIR="$data_dir" HOME="$case_root/home" PATH="${SHOP_TEST_PATH:-$bin_dir:$PATH}" \
             ./shop "$target" "$@"
@@ -1612,6 +1720,133 @@ test_locked_first_install_setup_accepts_lock_folder() {
     [[ -d $setup_dir/.shop-command.lock ]]
 }
 
+# Keep Windows ACL warnings from blocking check or install prerequisites.
+test_windows_secrets_folder_check() {
+    make_case windows-secrets-check
+    prepare_windows_client
+    if ! WINDOWS_MODE=1 PS_ACL_MODE=ok run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'ok: the secrets folder is limited to the shop account.'
+    if ! WINDOWS_MODE=1 PS_ACL_MODE=inherited run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'warning: the secrets folder has inherited access rules'
+    if ! WINDOWS_MODE=1 PS_ACL_MODE=everyone run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'warning: the secrets folder grants access to Everyone'
+    rm -rf -- "$windows_client_dir/secrets"
+    if ! WINDOWS_MODE=1 run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'warning: no secrets folder yet'
+}
+
+# Check empty, present, and missing backup-copy folders without changing check status.
+test_backup_copy_folder_check() {
+    make_case backup-copy-check
+    local copy_folder="$case_root/usb-backups"
+    if ! run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_not_contains "$output_file" 'backup copy folder'
+    mkdir -p -- "$copy_folder"
+    printf "OSPOS_HTTP_PORT=18080\nOSPOS_BACKUP_DESTINATION=backups\nOSPOS_BACKUP_COPY_TO='%s'\n" "$copy_folder" > "$data_dir/ospos.conf"
+    if ! run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" "ok: backup copy folder $copy_folder exists."
+    printf "OSPOS_HTTP_PORT=18080\nOSPOS_BACKUP_DESTINATION=backups\nOSPOS_BACKUP_COPY_TO='%s/missing'\n" "$copy_folder" > "$data_dir/ospos.conf"
+    if ! run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'warning: backup copy folder'
+    printf "OSPOS_HTTP_PORT=18080\nOSPOS_BACKUP_DESTINATION=backups\nOSPOS_BACKUP_COPY_TO='a'\nOSPOS_BACKUP_COPY_TO='b'\n" > "$data_dir/ospos.conf"
+    if ! run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_not_contains "$output_file" 'backup copy folder'
+}
+
+# Convert Windows USB paths through cygpath before checking for their folders.
+test_windows_backup_copy_folder_check() {
+    make_case windows-copy-folder-check
+    prepare_windows_client
+    local copy_folder="$case_root/windows-usb"
+    mkdir -p -- "$copy_folder"
+    printf "OSPOS_HTTP_PORT=18080\nOSPOS_BACKUP_DESTINATION=backups\nOSPOS_BACKUP_COPY_TO='E:\\OSPOS-Backups'\n" \
+        > "$windows_client_dir/ospos.conf"
+    if ! COPY_FOLDER_LOCAL="$copy_folder" WINDOWS_MODE=1 run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'ok: backup copy folder E:\OSPOS-Backups exists.'
+    if ! COPY_FOLDER_LOCAL="$copy_folder/missing" WINDOWS_MODE=1 run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'warning: backup copy folder E:\OSPOS-Backups is missing.'
+}
+
+# Show backup copy results and warn only when a configured copy did not work.
+test_backup_copy_reporting() {
+    make_case backup-copy-report
+    printf "OSPOS_HTTP_PORT=18080\nOSPOS_BACKUP_DESTINATION=backups\nOSPOS_BACKUP_COPY_TO=''\n" > "$data_dir/ospos.conf"
+    if ! BACKUP_COPY_VALUE=- run_shop backup; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Backup copy: -'
+    assert_not_contains "$output_file" 'warning: the backup copy did not succeed'
+    printf "OSPOS_HTTP_PORT=18080\nOSPOS_BACKUP_DESTINATION=backups\nOSPOS_BACKUP_COPY_TO='/media/usb'\n" > "$data_dir/ospos.conf"
+    if ! BACKUP_COPY_VALUE=ok run_shop backup; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Backup copy: ok'
+    assert_not_contains "$output_file" 'warning: the backup copy did not succeed'
+    if ! BACKUP_COPY_VALUE=missing run_shop backup; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Backup copy: missing'
+    assert_contains "$output_file" 'warning: the backup copy did not succeed'
+}
+
+# Remind Windows operators to share the USB folder with Docker Desktop after a failed copy.
+test_windows_backup_copy_warning() {
+    make_case windows-backup-copy-warning
+    prepare_windows_client
+    printf "OSPOS_HTTP_PORT=18080\nOSPOS_BACKUP_DESTINATION=backups\nOSPOS_BACKUP_COPY_TO='E:\\OSPOS-Backups'\n" \
+        > "$windows_client_dir/ospos.conf"
+    if ! WINDOWS_MODE=1 BACKUP_COPY_VALUE=missing run_shop backup; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Backup copy: missing'
+    assert_contains "$output_file" 'Docker Desktop > Settings > Resources > File Sharing'
+}
+
+# Report Windows restart policies and Docker Desktop sign-in startup as checks only.
+test_restart_policy_and_docker_autostart_check() {
+    make_case restart-policy-check
+    prepare_windows_client
+    if ! WINDOWS_MODE=1 PS_DOCKER_SETTING=true OSPOS_RESTART_POLICY=always MYSQL_RESTART_POLICY=always run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'ok: the ospos container restart policy is always.'
+    assert_contains "$output_file" 'ok: the mysql container restart policy is always.'
+    assert_contains "$output_file" 'ok: Docker Desktop starts at login.'
+    if ! WINDOWS_MODE=1 PS_DOCKER_SETTING=false OSPOS_RESTART_POLICY=no MYSQL_RESTART_POLICY=no run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'warning: the ospos container may not restart after a reboot'
+    assert_contains "$output_file" 'warning: the mysql container may not restart after a reboot'
+    assert_contains "$output_file" 'warning: turn on Docker Desktop > Settings > General > Start Docker Desktop when you sign in.'
+    if ! WINDOWS_MODE=1 PS_DOCKER_SETTING=unreadable run_shop check; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'warning: could not read the Docker Desktop start setting'
+}
+
+# Show the Windows daily backup task without making status fail when PowerShell cannot read it.
+test_status_backup_task() {
+    make_case status-backup-task
+    prepare_windows_client
+    if ! WINDOWS_MODE=1 PS_TASK_MODE=present run_shop status; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Backup task: present, next run 2026-09-25 23:30:00, last result 0'
+    if ! WINDOWS_MODE=1 PS_TASK_MODE=missing run_shop status; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Backup task: missing'
+    assert_contains "$output_file" 'warning: run ./shop schedule-backup'
+    if ! WINDOWS_MODE=1 PS_TASK_MODE=failed run_shop status; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Backup task: unknown'
+}
+
+# Keep Linux status output free of the Windows scheduled-task row.
+test_linux_status_has_no_backup_task_row() {
+    make_case linux-status-backup-task
+    if ! run_shop status; then cat "$output_file" >&2; exit 1; fi
+    assert_not_contains "$output_file" 'Backup task:'
+}
+
+# Report restored row counts and duration, while treating a failed count query as a warning.
+test_restore_counts_and_elapsed_time() {
+    make_case restore-counts
+    printf 'database.default.database=ospos\ndatabase.default.username=admin\ndatabase.default.password=shop-test-secret\ndatabase.default.DBPrefix=ospos_\n' \
+        > "$data_dir/secrets/app.env"
+    if ! RESTORE_COUNTS='12 34 56' run_shop restore ARCHIVE=ospos-backup-20260924-010001.tar.gz --yes; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Restored items: 12'
+    assert_contains "$output_file" 'Restored sales: 34'
+    assert_contains "$output_file" 'Restored employees: 56'
+    assert_contains "$output_file" 'Restore took '
+    assert_not_contains "$output_file" 'shop-test-secret'
+    assert_not_contains "$docker_log" 'shop-test-secret'
+    if ! RESTORE_COUNTS_FAIL=1 run_shop restore ARCHIVE=ospos-backup-20260924-010001.tar.gz --yes; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'warning: could not count restored database rows; the restore succeeded.'
+    assert_contains "$output_file" 'Restore took '
+}
+
 # Run each isolated shop-command scenario without contacting a real Docker daemon.
 run_all_tests() {
     test_update_after_rollback_saves_fresh_point
@@ -1655,6 +1890,15 @@ run_all_tests() {
     test_recovery_advice_commands_are_allowed
     test_concurrent_first_installs_share_the_lock
     test_locked_first_install_setup_accepts_lock_folder
+    test_windows_secrets_folder_check
+    test_backup_copy_folder_check
+    test_windows_backup_copy_folder_check
+    test_backup_copy_reporting
+    test_windows_backup_copy_warning
+    test_restart_policy_and_docker_autostart_check
+    test_status_backup_task
+    test_linux_status_has_no_backup_task_row
+    test_restore_counts_and_elapsed_time
     printf 'shop command tests passed\n'
 }
 

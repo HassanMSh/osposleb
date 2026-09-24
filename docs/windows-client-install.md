@@ -45,7 +45,7 @@ Keep the checkout on the `develop` branch. `./shop update` refuses to run from a
 
 The command does these steps and skips any step that is already done, so it is safe to run again:
 
-- Checks Docker Desktop, Linux containers, Git, curl, `sha256sum`, `gzip`, `tar`, the NTFS drive and the app port, and prints `missing: ...` for anything that needs fixing.
+- Checks Docker Desktop, Linux containers, Git, curl, `sha256sum`, `gzip`, `tar`, the NTFS drive and app port; it warns about secrets access, USB copies, restart policies, and Docker Desktop startup.
 - Creates `C:\OSPOS\Client` with its secrets and locks the folder before setup; setup accepts the lock but stops if the folder has any other files and no `ospos.conf`.
 - Downloads the app and database images the first time, starts the app, and waits until it answers.
 - Schedules the daily backup at 23:30 (`./shop install TIME=HH:MM` picks another time).
@@ -58,7 +58,7 @@ Then:
 - Copy `C:\OSPOS\Client\secrets` to a safe place that is not the backup drive. It holds the database passwords and the encryption key.
 - Check that `C:\OSPOS\Client\ospos.conf` contains `OSPOS_UPLOADS=client_uploads`. Windows setup adds it so item pictures are kept in a Docker volume.
 - If port 80 is already used, `./shop install` creates the client folder and then stops. Set `OSPOS_HTTP_PORT=8080` in `ospos.conf`, run `./shop install` again, and use `http://localhost:8080/`.
-- `./shop status` shows the containers, the code version, the running image, and the last backup result.
+- `./shop status` shows the containers, code version, running image, last backup result, and daily backup task status.
 
 ## 3. First login and settings
 
@@ -114,12 +114,14 @@ Result of the first run: pending. Record the device models and any settings need
 ./shop backups
 ```
 
-- `./shop backup` prints the last line of `C:\OSPOS\Client\backups\backup.log`, which must be a `result=ok` line.
+- `./shop backup` prints the last backup log line and the copy result; a failed configured USB copy includes a Docker Desktop File Sharing reminder.
 - To change the daily time, run `./shop schedule-backup TIME=HH:MM`. To remove the task, run `./shop schedule-backup REMOVE=1`.
 - The scheduled task runs only while the shop's Windows account is logged in.
 - Windows backups do not include item pictures yet (issue #82).
 
 Do one practice restore before the shop starts selling, because it replaces the database. Record how long it takes. The command asks before it replaces anything, stops the app, restores, and starts the app again.
+
+After restore, check the printed item, sale, and employee counts and the elapsed time.
 
 The restore launcher writes `restore.unfinished` before it runs; a new marker is cleared after code 20, while an earlier marker and code-21 or unknown failures keep it.
 

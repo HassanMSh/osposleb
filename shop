@@ -590,6 +590,10 @@ run_launcher() {
         "$repo_root/scripts/$name.sh" "$@"
     fi
 }
+# Run PowerShell and remove Windows carriage returns from its output.
+run_powershell() {
+    powershell.exe "$@" | tr -d '\r'
+}
 # Ask for confirmation and stop safely when input is not interactive.
 confirm_action() {
     local message=$1 answer
@@ -632,6 +636,98 @@ project_ospos_container() {
     docker ps --filter "label=com.docker.compose.project=$project_name" \
         --filter 'label=com.docker.compose.service=ospos' --format '{{.ID}}' 2>/dev/null | sed -n '1p'
 }
+# Find this project's container for one Compose service, including stopped containers.
+project_service_container() {
+    docker ps -a --filter "label=com.docker.compose.project=$project_name" \
+        --filter "label=com.docker.compose.service=$1" --format '{{.ID}}' 2>/dev/null | sed -n '1p'
+}
+# Report restart policies for this project's app and database containers.
+check_restart_policies() {
+    local service container policy
+    for service in ospos mysql; do
+        container=$(project_service_container "$service" || true)
+        [[ -n $container ]] || continue
+        policy=$(docker inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$container" 2>/dev/null | tr -d '\r' || true)
+        if [[ -z $policy || $policy == no ]]; then
+            printf 'warning: the %s container may not restart after a reboot; set its Compose restart policy to always.\n' "$service"
+        else
+            printf 'ok: the %s container restart policy is %s.\n' "$service" "$policy"
+        fi
+    done
+}
+# Check the Windows secrets folder ACL by SID without reading localized ACL text.
+check_secrets_permissions() {
+    local windows_path command result status=0
+    [[ $platform == windows ]] || return 0
+    if [[ ! -d $data_dir/secrets ]]; then
+        printf 'warning: no secrets folder yet; run ./shop install to create and secure it.\n'
+        return 0
+    fi
+    windows_path=$(cygpath -w "$data_dir/secrets" 2>/dev/null | tr -d '\r' || true)
+    if [[ -z $windows_path ]]; then
+        printf 'warning: could not check the secrets folder; run ./shop install or apply the icacls command in docs/windows-client-install.md.\n'
+        return 0
+    fi
+    windows_path=${windows_path//\'/\'\'}
+    command="\$ErrorActionPreference = 'Stop'; try { \$acl = Get-Acl -LiteralPath '$windows_path'; if (@(\$acl.Access | Where-Object { \$_.IsInherited }).Count -gt 0) { Write-Output 'inherited'; exit 0 }; foreach (\$rule in \$acl.Access) { \$sid = \$rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value; if (\$sid -in @('S-1-1-0', 'S-1-5-11', 'S-1-5-32-545')) { Write-Output \$sid; exit 0 } }; Write-Output 'ok' } catch { exit 2 }"
+    result=$(run_powershell -NoProfile -Command "$command" 2>/dev/null) || status=$?
+    if (( status != 0 )); then
+        printf 'warning: could not check the secrets folder; run ./shop install or apply the icacls command in docs/windows-client-install.md.\n'
+    elif [[ $result == ok ]]; then
+        printf 'ok: the secrets folder is limited to the shop account.\n'
+    elif [[ $result == inherited ]]; then
+        printf 'warning: the secrets folder has inherited access rules; rerun ./shop install or apply the icacls command in docs/windows-client-install.md.\n'
+    else
+        case $result in
+            S-1-1-0) result='Everyone' ;;
+            S-1-5-11) result='Authenticated Users' ;;
+            S-1-5-32-545) result='Users' ;;
+            *) result='an unrecognized access rule' ;;
+        esac
+        printf 'warning: the secrets folder grants access to %s; rerun ./shop install or apply the icacls command in docs/windows-client-install.md.\n' "$result"
+    fi
+}
+# Read OSPOS_BACKUP_COPY_TO into backup_copy_to, treating a malformed setting as empty instead of stopping.
+read_backup_copy_setting() {
+    backup_copy_to=$(read_config_value "$data_dir/ospos.conf" OSPOS_BACKUP_COPY_TO optional 2>/dev/null && printf '%s' "$config_value") || backup_copy_to=''
+}
+# Check the optional host folder used for a second backup copy.
+check_backup_copy_folder() {
+    local copy_to folder
+    read_backup_copy_setting
+    copy_to=$backup_copy_to
+    [[ -n $copy_to ]] || return 0
+    folder=$copy_to
+    if [[ $platform == windows ]]; then
+        folder=$(cygpath -u "$copy_to" 2>/dev/null | tr -d '\r' || true)
+    fi
+    if [[ -n $folder && -d $folder ]]; then
+        printf 'ok: backup copy folder %s exists.\n' "$copy_to"
+    else
+        printf 'warning: backup copy folder %s is missing. Plug in the drive and check OSPOS_BACKUP_COPY_TO in ospos.conf.\n' "$copy_to"
+    fi
+}
+# Check whether Docker Desktop is set to start when the Windows user signs in.
+check_docker_autostart() {
+    local command result status=0
+    [[ $platform == windows ]] || return 0
+    command="\$ErrorActionPreference = 'Stop'; \$appData = [Environment]::GetFolderPath('ApplicationData'); \$files = @(@{ Path = (Join-Path \$appData 'Docker/settings-store.json'); Key = 'AutoStart' }, @{ Path = (Join-Path \$appData 'Docker/settings.json'); Key = 'autoStart' }); foreach (\$file in \$files) { if (Test-Path -LiteralPath \$file.Path) { try { \$settings = Get-Content -LiteralPath \$file.Path -Raw | ConvertFrom-Json; \$property = \$settings.PSObject.Properties[\$file.Key]; if (\$null -ne \$property) { if ([bool]\$property.Value) { Write-Output 'true' } else { Write-Output 'false' }; exit 0 } } catch { } } }; exit 2"
+    result=$(run_powershell -NoProfile -Command "$command" 2>/dev/null) || status=$?
+    if (( status == 0 )) && [[ $result == true ]]; then
+        printf 'ok: Docker Desktop starts at login.\n'
+    elif (( status == 0 )) && [[ $result == false ]]; then
+        printf 'warning: turn on Docker Desktop > Settings > General > Start Docker Desktop when you sign in.\n'
+    else
+        printf 'warning: could not read the Docker Desktop start setting; check Docker Desktop > Settings > General.\n'
+    fi
+}
+# Check the optional second-copy folder and report any restart or startup warnings.
+check_optional_settings() {
+    check_secrets_permissions
+    check_backup_copy_folder
+    check_restart_policies
+    check_docker_autostart
+}
 # Check whether this project's app container owns the configured host port.
 project_uses_http_port() {
     local container port
@@ -640,7 +736,7 @@ project_uses_http_port() {
     port=$(docker inspect --format '{{range (index .NetworkSettings.Ports "80/tcp")}}{{.HostPort}}{{end}}' "$container" 2>/dev/null) || return 1
     [[ $port == "$http_port" ]]
 }
-# Print each required host check. Return 1 when anything other than a busy HTTP port is missing, 3 when only the port is busy, and 0 when all pass.
+# Print required host checks and optional warnings without changing the established return codes.
 run_check() {
     local failed=0 port_busy=0 docker_type filesystem listening port_result utility
     if type -P docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
@@ -665,12 +761,12 @@ run_check() {
         if type -P "$utility" >/dev/null 2>&1; then printf 'ok: %s is installed.\n' "$utility"; else printf 'missing: install %s in Git Bash or the Linux shell.\n' "$utility"; failed=1; fi
     done
     if [[ $platform == windows ]]; then
-        filesystem=$(powershell.exe -NoProfile -Command '(Get-Volume -DriveLetter C).FileSystem' 2>/dev/null | tr -d '\r' | tail -n 1 || true)
+        filesystem=$(run_powershell -NoProfile -Command '(Get-Volume -DriveLetter C).FileSystem' 2>/dev/null | tail -n 1 || true)
         if [[ $filesystem == NTFS ]]; then printf 'ok: C: uses NTFS.\n'; else printf 'missing: put the client folder on an NTFS drive.\n'; failed=1; fi
     fi
     listening=0
     if [[ $platform == windows ]]; then
-        if powershell.exe -NoProfile -Command "try { \$used = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { \$_.LocalPort -eq $http_port }).Count -gt 0 } catch { exit 2 }; if (\$used) { exit 1 } else { exit 0 }" >/dev/null 2>&1; then
+        if run_powershell -NoProfile -Command "try { \$used = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { \$_.LocalPort -eq $http_port }).Count -gt 0 } catch { exit 2 }; if (\$used) { exit 1 } else { exit 0 }" >/dev/null 2>&1; then
             listening=0
         else
             port_result=$?
@@ -692,6 +788,7 @@ run_check() {
         printf 'missing: free HTTP port %s or set OSPOS_HTTP_PORT in ospos.conf.\n' "$http_port"
         port_busy=1
     fi
+    check_optional_settings
     (( failed == 0 )) || return 1
     (( port_busy == 0 )) || return 3
     return 0
@@ -740,7 +837,7 @@ run_install() {
     run_compose up -d --pull never
     wait_for_app
     if [[ $platform == windows ]]; then
-        if powershell.exe -NoProfile -Command "if (Get-ScheduledTask -TaskName 'OSPOS daily backup' -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >/dev/null 2>&1; then
+        if run_powershell -NoProfile -Command "if (Get-ScheduledTask -TaskName 'OSPOS daily backup' -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >/dev/null 2>&1; then
             schedule_exists=1
         fi
         if (( schedule_exists == 1 )); then
@@ -770,12 +867,24 @@ last_backup_line() {
         printf 'No backup log.\n'
     fi
 }
-# Run the backup launcher and print its last result line.
+# Run the backup launcher, print its last line and copy result, and warn about a failed configured copy.
 run_backup() {
-    local line status=0
+    local line status=0 copy_status=''
     run_launcher backup || status=$?
     line=$(last_backup_line)
     printf '%s\n' "$line"
+    if [[ $line =~ (^|[[:space:]])copy=([^[:space:]]+) ]]; then
+        copy_status=${BASH_REMATCH[2]}
+        printf 'Backup copy: %s\n' "$copy_status"
+        read_backup_copy_setting
+        if [[ -n $backup_copy_to && $copy_status != ok ]]; then
+            if [[ $platform == windows ]]; then
+                printf 'warning: the backup copy did not succeed; check the drive and Docker Desktop > Settings > Resources > File Sharing.\n'
+            else
+                printf 'warning: the backup copy did not succeed; check OSPOS_BACKUP_COPY_TO and the destination folder.\n'
+            fi
+        fi
+    fi
     return "$status"
 }
 # Run a backup and check that it created a new, complete archive.
@@ -1061,9 +1170,9 @@ run_stop() {
     printf 'This will stop the shop containers and keep the database and uploads volumes.\n'
     run_compose down
 }
-# Show the running state, recovery markers, lock owner, advice, and last backup line.
+# Show container and recovery state, the last backup line, and the Windows backup task.
 run_status() {
-    local container image_id image_created commit branch
+    local container image_id image_created commit branch task_result task_command task_status=0
     read_rollback_config
     if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
     run_compose ps
@@ -1096,6 +1205,21 @@ run_status() {
     show_shop_lock
     recovery_advice
     printf 'Last backup: %s\n' "$(last_backup_line)"
+    if [[ $platform == windows ]]; then
+        task_command="\$ErrorActionPreference = 'Stop'; try { \$task = Get-ScheduledTask -TaskName 'OSPOS daily backup' -ErrorAction SilentlyContinue; if (\$null -eq \$task) { Write-Output 'missing' } else { \$info = Get-ScheduledTaskInfo -TaskName 'OSPOS daily backup' -ErrorAction Stop; if (\$info.NextRunTime) { \$next = \$info.NextRunTime.ToString('yyyy-MM-dd HH:mm:ss') } else { \$next = 'none (task disabled or no trigger)' }; Write-Output ('present|' + \$next + '|' + [string]\$info.LastTaskResult) } } catch { exit 2 }"
+        task_result=$(run_powershell -NoProfile -Command "$task_command" 2>/dev/null) || task_status=$?
+        if (( task_status != 0 )) || [[ -z $task_result ]]; then
+            printf 'Backup task: unknown\n'
+        elif [[ $task_result == missing ]]; then
+            printf 'Backup task: missing\n'
+            printf 'warning: run ./shop schedule-backup to create the daily backup task.\n'
+        elif [[ $task_result == present\|* ]]; then
+            task_result=${task_result#present\|}
+            printf 'Backup task: present, next run %s, last result %s\n' "${task_result%\|*}" "${task_result##*\|}"
+        else
+            printf 'Backup task: unknown\n'
+        fi
+    fi
 }
 # List backup archives with their sizes and dates.
 run_backups() {
@@ -1120,9 +1244,71 @@ run_backups() {
         [[ -n $name ]] && ls -lh --time-style=long-iso -- "$backup_destination/$name"
     done <<< "$sorted_names"
 }
-# Validate an archive and restore it only when no update or rollback is unfinished; restart after a first pre-import failure.
+# Read one app.env setting without executing the secrets file or printing its value.
+read_restore_config_value() {
+    local file=$1 key=$2 line raw pattern matches=0
+    restore_config_value=''
+    [[ -r $file ]] || return 1
+    pattern="^[[:space:]]*${key//./\\.}[[:space:]]*=[[:space:]]*(.*)$"
+    while IFS= read -r line || [[ -n $line ]]; do
+        if [[ $line =~ $pattern ]]; then
+            matches=$((matches + 1))
+            raw=${BASH_REMATCH[1]}
+            raw="${raw#"${raw%%[![:space:]]*}"}"
+            raw="${raw%"${raw##*[![:space:]]}"}"
+            if [[ ${raw:0:1} == "'" ]]; then
+                [[ ${#raw} -ge 2 && ${raw: -1} == "'" ]] || return 1
+                restore_config_value=${raw:1:${#raw}-2}
+            elif [[ ${raw:0:1} == '"' ]]; then
+                [[ ${#raw} -ge 2 && ${raw: -1} == '"' ]] || return 1
+                restore_config_value=${raw:1:${#raw}-2}
+            else
+                raw=${raw%%#*}
+                raw="${raw#"${raw%%[![:space:]]*}"}"
+                raw="${raw%"${raw##*[![:space:]]}"}"
+                restore_config_value=$raw
+            fi
+        fi
+    done < "$file"
+    (( matches == 1 ))
+}
+# Print restored row counts without exposing database credentials in command arguments.
+print_restored_counts() {
+    local file="$data_dir/secrets/app.env" database username password prefix query counts
+    if ! read_restore_config_value "$file" database.default.database; then
+        printf 'warning: could not count restored database rows; the restore succeeded.\n'
+        return 0
+    fi
+    database=$restore_config_value
+    if ! read_restore_config_value "$file" database.default.username; then
+        printf 'warning: could not count restored database rows; the restore succeeded.\n'
+        return 0
+    fi
+    username=$restore_config_value
+    if ! read_restore_config_value "$file" database.default.password; then
+        printf 'warning: could not count restored database rows; the restore succeeded.\n'
+        return 0
+    fi
+    password=$restore_config_value
+    if read_restore_config_value "$file" database.default.DBPrefix; then prefix=$restore_config_value; else prefix=''; fi
+    if [[ ! $database =~ ^[A-Za-z0-9_][A-Za-z0-9_-]*$ || ! $username =~ ^[A-Za-z0-9_][A-Za-z0-9_-]*$ || ! $prefix =~ ^[A-Za-z0-9_]*$ || -z $password ]]; then
+        printf 'warning: could not count restored database rows; the restore succeeded.\n'
+        return 0
+    fi
+    query="SELECT (SELECT COUNT(*) FROM \`${prefix}items\` WHERE deleted = 0), (SELECT COUNT(*) FROM \`${prefix}sales\`), (SELECT COUNT(*) FROM \`${prefix}employees\` WHERE deleted = 0);"
+    if counts=$(run_compose exec -T mysql sh -c 'umask 077; IFS= read -r password || exit 3; defaults=$(mktemp) || exit 3; printf "[client]\\npassword=%s\\n" "$password" > "$defaults"; unset password; status=0; mariadb --defaults-extra-file="$defaults" --protocol=tcp --host=127.0.0.1 --user="$1" --database="$2" --batch --skip-column-names --execute "$3" || status=$?; rm -f "$defaults"; exit "$status"' sh "$username" "$database" "$query" <<< "$password" 2>/dev/null); then
+        if [[ $counts =~ ^([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)$ ]]; then
+            printf 'Restored items: %s\nRestored sales: %s\nRestored employees: %s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
+        else
+            printf 'warning: could not count restored database rows; the restore succeeded.\n'
+        fi
+    else
+        printf 'warning: could not count restored database rows; the restore succeeded.\n'
+    fi
+}
+# Validate and restore an archive, restart after a first pre-import failure, and report restored counts and elapsed time.
 run_restore() {
-    local archive_path restore_status=0 recovery_command='./shop update'
+    local archive_path restore_status=0 recovery_command='./shop update' restore_started
     read_rollback_config
     refuse_unfinished_rollback
     if [[ -e $data_dir/update.in-progress ]] || (( update_pending == 1 )); then
@@ -1144,6 +1330,7 @@ run_restore() {
     validate_rollback_archive "$archive_path"
     printf 'This will replace the shop database and uploads with the contents of %s.\n' "$archive_path"
     confirm_action 'This restore will replace current shop data.'
+    restore_started=$SECONDS
     if (( rollback_active == 1 )); then image_tag=rollback; else image_tag=develop; fi
     run_compose stop ospos
     run_compose up -d --pull never mysql
@@ -1164,6 +1351,8 @@ run_restore() {
         return "$restore_status"
     fi
     run_start
+    print_restored_counts
+    printf 'Restore took %s seconds.\n' "$((SECONDS - restore_started))"
 }
 # Schedule daily backups on Windows or print the Linux cron entry.
 run_schedule_backup() {

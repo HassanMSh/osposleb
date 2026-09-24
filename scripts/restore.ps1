@@ -52,8 +52,9 @@ function Get-RestoreUpdatePending {
     return [int]$pendingValues[0]
 }
 
-# Refuse a direct restore when an update or rollback needs recovery first.
+# Refuse direct restores unless ./shop explicitly marked this launcher call as rollback recovery.
 function Refuse-RestoreRecovery {
+    if ($env:OSPOS_SHOP_LOCK_HELD -eq '1' -and $env:OSPOS_RESTORE_FOR_ROLLBACK -eq '1') { return }
     $rollbackUnfinished = Join-Path $dataDirectory 'rollback.unfinished'
     $updateInProgress = Join-Path $dataDirectory 'update.in-progress'
     if (Test-Path -LiteralPath $rollbackUnfinished) {

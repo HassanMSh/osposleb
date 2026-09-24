@@ -108,11 +108,23 @@ Run `./shop check` to review the Windows secrets folder, USB backup folder, rest
 
 Set `OSPOS_IMAGE_TAG` to `develop-<sha>` to pin a build, then rerun the same full `up -d` command shown above for your system.
 
-Use `./shop rollback` to return to the backup and version saved before the last update; it validates the archive before stopping the app and refuses a second rollback until a new update saves a fresh point.
+Use `./shop rollback` to return to the backup and version saved before the last update; it validates the archive before stopping the app, restores through the current checkout, then checks out the saved code and starts the saved image.
+
+A second rollback is refused until a new update saves a fresh point.
 
 Before `./shop update`, stop sales at the register; it downloads only the app image first and then takes the backup used for rollback, so sales during the download are included.
 
-If a recovery marker remains, `./shop status` prints one command allowed by the current state: retry update before a rollback point is saved, roll back after one is saved, and restore only when `restore.unfinished` shows that the database may be partial.
+If a recovery marker remains, `./shop status` prints the recovery steps for the current state: retry update before a rollback point is saved, roll back after one is saved, and restore only when `restore.unfinished` shows that the database may be partial.
+
+If rollback fails after checking out the saved code, run these commands in order:
+
+```bash
+git switch develop
+git pull --ff-only origin develop
+./shop rollback
+```
+
+If `git pull` fails, restore the internet connection and run it again before `./shop rollback`; the retry needs the fixed script from `develop`.
 
 `./shop restore ARCHIVE=<known-good-backup>` validates the archive before stopping the app and stays refused while an update or rollback is unfinished.
 

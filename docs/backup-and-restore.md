@@ -150,6 +150,18 @@ After a successful restore, `./shop` prints counts for items, sales, and employe
 
 Before rollback stops the app, it checks the archive checksum, its manifest and database checksum, and fully extracts every archive entry into a temporary folder.
 
+Rollback runs the restore launcher from the current checkout before it checks out the saved commit, then starts the saved image and clears `rollback.unfinished` only after the app answers.
+
+Retry an interrupted rollback with `./shop rollback`; if it fails after the saved code is checked out, run these commands in order:
+
+```bash
+git switch develop
+git pull --ff-only origin develop
+./shop rollback
+```
+
+If `git pull` fails, restore the internet connection and run it again before `./shop rollback`; the retry needs the fixed script from `develop`.
+
 An older rollback record without an archive checksum is accepted after validation, and rollback saves the calculated checksum only after its archive, commit, and image checks pass.
 
 Rollback records the source image ID and repository digest; after pulling an update, `./shop` stops if the downloaded image ID matches the image that was rolled back.

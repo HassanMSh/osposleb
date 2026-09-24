@@ -59,9 +59,12 @@ release_restore_lock() {
     restore_lock_acquired=0
 }
 
-# Refuse a direct restore when an update or rollback needs recovery first.
+# Refuse direct restores unless ./shop explicitly marked this launcher call as rollback recovery.
 refuse_recovery_markers() {
     local line update_pending=0 recovery_command='./shop update'
+    if [[ ${OSPOS_SHOP_LOCK_HELD:-0} == 1 && ${OSPOS_RESTORE_FOR_ROLLBACK:-0} == 1 ]]; then
+        return 0
+    fi
     if [[ -f $data_dir/rollback.conf ]]; then
         while IFS= read -r line || [[ -n $line ]]; do
             [[ $line != UPDATE_PENDING=1 ]] || update_pending=1

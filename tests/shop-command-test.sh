@@ -68,7 +68,7 @@ make_case() {
     prepare_client_data
 }
 
-# Write backup and restore launchers that use only the throwaway client directory.
+# Write a backup stub and copy the real restore launcher into the throwaway checkout.
 write_launcher_stubs() {
     local script_dir=$1
     cat > "$script_dir/backup.sh" <<'BACKUP'
@@ -98,12 +98,7 @@ printf '2026-09-24T07:17:21Z result=ok archive=%s size=1 deleted=0 copy=%s copy_
     >> "$OSPOS_DATA_DIR/backups/backup.log"
 rm -rf -- "$stage"
 BACKUP
-    cat > "$script_dir/restore.sh" <<'RESTORE'
-#!/usr/bin/env bash
-set -euo pipefail
-printf 'RESTORE\n' >> "$EVENTS"
-exit "${RESTORE_EXIT_CODE:-0}"
-RESTORE
+    cp -- "$source_root/scripts/restore.sh" "$script_dir/restore.sh"
     chmod +x "$script_dir/backup.sh" "$script_dir/restore.sh"
 }
 
@@ -134,7 +129,13 @@ if [[ $1 == ps ]]; then
     exit 0
 fi
 if [[ $1 == run ]]; then
-    exit "${RESTORE_DOCKER_EXIT:-0}"
+    if [[ -n ${EVENTS:-} ]]; then
+        printf 'RESTORE\n' >> "$EVENTS"
+        if [[ -n ${REAL_GIT:-} ]]; then
+            printf 'RESTORE_HEAD=%s\n' "$("$REAL_GIT" rev-parse HEAD)" >> "$EVENTS"
+        fi
+    fi
+    exit "${RESTORE_DOCKER_EXIT:-${RESTORE_EXIT_CODE:-0}}"
 fi
 if [[ $1 == inspect ]]; then
     format=''
@@ -249,6 +250,9 @@ if [[ $1 == compose ]]; then
             stop|down) printf 'COMPOSE_%s\n' "${arg^^}" >> "$EVENTS" ;;
         esac
     done
+    if [[ ${OSPOS_IMAGE_TAG:-develop} == rollback && ${ROLLBACK_APP_UP_FAIL:-0} == 1 && " $* " == *' up '* && " $* " != *' mysql '* ]]; then
+        exit 1
+    fi
     exit 0
 fi
 exit 0
@@ -261,6 +265,7 @@ CURL
 #!/usr/bin/env bash
 if [[ ${1:-} == pull ]]; then printf 'GIT_PULL\n' >> "$EVENTS"; fi
 if [[ ${1:-} == pull && ${GIT_PULL_FAIL:-0} == 1 ]]; then exit 1; fi
+if [[ ${1:-} == checkout && ${2:-} == --detach && ${GIT_CHECKOUT_FAIL:-0} == 1 ]]; then exit 1; fi
 exec "$REAL_GIT" "$@"
 GIT
     chmod +x "$bin_dir/docker" "$bin_dir/curl" "$bin_dir/git"
@@ -345,9 +350,9 @@ SS
     : > "$docker_log"
 }
 
-# Create shop settings, the configured database name, and simulated database state for one test.
+# Create shop settings, the uploads folder, and simulated database state for one test.
 prepare_client_data() {
-    mkdir -p -- "$data_dir/backups" "$data_dir/rollback" "$data_dir/secrets"
+    mkdir -p -- "$data_dir/backups" "$data_dir/rollback" "$data_dir/secrets" "$data_dir/uploads"
     printf 'OSPOS_HTTP_PORT=18080\nOSPOS_BACKUP_DESTINATION=backups\n' > "$data_dir/ospos.conf"
     printf 'database.default.database=ospos\n' > "$data_dir/secrets/app.env"
     printf 'Monday sale\n' > "$data_dir/db-state.txt"
@@ -1039,7 +1044,7 @@ test_direct_restore_refuses_update_and_rollback_recovery() {
     local status=0
 
     : > "$data_dir/rollback.unfinished"
-    if OSPOS_DATA_DIR="$data_dir" DOCKER_LOG="$docker_log" PATH="$bin_dir:$PATH" \
+    if OSPOS_SHOP_LOCK_HELD=1 OSPOS_DATA_DIR="$data_dir" DOCKER_LOG="$docker_log" PATH="$bin_dir:$PATH" \
         bash "$source_root/scripts/restore.sh" --archive "$case_root/restore.tar.gz" --yes > "$output_file" 2>&1; then
         printf 'Expected direct restore to refuse an unfinished rollback.\n' >&2
         exit 1
@@ -1047,6 +1052,7 @@ test_direct_restore_refuses_update_and_rollback_recovery() {
         status=$?
     fi
     [[ $status == 20 ]]
+    assert_contains "$output_file" 'Error: A rollback did not finish, so the database state is unknown.'
     assert_contains "$output_file" 'Recovery command: ./shop rollback'
     [[ ! -s $docker_log ]]
     rm -f -- "$data_dir/rollback.unfinished"
@@ -1202,6 +1208,156 @@ TAR
     [[ $status == 21 ]]
     assert_contains "$output_file" 'Database restore failed'
     assert_contains "$case_root/mysql.log" 'SELECT 1'
+}
+
+# Restore from the current checkout before switching to the saved rollback commit.
+test_rollback_restores_before_checkout() {
+    make_case rollback-restore-order
+    write_rollback_record "$base_commit" 0 0 '' ''
+    "$real_git" -C "$checkout" pull --ff-only origin develop >/dev/null 2>&1
+    if ! run_shop rollback --yes; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$event_file" "RESTORE_HEAD=$latest_commit"
+    [[ $("$real_git" -C "$checkout" rev-parse HEAD) == "$base_commit" ]]
+    assert_contains "$data_dir/rollback.conf" 'ROLLBACK_ACTIVE=1'
+    [[ ! -e $data_dir/rollback.unfinished ]]
+    [[ ! -e $data_dir/restore.unfinished ]]
+}
+
+# Finish the client recovery path without replacing its saved rolled-back-from values.
+test_rollback_retry_keeps_recorded_source_values() {
+    make_case rollback-retry-recorded-source
+    write_rollback_record "$base_commit" 0 0 "$latest_commit" "$digest_new" "$new_image_id"
+    "$real_git" -C "$checkout" checkout --detach "$base_commit" >/dev/null 2>&1
+    : > "$data_dir/rollback.unfinished"
+    "$real_git" -C "$checkout" switch develop >/dev/null 2>&1
+    "$real_git" -C "$checkout" pull --ff-only origin develop >/dev/null 2>&1
+    if ! run_shop rollback --yes; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$data_dir/rollback.conf" "ROLLBACK_FROM_COMMIT=$latest_commit"
+    assert_contains "$data_dir/rollback.conf" "ROLLBACK_FROM_DIGEST=$digest_new"
+    assert_contains "$data_dir/rollback.conf" "ROLLBACK_FROM_IMAGE_ID=$new_image_id"
+    [[ $("$real_git" -C "$checkout" rev-parse HEAD) == "$base_commit" ]]
+    [[ ! -e $data_dir/rollback.unfinished ]]
+    [[ ! -e $data_dir/restore.unfinished ]]
+}
+
+# Keep rollback recovery state after checkout failure and finish on the next retry.
+test_rollback_retries_after_checkout_failure() {
+    make_case rollback-checkout-retry
+    write_rollback_record "$base_commit" 0 0 '' ''
+    "$real_git" -C "$checkout" pull --ff-only origin develop >/dev/null 2>&1
+    if GIT_CHECKOUT_FAIL=1 run_shop rollback --yes; then
+        printf 'Expected the saved-code checkout to fail after restore.\n' >&2
+        exit 1
+    fi
+    assert_contains "$output_file" 'Recovery command: ./shop rollback'
+    assert_not_contains "$output_file" 'Recovery command: git switch develop'
+    assert_contains "$event_file" "RESTORE_HEAD=$latest_commit"
+    [[ -e $data_dir/rollback.unfinished ]]
+    [[ ! -e $data_dir/restore.unfinished ]]
+    assert_contains "$data_dir/rollback.conf" "ROLLBACK_FROM_COMMIT=$latest_commit"
+    if ! run_shop rollback --yes; then cat "$output_file" >&2; exit 1; fi
+    [[ $("$real_git" -C "$checkout" rev-parse HEAD) == "$base_commit" ]]
+    [[ ! -e $data_dir/rollback.unfinished ]]
+    assert_contains "$data_dir/rollback.conf" "ROLLBACK_FROM_COMMIT=$latest_commit"
+}
+
+# Recover after rollback checks out pre-fix code while local develop trails the fixed remote.
+test_rollback_recovers_from_pre_fix_saved_code() {
+    local pre_fix_commit fixed_commit restore_count expected_advice actual_advice
+    make_case rollback-pre-fix-saved-code
+    "$real_git" -C "$seed_repo" checkout -b pre-fix "$latest_commit" >/dev/null 2>&1
+    "$real_git" -C "$source_root" show 693e31202:shop > "$seed_repo/shop"
+    "$real_git" -C "$source_root" show 693e31202:scripts/restore.sh > "$seed_repo/scripts/restore.sh"
+    chmod +x "$seed_repo/shop" "$seed_repo/scripts/restore.sh"
+    "$real_git" -C "$seed_repo" add shop scripts/restore.sh
+    "$real_git" -C "$seed_repo" commit -m 'pre-fix rollback recovery code' >/dev/null
+    pre_fix_commit=$("$real_git" -C "$seed_repo" rev-parse HEAD)
+    "$real_git" -C "$seed_repo" checkout develop >/dev/null 2>&1
+    "$real_git" -C "$seed_repo" merge --ff-only pre-fix >/dev/null 2>&1
+    "$real_git" -C "$seed_repo" push origin develop >/dev/null 2>&1
+    cp -- "$source_root/shop" "$seed_repo/shop"
+    cp -- "$source_root/scripts/restore.sh" "$seed_repo/scripts/restore.sh"
+    chmod +x "$seed_repo/shop" "$seed_repo/scripts/restore.sh"
+    "$real_git" -C "$seed_repo" add shop scripts/restore.sh
+    "$real_git" -C "$seed_repo" commit -m 'restore fixed rollback recovery code' >/dev/null
+    fixed_commit=$("$real_git" -C "$seed_repo" rev-parse HEAD)
+    "$real_git" -C "$seed_repo" push origin develop >/dev/null 2>&1
+    latest_commit=$fixed_commit
+    "$real_git" -C "$checkout" fetch origin develop >/dev/null 2>&1
+    "$real_git" -C "$checkout" reset --hard "$pre_fix_commit" >/dev/null 2>&1
+    [[ $("$real_git" -C "$checkout" rev-parse develop) == "$pre_fix_commit" ]]
+    [[ $("$real_git" -C "$checkout" rev-parse origin/develop) == "$fixed_commit" ]]
+    if "$real_git" -C "$checkout" show develop:shop | grep -Fq 'rollback_checkout_succeeded'; then
+        printf 'Expected local develop to keep the pre-fix shop launcher.\n' >&2
+        exit 1
+    fi
+    if "$real_git" -C "$checkout" show develop:scripts/restore.sh | grep -Fq 'OSPOS_RESTORE_FOR_ROLLBACK'; then
+        printf 'Expected local develop to keep the pre-fix restore guard.\n' >&2
+        exit 1
+    fi
+    "$real_git" -C "$checkout" checkout --detach "$fixed_commit" >/dev/null 2>&1
+    base_commit=$pre_fix_commit
+    write_rollback_record "$base_commit" 0 0 "$latest_commit" "$digest_old" "$old_image_id"
+
+    if ROLLBACK_APP_UP_FAIL=1 run_shop rollback --yes; then
+        printf 'Expected the saved-image start to fail after checking out the pre-fix code.\n' >&2
+        exit 1
+    fi
+    expected_advice=$'Recovery command: git switch develop\nRecovery command: git pull --ff-only origin develop\nRecovery command: ./shop rollback'
+    actual_advice=$(grep -F 'Recovery command:' "$output_file")
+    [[ $actual_advice == "$expected_advice" ]]
+    [[ -z $("$real_git" -C "$checkout" symbolic-ref --quiet --short HEAD 2>/dev/null || true) ]]
+    [[ $("$real_git" -C "$checkout" rev-parse HEAD) == "$pre_fix_commit" ]]
+    [[ -e $data_dir/rollback.unfinished ]]
+    [[ -z $("$real_git" -C "$checkout" status --porcelain --untracked-files=all) ]]
+    assert_contains "$data_dir/rollback.conf" "ROLLBACK_FROM_COMMIT=$latest_commit"
+
+    "$real_git" -C "$checkout" switch develop >/dev/null 2>&1
+    [[ $("$real_git" -C "$checkout" branch --show-current) == develop ]]
+    [[ $("$real_git" -C "$checkout" rev-parse HEAD) == "$pre_fix_commit" ]]
+    "$real_git" -C "$checkout" pull --ff-only origin develop >/dev/null 2>&1
+    [[ $("$real_git" -C "$checkout" rev-parse HEAD) == "$fixed_commit" ]]
+    if ! run_shop rollback --yes; then cat "$output_file" >&2; exit 1; fi
+    [[ $("$real_git" -C "$checkout" rev-parse HEAD) == "$pre_fix_commit" ]]
+    [[ ! -e $data_dir/rollback.unfinished ]]
+    [[ ! -e $data_dir/restore.unfinished ]]
+    [[ ! -e $data_dir/update.in-progress ]]
+    assert_contains "$data_dir/rollback.conf" 'ROLLBACK_ACTIVE=1'
+    assert_contains "$data_dir/rollback.conf" "ROLLBACK_FROM_COMMIT=$latest_commit"
+    assert_contains "$data_dir/rollback.conf" "ROLLBACK_FROM_DIGEST=$digest_old"
+    assert_contains "$data_dir/rollback.conf" "ROLLBACK_FROM_IMAGE_ID=$old_image_id"
+    restore_count=$(grep -Fc "RESTORE_HEAD=$latest_commit" "$event_file")
+    [[ $restore_count == 2 ]]
+}
+
+# Give detached saved-code checkouts the same recovery advice as post-checkout failures.
+test_status_advises_switch_from_detached_saved_commit() {
+    make_case status-detached-rollback-recovery
+    write_rollback_record "$base_commit" 0 0 '' ''
+    : > "$data_dir/rollback.unfinished"
+    if ! run_shop status; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Recovery command: ./shop rollback'
+    assert_not_contains "$output_file" 'Recovery command: git switch develop'
+
+    "$real_git" -C "$checkout" checkout --detach "$base_commit" >/dev/null 2>&1
+    if ! run_shop status; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$output_file" 'Recovery command: git switch develop'
+    assert_contains "$output_file" 'Recovery command: git pull --ff-only origin develop'
+    assert_contains "$output_file" 'Recovery command: ./shop rollback'
+}
+
+# Recover an update that already saved a rollback point and clear its update marker.
+test_rollback_recovers_update_pending() {
+    make_case rollback-update-pending
+    write_rollback_record "$base_commit" 0 1 '' ''
+    printf 'UPDATE_SOURCE_IMAGE_ID=%s\n' "$old_image_id" > "$data_dir/update.in-progress"
+    "$real_git" -C "$checkout" pull --ff-only origin develop >/dev/null 2>&1
+    if ! run_shop rollback --yes; then cat "$output_file" >&2; exit 1; fi
+    assert_contains "$event_file" "RESTORE_HEAD=$latest_commit"
+    assert_contains "$data_dir/rollback.conf" 'UPDATE_PENDING=0'
+    [[ ! -e $data_dir/update.in-progress ]]
+    [[ ! -e $data_dir/rollback.unfinished ]]
+    [[ ! -e $data_dir/restore.unfinished ]]
 }
 
 # Save the rolled-back code and image digests, and clear any restore marker on success.
@@ -1895,6 +2051,12 @@ test_restore_counts_and_elapsed_time() {
 
 # Run each isolated shop-command scenario without contacting a real Docker daemon.
 run_all_tests() {
+    test_rollback_restores_before_checkout
+    test_rollback_retry_keeps_recorded_source_values
+    test_rollback_retries_after_checkout_failure
+    test_rollback_recovers_from_pre_fix_saved_code
+    test_status_advises_switch_from_detached_saved_commit
+    test_rollback_recovers_update_pending
     test_update_after_rollback_saves_fresh_point
     test_update_backup_follows_image_pull
     test_pull_failure_blocks_start_and_retries

@@ -104,6 +104,8 @@ See [the client setup steps](docs/backup-and-restore.md#client-installation-setu
 
 For a new Windows shop computer, follow [the Windows client install checklist](docs/windows-client-install.md). A shop installed by hand before `./shop` switches over with [these steps](docs/windows-client-install.md#shop-installed-by-hand-before-shop) instead of a reinstall.
 
+Run `./shop check` to review the Windows secrets folder, USB backup folder, restart policies, and Docker Desktop startup setting.
+
 Set `OSPOS_IMAGE_TAG` to `develop-<sha>` to pin a build, then rerun the same full `up -d` command shown above for your system.
 
 Use `./shop rollback` to return to the backup and version saved before the last update; it validates the archive before stopping the app and refuses a second rollback until a new update saves a fresh point.
@@ -113,6 +115,8 @@ Before `./shop update`, stop sales at the register; it downloads only the app im
 If a recovery marker remains, `./shop status` prints one command allowed by the current state: retry update before a rollback point is saved, roll back after one is saved, and restore only when `restore.unfinished` shows that the database may be partial.
 
 `./shop restore ARCHIVE=<known-good-backup>` validates the archive before stopping the app and stays refused while an update or rollback is unfinished.
+
+After restore, the command prints item, sale, and employee counts and the elapsed time.
 
 `./shop status` shows a held lock's age and owner, and `./shop unlock` requires the phrase `UNLOCK SHOP LOCK` after showing the same details.
 

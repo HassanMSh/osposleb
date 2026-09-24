@@ -51,6 +51,10 @@ Never remove volumes when stopping the shop.
 
 Open the local shop page in Google Chrome and sign in.
 
+On Windows, `./shop check` also reports secrets-folder access, USB backup-folder availability, container restart policies, and Docker Desktop startup warnings.
+
+On Windows, `./shop status` shows whether the daily backup task exists, its next run, and its last result.
+
 ## One-minute weekly backup check
 
 Run `./shop backups` and check the last line from `./shop status`.
@@ -60,6 +64,8 @@ The backup log is in the folder set by `OSPOS_BACKUP_DESTINATION` in `ospos.conf
 Confirm that there is one `result=ok` line for each day the shop was open.
 
 Check the `copy` value when a USB copy is configured.
+
+`./shop backup` prints the copy result and warns when a configured USB copy did not succeed.
 
 The log time and archive names use UTC.
 
@@ -78,6 +84,8 @@ Check the archive and target before confirming the restore.
 ```
 
 The command stops the app before restore and starts it after, because restore swaps in a new uploads folder and a running container keeps using the old one.
+
+After a successful restore, the command prints the item, sale, and employee counts and the time it took.
 
 `./shop` writes `restore.unfinished` before restore; a first code-20 failure clears the new marker and restarts the app, while an earlier marker or a code-21/unknown failure keeps it.
 

@@ -100,6 +100,8 @@ Set `OSPOS_BACKUP_COPY_TO` to an absolute host folder path to copy backups to a 
 
 In Docker Desktop, enable file sharing for the USB drive or its backup folder.
 
+`./shop check` reports whether the configured copy folder is available, and `./shop backup` prints whether the copy succeeded.
+
 The separate MariaDB root password, application database password, and application encryption key are made inside the setup container, so the host does not need OpenSSL or a PowerShell secret generator.
 
 ### Linux setup
@@ -143,6 +145,8 @@ Before pulling, update pins the current app image and saves a recovery marker; i
 If an update stops before its rollback point is saved, retry `./shop update`; if the point was saved, use `./shop rollback`.
 
 `./shop restore` validates its archive before stopping the app and stays refused while an update or rollback is unfinished.
+
+After a successful restore, `./shop` prints counts for items, sales, and employees plus the elapsed time; a failed count query only prints a warning.
 
 Before rollback stops the app, it checks the archive checksum, its manifest and database checksum, and fully extracts every archive entry into a temporary folder.
 

@@ -29,23 +29,23 @@ final class CurrencyHelperTest extends CIUnitTestCase
     }
 
     /**
-     * Rounds to the nearest 1,000 pounds: below 500 goes down, 500 and above goes up.
+     * Converts to the exact whole-pound amount with no rounding to thousands.
      */
-    public function testPoundConversionRoundsUpAndDown(): void
+    public function testPoundConversionKeepsExactAmount(): void
     {
-        $this->assertSame(4_090_000, to_lbp('45.70'));
-        $this->assertSame(1_104_000, to_lbp('12.34'));
-        $this->assertSame(1_107_000, to_lbp('12.37'));
-        $this->assertSame(90_000, to_lbp('1.00'));
-        $this->assertSame(269_000, to_lbp('3.00'));
+        $this->assertSame(4_090_150, to_lbp('45.70'));
+        $this->assertSame(1_104_430, to_lbp('12.34'));
+        $this->assertSame(1_107_115, to_lbp('12.37'));
+        $this->assertSame(89_500, to_lbp('1.00'));
+        $this->assertSame(268_500, to_lbp('3.00'));
     }
 
     /**
-     * Formats the rounded pound amount with separators and the LL marker.
+     * Formats the pound amount with separators and the LL marker.
      */
     public function testPoundFormattingUsesThousandsSeparatorsAndMarker(): void
     {
-        $this->assertSame('4,090,000 LL', format_lbp(to_lbp('45.70')));
+        $this->assertSame('4,090,150 LL', format_lbp(to_lbp('45.70')));
     }
 
     /**
@@ -56,7 +56,7 @@ final class CurrencyHelperTest extends CIUnitTestCase
         $dollar_change = 50.00 - 45.70;
 
         $this->assertSame(4.30, round($dollar_change, 2));
-        $this->assertSame(385_000, to_lbp((string) $dollar_change));
+        $this->assertSame(384_850, to_lbp((string) $dollar_change));
 
         $tendered_pounds  = 5_000_000;
         $tendered_dollars = $tendered_pounds / 89500;
@@ -64,7 +64,7 @@ final class CurrencyHelperTest extends CIUnitTestCase
         $change_pounds    = to_lbp((string) $change_dollars);
 
         $this->assertSame(10.17, round($change_dollars, 2));
-        $this->assertSame(910_000, $change_pounds);
+        $this->assertSame(909_850, $change_pounds);
     }
 
     /**
@@ -171,7 +171,7 @@ final class CurrencyHelperTest extends CIUnitTestCase
         $this->assertIsString($source);
         $this->assertStringContainsString('id="change_helper_amount"', $source);
         $this->assertStringContainsString('const changeDollars = tenderedDollars - changeHelperTotal;', $source);
-        $this->assertStringContainsString('const changePounds = Math.round((changeDollars * rate) / 1000) * 1000;', $source);
+        $this->assertStringContainsString('const changePounds = Math.round(changeDollars * rate);', $source);
 
         $helper_start = strpos($source, 'function updateChangeHelper');
         $helper_end   = strpos($source, '// Add Keyboard Shortcuts', $helper_start);

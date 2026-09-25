@@ -3,14 +3,14 @@
 use Config\OSPOS;
 
 /**
- * Converts a dollar amount to Lebanese pounds and rounds it to the nearest 1,000.
+ * Converts a dollar amount to Lebanese pounds, rounded to a whole pound.
  *
  * The returned amount is for display only. It must not be stored as a sale,
  * payment, report, or cash-drawer value.
  *
  * @param float|int|string|null $dollar_amount Dollar amount to convert.
  *
- * @return int Rounded Lebanese pound amount.
+ * @return int Lebanese pound amount.
  */
 function to_lbp(float|int|string|null $dollar_amount): int
 {
@@ -21,7 +21,7 @@ function to_lbp(float|int|string|null $dollar_amount): int
     $config = config(OSPOS::class)->settings;
     $rate   = (float) ($config['lbp_exchange_rate'] ?? 0);
 
-    return (int) (round(((float) $dollar_amount * $rate) / 1000, 0, PHP_ROUND_HALF_UP) * 1000);
+    return (int) round((float) $dollar_amount * $rate, 0, PHP_ROUND_HALF_UP);
 }
 
 /**

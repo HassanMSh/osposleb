@@ -179,6 +179,7 @@ return [
     'register'                         => 'Sales Register',
     'register_reloaded_scan_again'     => 'The register was reloaded. Scan the item again if it is missing.',
     'restaurant_menu_empty'            => 'No active menu items are available.',
+    'restaurant_target_line'           => 'Choose this line for add-ons',
     'uncategorized'                    => 'Uncategorized',
     'remove_customer'                  => 'Remove Customer',
     'remove_discount'                  => '',

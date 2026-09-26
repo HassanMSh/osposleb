@@ -166,9 +166,39 @@ class Sale_lib
         $this->session->set('sales_cart', $cart_data);
     }
 
+    /**
+     * Clears the cart and its restaurant add-on target.
+     */
     public function empty_cart(): void
     {
         $this->session->remove('sales_cart');
+        $this->clear_restaurant_target_line();
+    }
+
+    /**
+     * Returns the line selected for restaurant add-ons, or null when none is stored.
+     */
+    public function get_restaurant_target_line(): ?int
+    {
+        $line = $this->session->get('sales_restaurant_target_line');
+
+        return is_numeric($line) ? (int) $line : null;
+    }
+
+    /**
+     * Stores the main cart line selected for restaurant add-ons.
+     */
+    public function set_restaurant_target_line(int $line): void
+    {
+        $this->session->set('sales_restaurant_target_line', $line);
+    }
+
+    /**
+     * Clears the selected restaurant add-on target line.
+     */
+    public function clear_restaurant_target_line(): void
+    {
+        $this->session->remove('sales_restaurant_target_line');
     }
 
     public function remove_temp_items(): void
@@ -762,7 +792,8 @@ class Sale_lib
     }
 
     /**
-     * Adds an item to the cart while keeping its category for add-on display and preserving the restaurant tap order.
+     * Adds an item to the cart while keeping its category and restaurant tap order.
+     * Restaurant add-ons go after the selected main line's group, and main item taps select their resulting line.
      *
      * @noinspection PhpUnused
      */
@@ -827,12 +858,26 @@ class Sale_lib
         $insertkey         = 0;                // Key to use for new entry.     // TODO: $insertkey is never used
         $updatekey         = 0;                // Key to use to update(quantity)
 
-        if (Till_layout::get_layout($this->config) === 'restaurant') {
+        $restaurant_layout = Till_layout::get_layout($this->config) === 'restaurant';
+        $is_addon          = Till_layout::is_addon_category($item_info->category ?? null, $this->config);
+        $target_line       = null;
+        if ($restaurant_layout) {
             foreach ($items as $item) {
                 if ($maxkey <= $item['line']) {
                     $maxkey = $item['line'];
                 }
             }
+
+            $target_line = self::resolve_restaurant_target_line($items, $this->get_restaurant_target_line(), $this->config);
+            if ($target_line === null) {
+                $this->clear_restaurant_target_line();
+            } else {
+                $this->set_restaurant_target_line($target_line);
+            }
+
+            $compare_line = $is_addon
+                ? self::get_restaurant_addon_group_end_line($items, $target_line, $this->config)
+                : null;
 
             $updatekey = self::get_restaurant_item_merge_line(
                 $items,
@@ -842,6 +887,7 @@ class Sale_lib
                 (string) $price,
                 (string) $applied_discount,
                 $discount_type,
+                $compare_line,
             );
             if ($updatekey !== null) {
                 $itemalreadyinsale = true;
@@ -929,13 +975,29 @@ class Sale_lib
                 ],
             ];
 
-            // Add to existing array
-            $items += $item;
+            if ($restaurant_layout && $is_addon) {
+                $result = self::insert_restaurant_addon_line($items, $item[$insertkey], $target_line, $this->config);
+                $items  = $result['cart'];
+                if ($result['target_line'] === null) {
+                    $this->clear_restaurant_target_line();
+                } else {
+                    $this->set_restaurant_target_line($result['target_line']);
+                }
+            } else {
+                // Add to existing array
+                $items += $item;
+                if ($restaurant_layout) {
+                    $this->set_restaurant_target_line($insertkey);
+                }
+            }
         } else {
             $line                     = &$items[$updatekey];
             $line['quantity']         = $quantity;
             $line['total']            = $total;
             $line['discounted_total'] = $discounted_total;
+            if ($restaurant_layout && ! $is_addon) {
+                $this->set_restaurant_target_line((int) $updatekey);
+            }
         }
 
         $this->set_cart($items);
@@ -944,32 +1006,42 @@ class Sale_lib
     }
 
     /**
-     * Returns the last restaurant line when item, location, price, and discount terms match the new tap.
+     * Returns a restaurant line when item, location, price, and discount terms match the new tap.
      * Price and discount are compared at the full stored precision, not the display precision,
-     * so a line whose price was edited by less than one displayed unit is never merged.
+     * so a line whose price was edited by less than one displayed unit is never merged. A supplied
+     * comparison line lets add-ons merge with the last line in their target group.
      *
-     * @param array  $items         Current cart lines.
-     * @param int    $item_id       Item id on the new tap.
-     * @param int    $item_location Stock location on the new tap.
-     * @param bool   $is_serialized Whether the item needs a separate line per unit.
-     * @param string $price         Unit price on the new tap.
-     * @param string $discount      Discount value on the new tap.
-     * @param int    $discount_type Discount mode on the new tap.
+     * @param array    $items           Current cart lines.
+     * @param int      $item_id         Item id on the new tap.
+     * @param int      $item_location   Stock location on the new tap.
+     * @param bool     $is_serialized   Whether the item needs a separate line per unit.
+     * @param string   $price           Unit price on the new tap.
+     * @param string   $discount        Discount value on the new tap.
+     * @param int      $discount_type   Discount mode on the new tap.
+     * @param int|null $line_to_compare Line to compare instead of the last cart line.
      *
-     * @return int|null Last matching line id, or null when a new line is needed.
+     * @return int|null Matching line id, or null when a new line is needed.
      */
-    public static function get_restaurant_item_merge_line(array $items, int $item_id, int $item_location, bool $is_serialized, string $price, string $discount, int $discount_type): ?int
+    public static function get_restaurant_item_merge_line(array $items, int $item_id, int $item_location, bool $is_serialized, string $price, string $discount, int $discount_type, ?int $line_to_compare = null): ?int
     {
         if ($is_serialized || $items === []) {
             return null;
         }
 
-        $last_item = null;
+        if ($line_to_compare !== null) {
+            $last_item = $items[$line_to_compare] ?? null;
+        } else {
+            $last_item = null;
 
-        foreach ($items as $item) {
-            if ($last_item === null || $item['line'] > $last_item['line']) {
-                $last_item = $item;
+            foreach ($items as $item) {
+                if ($last_item === null || $item['line'] > $last_item['line']) {
+                    $last_item = $item;
+                }
             }
+        }
+
+        if ($last_item === null) {
+            return null;
         }
 
         if (
@@ -983,6 +1055,182 @@ class Sale_lib
         }
 
         return (int) $last_item['line'];
+    }
+
+    /**
+     * Returns the stored main line when valid, otherwise the last main line in the restaurant cart.
+     */
+    public static function resolve_restaurant_target_line(array $items, ?int $target_line, array $config): ?int
+    {
+        $ordered_items = array_values($items);
+        usort($ordered_items, static fn (array $left, array $right): int => $left['line'] <=> $right['line']);
+        $last_main_line = null;
+
+        foreach ($ordered_items as $item) {
+            $line = (int) $item['line'];
+            if (Till_layout::is_addon_category($item['category'] ?? null, $config)) {
+                continue;
+            }
+
+            $last_main_line = $line;
+            if ($target_line === $line) {
+                return $line;
+            }
+        }
+
+        return $last_main_line;
+    }
+
+    /**
+     * Returns the final line in a target main line's add-on group, or the final cart line with no target.
+     */
+    public static function get_restaurant_addon_group_end_line(array $items, ?int $target_line, array $config): ?int
+    {
+        $ordered_items = array_values($items);
+        usort($ordered_items, static fn (array $left, array $right): int => $left['line'] <=> $right['line']);
+        if ($ordered_items === []) {
+            return null;
+        }
+
+        if ($target_line === null) {
+            return (int) $ordered_items[array_key_last($ordered_items)]['line'];
+        }
+
+        $in_target_group = false;
+        $group_end_line  = null;
+
+        foreach ($ordered_items as $item) {
+            if ((int) $item['line'] === $target_line) {
+                $in_target_group = true;
+                $group_end_line  = $target_line;
+
+                continue;
+            }
+
+            if (! $in_target_group) {
+                continue;
+            }
+
+            if (! Till_layout::is_addon_category($item['category'] ?? null, $config)) {
+                break;
+            }
+
+            $group_end_line = (int) $item['line'];
+        }
+
+        return $group_end_line;
+    }
+
+    /**
+     * Inserts one add-on after its target group and renumbers cart keys and line fields together.
+     *
+     * @return array{cart: array, target_line: int|null, inserted_line: int}
+     */
+    public static function insert_restaurant_addon_line(array $items, array $new_item, ?int $target_line, array $config): array
+    {
+        $ordered_items = array_values($items);
+        usort($ordered_items, static fn (array $left, array $right): int => $left['line'] <=> $right['line']);
+        $target_line  = self::resolve_restaurant_target_line($items, $target_line, $config);
+        $insert_index = count($ordered_items);
+
+        if ($target_line !== null) {
+            foreach ($ordered_items as $index => $item) {
+                if ((int) $item['line'] !== $target_line) {
+                    continue;
+                }
+
+                $insert_index = $index + 1;
+
+                while (
+                    isset($ordered_items[$insert_index])
+                    && Till_layout::is_addon_category($ordered_items[$insert_index]['category'] ?? null, $config)
+                ) {
+                    $insert_index++;
+                }
+                break;
+            }
+        }
+
+        array_splice($ordered_items, $insert_index, 0, [$new_item]);
+        $cart          = [];
+        $new_target    = null;
+        $inserted_line = $insert_index + 1;
+
+        foreach ($ordered_items as $index => $item) {
+            $new_line        = $index + 1;
+            $old_line        = (int) ($item['line'] ?? 0);
+            $item['line']    = $new_line;
+            $cart[$new_line] = $item;
+
+            if ($target_line !== null && $old_line === $target_line) {
+                $new_target = $new_line;
+            }
+        }
+
+        return ['cart' => $cart, 'target_line' => $new_target, 'inserted_line' => $inserted_line];
+    }
+
+    /**
+     * Deletes a restaurant add-on alone or a main line with its following add-ons, then renumbers the cart.
+     *
+     * @return array{cart: array, target_line: int|null, deleted_lines: array}
+     */
+    public static function delete_restaurant_line_group(array $items, int $line, ?int $target_line, array $config): array
+    {
+        $ordered_items = array_values($items);
+        usort($ordered_items, static fn (array $left, array $right): int => $left['line'] <=> $right['line']);
+        $target_line    = self::resolve_restaurant_target_line($items, $target_line, $config);
+        $selected_index = null;
+
+        foreach ($ordered_items as $index => $item) {
+            if ((int) $item['line'] === $line) {
+                $selected_index = $index;
+                break;
+            }
+        }
+
+        $deleted_lines = [];
+        $new_target    = null;
+        if ($selected_index !== null) {
+            $selected_is_addon = Till_layout::is_addon_category($ordered_items[$selected_index]['category'] ?? null, $config);
+            $delete_end_index  = $selected_index;
+            if (! $selected_is_addon) {
+                while (
+                    isset($ordered_items[$delete_end_index + 1])
+                    && Till_layout::is_addon_category($ordered_items[$delete_end_index + 1]['category'] ?? null, $config)
+                ) {
+                    $delete_end_index++;
+                }
+            }
+
+            $deleted_lines = array_slice($ordered_items, $selected_index, $delete_end_index - $selected_index + 1);
+            array_splice($ordered_items, $selected_index, $delete_end_index - $selected_index + 1);
+
+            if ($target_line !== null) {
+                foreach ($ordered_items as $index => $item) {
+                    if ((int) $item['line'] === $target_line) {
+                        $new_target = $index + 1;
+                        break;
+                    }
+                }
+            }
+        } else {
+            $new_target = $target_line;
+        }
+
+        $cart = [];
+
+        foreach ($ordered_items as $index => $item) {
+            $new_line        = $index + 1;
+            $item['line']    = $new_line;
+            $cart[$new_line] = $item;
+        }
+
+        return [
+            'cart'          => $cart,
+            'target_line'   => self::resolve_restaurant_target_line($cart, $new_target, $config),
+            'deleted_lines' => $deleted_lines,
+        ];
     }
 
     public function out_of_stock(int $item_id, int $item_location): string
@@ -1061,9 +1309,35 @@ class Sale_lib
         return false;    // TODO: This function will always return false.
     }
 
+    /**
+     * Deletes one cart line in Shop mode, or a restaurant main line and its attached add-ons.
+     */
     public function delete_item(int $line): void
     {
-        $items     = $this->get_cart();
+        $items = $this->get_cart();
+
+        if (Till_layout::get_layout($this->config) === 'restaurant') {
+            if (! isset($items[$line])) {
+                return;
+            }
+
+            $result = self::delete_restaurant_line_group($items, $line, $this->get_restaurant_target_line(), $this->config);
+
+            foreach ($result['deleted_lines'] as $deleted_item) {
+                if ($deleted_item['item_type'] == ITEM_TEMP) {
+                    $this->item->delete($deleted_item['item_id']);
+                }
+            }
+            $this->set_cart($result['cart']);
+            if ($result['target_line'] === null) {
+                $this->clear_restaurant_target_line();
+            } else {
+                $this->set_restaurant_target_line($result['target_line']);
+            }
+
+            return;
+        }
+
         $item_type = $items[$line]['item_type'];
 
         if ($item_type == ITEM_TEMP) {

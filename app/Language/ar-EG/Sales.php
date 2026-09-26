@@ -179,6 +179,7 @@ return [
     'register'                         => 'مسجل المبيعات',
     'register_reloaded_scan_again'     => 'تمت إعادة تحميل سجل المبيعات. امسح الصنف مرة أخرى إذا كان مفقودًا.',
     'restaurant_menu_empty'            => 'لا توجد أصناف نشطة في القائمة.',
+    'restaurant_target_line'           => 'اختر هذا الصنف للإضافات',
     'uncategorized'                    => 'غير مصنف',
     'remove_customer'                  => 'حذف عميل',
     'remove_discount'                  => '',

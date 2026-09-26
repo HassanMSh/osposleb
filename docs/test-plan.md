@@ -19,8 +19,8 @@ The Linux results for ADR 0009 are listed below and recorded in the local eviden
 | RTL and mixed-direction text | Manual | verified | Open Arabic screens in Chrome and check names, numbers, and barcodes. |
 | Receipt totals | Manual | verified | Compare a TVA sale total with the customer receipt. |
 | Barcode input | Hardware | pending | Scan known and unknown item barcodes with the named shop scanner. |
-| Modifier and combo pricing | Manual | not built yet | Check size, topping, extra, removal, and combo prices after the fast-food phase is built. |
-| Kitchen ticket generation | Hardware and manual | not built yet | Route and reprint a test ticket after the fast-food phase and printer setup are built. |
+| Modifier and combo pricing | Manual | verified | Sizes, combos, extras, and removals are plain items with their own price (ADR 0008), so there is no modifier logic to test; ring REST-03 in `qa-scenarios.md` and check the total is the sum of the lines. |
+| Kitchen ticket generation | Automated PHPUnit, manual, and hardware | expected | Run the restaurant scenarios in `qa-scenarios.md`; the ticket content and reprint are verified in Chrome, and the cut between receipt and ticket on the T80A is still to test on the real printer (#154). |
 | Database migration and rollback | Manual | verified | Rehearse the migration on a database copy and restore the saved copy. |
 | Backup restoration | Manual | verified | Restore the latest archive into a scratch database and uploads folder. |
 

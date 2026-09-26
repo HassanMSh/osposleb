@@ -64,9 +64,10 @@
     padding-block-start: 21px;
 }
 
-/* The restaurant delete and update links are already as tall as the inputs. */
+/* The restaurant delete and update links and the item name button are already as tall as the inputs. */
 .till-restaurant #register #cart_contents tr:has(input[name="price"]) > td:not([colspan]):has(> a[href*="/deleteItem/"]),
-.till-restaurant #register #cart_contents tr:has(input[name="price"]) > td:not([colspan]):has(> a[href^="javascript:"]) {
+.till-restaurant #register #cart_contents tr:has(input[name="price"]) > td:not([colspan]):has(> a[href^="javascript:"]),
+.till-restaurant #register #cart_contents tr:has(input[name="price"]) > td:not([colspan]):has(> button.restaurant-target-button) {
     padding-block-start: 3px;
 }
 

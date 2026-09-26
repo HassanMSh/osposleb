@@ -53,6 +53,47 @@ final class KitchenTicketTest extends CIUnitTestCase
     }
 
     /**
+     * Marks only lines in the configured add-on category on a restaurant ticket.
+     */
+    public function testTicketMarksOnlyConfiguredAddonCategoryLines(): void
+    {
+        $ticket_lines = [
+            ['line' => 1, 'quantity_purchased' => '1.000', 'name' => 'Burger', 'category' => 'Burgers', 'description' => ''],
+            ['line' => 2, 'quantity_purchased' => '1.000', 'name' => 'No onion', 'category' => ' add-ons ', 'description' => ''],
+            ['line' => 3, 'quantity_purchased' => '1.000', 'name' => 'Cola', 'category' => 'Drinks', 'description' => ''],
+        ];
+        $config = ['till_layout' => 'restaurant', 'till_addon_category' => 'Add-ons'];
+        $html   = $this->renderTicket(['config' => $config, 'ticket_lines' => $ticket_lines, 'comments' => '']);
+
+        preg_match_all('/<div class="([^"]*kitchen-ticket-line[^"]*)">(.*?)<\/div>/s', $html, $matches);
+
+        $this->assertCount(3, $matches[0]);
+        $this->assertStringNotContainsString('restaurant-addon-line', $matches[1][0]);
+        $this->assertStringContainsString('restaurant-addon-line', $matches[1][1]);
+        $this->assertStringNotContainsString('restaurant-addon-line', $matches[1][2]);
+        $this->assertStringContainsString('Burger', $matches[2][0]);
+        $this->assertStringNotContainsString('<bdi', $matches[2][0]);
+        $this->assertStringContainsString('<bdi dir="auto">+ No onion</bdi>', $matches[2][1]);
+        $this->assertStringContainsString('<span class="kitchen-ticket-qty" dir="ltr">1</span>', $matches[2][1]);
+        $this->assertStringContainsString('Cola', $matches[2][2]);
+        $this->assertStringNotContainsString('<bdi', $matches[2][2]);
+
+        foreach ([
+            ['till_layout' => 'restaurant'],
+            ['till_layout' => 'restaurant', 'till_addon_category' => ''],
+        ] as $unconfigured) {
+            $unconfigured_html = $this->renderTicket([
+                'config'       => $unconfigured,
+                'ticket_lines' => $ticket_lines,
+                'comments'     => '',
+            ]);
+
+            $this->assertStringNotContainsString('restaurant-addon-line', $unconfigured_html);
+            $this->assertStringNotContainsString('<bdi dir="auto">+', $unconfigured_html);
+        }
+    }
+
+    /**
      * Renders tickets only for eligible restaurant sales with positive quantities.
      */
     public function testOnlyCompletedRestaurantSalesWithPositiveLinesRenderTickets(): void

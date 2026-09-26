@@ -79,7 +79,7 @@ final class KitchenTicketDatabaseTest extends CIUnitTestCase
     }
 
     /**
-     * Reads Burger, Cola, Burger in its saved line order even when receipts group by category.
+     * Reads Burger, Cola, Burger and their categories in saved line order.
      */
     public function testSavedKitchenTicketLinesKeepOriginalOrder(): void
     {
@@ -142,6 +142,7 @@ final class KitchenTicketDatabaseTest extends CIUnitTestCase
             'Kitchen ticket Burger',
         ], array_column($ticket_lines, 'name'));
         $this->assertSame(['1.000', '1.000', '1.000'], array_map('strval', array_column($ticket_lines, 'quantity_purchased')));
+        $this->assertSame(['Burgers', 'Drinks', 'Burgers'], array_column($ticket_lines, 'category'));
     }
 
     /**

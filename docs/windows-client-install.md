@@ -89,17 +89,17 @@ git pull --ff-only origin develop
 
 ### Restaurant till setup
 
-After each restaurant sale, the printer prints the customer receipt and then the kitchen ticket.
-The print button on the receipt page and in the sales list reprints both.
-The cut between them depends on the printer driver cutting after each page.
-Returns, quotes, and suspended sales do not print a kitchen ticket.
-
 In Settings > General, set Till layout to Restaurant and save.
 Create each menu choice as a standard item on the Items page and give it a category.
 Set each restaurant item's Tax mode to No TVA and choose Non-stock.
 Fixed line discounts are entered in Lebanese pounds (LL), while percentage discounts are entered as a percent.
 Create a category such as "Add-ons" and put extras and removals like "Extra cheese" or "No onion" in it with their own price or 0.
 In Settings > General, enter that category in Add-on category.
+After each restaurant sale, the printer prints the customer receipt and then the kitchen ticket.
+The print button on the receipt page and in the sales list reprints both.
+The cut between them depends on the printer driver cutting after each page.
+Returns, quotes, and suspended sales do not print a kitchen ticket.
+Add-on lines show indented with a + under their item on the kitchen ticket too.
 Set Till layout back to Shop to restore the item search and barcode box.
 
 ## 4. Hardware

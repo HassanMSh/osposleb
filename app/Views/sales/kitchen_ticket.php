@@ -28,10 +28,15 @@ if (! App\Libraries\Kitchen_ticket::is_eligible($config, $sale_status, $sale_typ
 
     <div class="kitchen-ticket-lines">
         <?php foreach ($ticket_lines as $ticket_line): ?>
-            <div class="kitchen-ticket-line">
+            <?php $is_addon = App\Libraries\Till_layout::is_addon_category($ticket_line['category'] ?? null, $config); ?>
+            <div class="kitchen-ticket-line<?= $is_addon ? ' restaurant-addon-line' : '' ?>">
                 <span class="kitchen-ticket-qty" dir="ltr"><?= esc(to_quantity_decimals($ticket_line['quantity_purchased'])) ?></span>
                 <span class="kitchen-ticket-name">
-                    <?= esc($ticket_line['name']) ?>
+                    <?php if ($is_addon): ?>
+                        <bdi dir="auto">+ <?= esc($ticket_line['name']) ?></bdi>
+                    <?php else: ?>
+                        <?= esc($ticket_line['name']) ?>
+                    <?php endif; ?>
                     <?php if (! empty($config['receipt_show_description']) && ! empty($ticket_line['description'])): ?>
                         <span class="kitchen-ticket-description"><?= esc($ticket_line['description']) ?></span>
                     <?php endif; ?>

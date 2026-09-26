@@ -891,7 +891,7 @@ class Sale extends Model
     }
 
     /**
-     * Gets the saved item lines for a kitchen ticket in their original sale order.
+     * Gets saved kitchen ticket lines, including item category, in their original sale order.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -899,7 +899,7 @@ class Sale extends Model
     {
         $item    = model(Item::class);
         $builder = $this->db->table('sales_items AS sales_items');
-        $builder->select('sales_items.line, sales_items.quantity_purchased, sales_items.description, ' . $item->get_item_name('name'));
+        $builder->select('sales_items.line, sales_items.quantity_purchased, sales_items.description, items.category, ' . $item->get_item_name('name'));
         $builder->join('items AS items', 'sales_items.item_id = items.item_id');
         $builder->where('sales_items.sale_id', $sale_id);
         $builder->orderBy('sales_items.line', 'asc');

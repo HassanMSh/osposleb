@@ -9,6 +9,7 @@
  * @var float  $subtotal
  * @var array  $taxes
  * @var float  $total
+ * @var int    $lbp_total
  * @var array  $payments
  * @var float  $amount_change
  * @var string $barcode
@@ -121,6 +122,10 @@
         <tr>
             <td colspan="3" style="text-align: right;<?= $border ? ' border-top: 2px solid black;' : '' ?>"><?= lang('Sales.total') ?></td>
             <td style="text-align: right;<?= $border ? ' border-top: 2px solid black;' : '' ?>"><?= to_currency($total) ?></td>
+        </tr>
+        <tr>
+            <td colspan="3" style="text-align: right;"><?= lang('Sales.total_to_pay') ?></td>
+            <td style="text-align: right;"><span dir="ltr"><?= esc(format_lbp($lbp_total)) ?></span></td>
         </tr>
 
         <?php

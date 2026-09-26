@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Libraries\Tax_lib;
 use CodeIgniter\Config\Factories;
 use CodeIgniter\Test\CIUnitTestCase;
 use Config\OSPOS;
@@ -24,12 +25,17 @@ final class CurrencyHelperTest extends CIUnitTestCase
         helper('currency');
 
         $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
-        $ospos->settings = ['lbp_exchange_rate' => '89500'];
+        $ospos->settings = [
+            'lbp_exchange_rate'   => '89500',
+            'currency_decimals'   => '2',
+            'number_locale'       => 'en_US',
+            'thousands_separator' => '1',
+        ];
         Factories::injectMock('config', OSPOS::class, $ospos);
     }
 
     /**
-     * Converts to the exact whole-pound amount with no rounding to thousands.
+     * Keeps the legacy exact conversion available to existing callers.
      */
     public function testPoundConversionKeepsExactAmount(): void
     {
@@ -49,22 +55,113 @@ final class CurrencyHelperTest extends CIUnitTestCase
     }
 
     /**
-     * Derives both change figures from one dollar change calculation.
+     * Applies rule R at exact 500-pound boundaries and mirrors negative amounts.
      */
-    public function testChangeFiguresAgreeThroughDollarCalculation(): void
+    public function testThousandRoundingUsesIntegerBoundariesAndMirrorsReturns(): void
     {
-        $dollar_change = 50.00 - 45.70;
+        $this->assertSame(110_000, round_lbp_to_thousand(109_800));
+        $this->assertSame(25_000, round_lbp_to_thousand(25_200));
+        $this->assertSame(110_000, round_lbp_to_thousand(109_500));
+        $this->assertSame(109_000, round_lbp_to_thousand(109_499));
+        $this->assertSame(-110_000, round_lbp_to_thousand(-109_800));
+        $this->assertSame(-25_000, round_lbp_to_thousand(-25_200));
+        $this->assertSame(-110_000, round_lbp_to_thousand(-109_500));
+        $this->assertSame(-109_000, round_lbp_to_thousand(-109_499));
+    }
 
-        $this->assertSame(4.30, round($dollar_change, 2));
-        $this->assertSame(384_850, to_lbp((string) $dollar_change));
+    /**
+     * Rounds each cart unit before multiplying by quantity and totals the lines.
+     */
+    public function testCartTotalsRoundUnitsBeforeMultiplyingQuantity(): void
+    {
+        $cart = [
+            1 => ['line' => 1, 'price' => 1.22, 'quantity' => 3, 'discounted_total' => 3.66],
+            2 => ['line' => 2, 'price' => 0.28, 'quantity' => 2, 'discounted_total' => 0.56],
+        ];
 
-        $tendered_pounds  = 5_000_000;
-        $tendered_dollars = $tendered_pounds / 89500;
-        $change_dollars   = $tendered_dollars - 45.70;
-        $change_pounds    = to_lbp((string) $change_dollars);
+        $totals = get_lbp_cart_totals($cart, [], 90_000);
 
-        $this->assertSame(10.17, round($change_dollars, 2));
-        $this->assertSame(909_850, $change_pounds);
+        $this->assertSame(330_000, $totals['lines'][1]['line_total_lbp']);
+        $this->assertSame(50_000, $totals['lines'][2]['line_total_lbp']);
+        $this->assertSame(380_000, $totals['total']);
+    }
+
+    /**
+     * Uses discounted dollars and adds only excluded TVA to the customer unit.
+     */
+    public function testCartTotalsIncludeDiscountAndExcludedTaxInCustomerUnit(): void
+    {
+        $cart = [
+            1 => ['line' => 1, 'price' => 10.0, 'quantity' => 2, 'discounted_total' => 18.0],
+            2 => ['line' => 2, 'price' => 10.0, 'quantity' => 1, 'discounted_total' => 10.0],
+        ];
+        $item_taxes = [
+            ['line' => 1, 'tax_type' => Tax_lib::TAX_TYPE_INCLUDED, 'item_tax_amount' => 1.8],
+            ['line' => 2, 'tax_type' => Tax_lib::TAX_TYPE_EXCLUDED, 'item_tax_amount' => 1.1],
+        ];
+
+        $totals = get_lbp_cart_totals($cart, $item_taxes, 90_000);
+
+        $this->assertSame(810_000, $totals['lines'][1]['customer_unit_lbp']);
+        $this->assertSame(1_620_000, $totals['lines'][1]['line_total_lbp']);
+        $this->assertSame(999_000, $totals['lines'][2]['customer_unit_lbp']);
+    }
+
+    /**
+     * Keeps stored dollars on unchanged input and converts new pound entries to cents.
+     */
+    public function testPostedPoundsPreserveStoredPricesAndConvertNewValues(): void
+    {
+        $this->assertSame('1.22', lbp_to_dollar_string('110000', 90_000, '1.22'));
+        $this->assertSame('1.22', lbp_to_dollar_string('110000', 90_000));
+        $this->assertSame('0.28', lbp_to_dollar_string('25000', 90_000));
+
+        $cost_shown = round_lbp_to_thousand(1.23 * 90_000);
+
+        $this->assertSame(111_000, $cost_shown);
+        $this->assertSame('1.23', lbp_to_dollar_string('111000', 90_000, '1.23', true));
+        $this->assertSame('1.23', lbp_to_dollar_string('110700', 90_000, '1.23', false));
+        $this->assertSame('110000', format_lbp_input(110_000));
+    }
+
+    /**
+     * Preserves a stored cent value when rounding at 89,500 LL would otherwise move it.
+     */
+    public function testPostedPoundsPreserveAStoredPriceThatWouldDriftAtRate89500(): void
+    {
+        $this->assertSame(90_000, round_lbp_to_thousand(1.00 * 89_500));
+        $this->assertSame('1.01', lbp_to_dollar_string('90000', 89_500));
+        $this->assertSame('1.00', lbp_to_dollar_string('90000', 89_500, '1.00'));
+    }
+
+    /**
+     * Confirms plain pound digits parse under the English and Lebanese number locales.
+     */
+    public function testPlainIntegerPoundsParseInEnglishAndArabicLocales(): void
+    {
+        $settings = config(OSPOS::class)->settings;
+
+        foreach (['en_US', 'ar_LB'] as $locale) {
+            config(OSPOS::class)->settings['number_locale'] = $locale;
+            $this->assertSame(110_000.0, parse_decimals('110000'));
+        }
+
+        config(OSPOS::class)->settings = $settings;
+    }
+
+    /**
+     * Calculates pound change from the rounded LBP sale total.
+     */
+    public function testChangeFiguresUseTheRoundedLbpSaleTotal(): void
+    {
+        $sale_total_lbp = 380_000;
+        $change_lbp     = 400_000 - $sale_total_lbp;
+        $change_dollars = $change_lbp / 90_000;
+
+        $this->assertSame(20_000, $change_lbp);
+        $this->assertSame(0.22, round($change_dollars, 2));
+        $this->assertSame(70_000, 5 * 90_000 - $sale_total_lbp);
+        $this->assertSame(0.78, round(5 - 4.22, 2));
     }
 
     /**
@@ -156,27 +253,30 @@ final class CurrencyHelperTest extends CIUnitTestCase
 
             $this->assertIsString($source);
             $this->assertStringContainsString('format_receipt_tax_marker', $source);
-            $this->assertStringContainsString('to_lbp($total)', $source);
+            $this->assertStringContainsString('format_lbp($lbp_total)', $source);
             $this->assertStringContainsString("lang('Sales.total_to_pay')", $source);
         }
     }
 
     /**
-     * Keeps the register change helper read-only and based on one dollar result.
+     * Keeps the register change helper read-only and based on the rounded LBP total.
      */
-    public function testRegisterChangeHelperUsesOneDollarCalculationWithoutWriting(): void
+    public function testRegisterChangeHelperUsesRoundedLbpTotalWithoutWriting(): void
     {
         $source = file_get_contents(APPPATH . 'Views/sales/register.php');
 
         $this->assertIsString($source);
         $this->assertStringContainsString('id="change_helper_amount"', $source);
-        $this->assertStringContainsString('const changeDollars = tenderedDollars - changeHelperTotal;', $source);
-        $this->assertStringContainsString('const changePounds = Math.round(changeDollars * rate);', $source);
+        $this->assertStringContainsString('const changePounds = tenderedPounds - changeHelperPoundsTotal;', $source);
+        $this->assertStringContainsString('const changeDollars = isPoundTender ? changePounds / rate : amount - changeHelperTotal;', $source);
+        $this->assertStringContainsString('if (!Number.isFinite(rate) || rate <= 0)', $source);
 
         $helper_start = strpos($source, 'function updateChangeHelper');
         $helper_end   = strpos($source, '// Add Keyboard Shortcuts', $helper_start);
         $helper_code  = substr($source, $helper_start, $helper_end - $helper_start);
 
+        $this->assertStringContainsString("$('#change_helper_dollars').text(formatChangeDollars(0));", $helper_code);
+        $this->assertStringContainsString("$('#change_helper_pounds').text(formatChangePounds(0));", $helper_code);
         $this->assertStringNotContainsString('$.post', $helper_code);
         $this->assertStringNotContainsString('add_payment_form', $helper_code);
     }
@@ -246,7 +346,6 @@ final class CurrencyHelperTest extends CIUnitTestCase
                 APPPATH . 'Controllers/Reports.php',
                 APPPATH . 'Controllers/Cashups.php',
                 APPPATH . 'Models/Cashup.php',
-                APPPATH . 'Helpers/tabular_helper.php',
             ],
         );
 
@@ -257,5 +356,18 @@ final class CurrencyHelperTest extends CIUnitTestCase
             $this->assertStringNotContainsString('lbp_exchange_rate', $source, $path);
             $this->assertStringNotContainsString('to_lbp(', $source, $path);
         }
+
+        $tabular = file_get_contents(APPPATH . 'Helpers/tabular_helper.php');
+
+        $this->assertIsString($tabular);
+        $this->assertStringNotContainsString('to_lbp(', $tabular);
+        $this->assertSame(1, substr_count($tabular, 'lbp_exchange_rate'), 'Only the Items list row may read the exchange rate.');
+
+        $item_row_start = strpos($tabular, 'function get_item_data_row(');
+        $item_row_end   = strpos($tabular, "\nfunction ", $item_row_start + 1);
+        $rate_position  = strpos($tabular, 'lbp_exchange_rate');
+
+        $this->assertIsInt($item_row_start);
+        $this->assertTrue($rate_position > $item_row_start && $rate_position < $item_row_end, 'The exchange rate is read outside get_item_data_row().');
     }
 }

@@ -3,19 +3,13 @@
 namespace App\Models\Reports;
 
 use App\Models\Sale;
+use CodeIgniter\Database\BaseBuilder;
 
 /**
- *
- *
- * @property sale sale
- *
+ * @property Sale sale
  */
 class Detailed_sales extends Report
 {
-    /**
-     * @param array $inputs
-     * @return void
-     */
     public function create(array $inputs): void
     {
         // Create our temp tables to work with the data in our report
@@ -23,14 +17,11 @@ class Detailed_sales extends Report
         $sale->create_temp_table($inputs);
     }
 
-    /**
-     * @return array
-     */
     public function getDataColumns(): array
     {
         return [    // TODO: Duplicated code
             'summary' => [
-                ['id'            => lang('Reports.sale_id')],
+                ['id' => lang('Reports.sale_id')],
                 ['type_code'     => lang('Reports.code_type')],
                 ['sale_time'     => lang('Reports.date'), 'sortable' => false],
                 ['quantity'      => lang('Reports.quantity')],
@@ -39,10 +30,11 @@ class Detailed_sales extends Report
                 ['subtotal'      => lang('Reports.subtotal'), 'sorter' => 'number_sorter'],
                 ['tax'           => lang('Reports.tax'), 'sorter' => 'number_sorter'],
                 ['total'         => lang('Reports.total'), 'sorter' => 'number_sorter'],
+                ['lbp_total'     => lang('Reports.lbp_total'), 'sorter' => 'number_sorter'],
                 ['cost'          => lang('Reports.cost'), 'sorter' => 'number_sorter'],
                 ['profit'        => lang('Reports.profit'), 'sorter' => 'number_sorter'],
                 ['payment_type'  => lang('Reports.payment_type'), 'sortable' => false],
-                ['comment'       => lang('Reports.comments')]
+                ['comment'       => lang('Reports.comments')],
             ],
             'details' => [
                 lang('Reports.name'),
@@ -55,18 +47,17 @@ class Detailed_sales extends Report
                 lang('Reports.total'),
                 lang('Reports.cost'),
                 lang('Reports.profit'),
-                lang('Reports.discount')
+                lang('Reports.discount'),
             ],
             'details_rewards' => [
                 lang('Reports.used'),
-                lang('Reports.earned')
-            ]
+                lang('Reports.earned'),
+            ],
         ];
     }
 
     /**
-     * @param int $sale_id
-     * @return array
+     * Returns one sale's report row, including its saved Lebanese pound total as `lbp_total` (null for older sales).
      */
     public function getDataBySaleId(int $sale_id): array
     {
@@ -79,6 +70,7 @@ class Detailed_sales extends Report
             SUM(subtotal) AS subtotal,
             SUM(tax) AS tax,
             SUM(total) AS total,
+            MAX(lbp_total) AS lbp_total,
             SUM(cost) AS cost,
             SUM(profit) AS profit,
             MAX(payment_type) AS payment_type,
@@ -90,8 +82,8 @@ class Detailed_sales extends Report
     }
 
     /**
-     * @param array $inputs
-     * @return array
+     * Returns one report row per sale, with its item details and reward points.
+     * Each sale row includes its saved Lebanese pound total as `lbp_total`, which is null for older sales.
      */
     public function getData(array $inputs): array
     {
@@ -114,57 +106,18 @@ class Detailed_sales extends Report
             SUM(subtotal) AS subtotal,
             SUM(tax) AS tax,
             SUM(total) AS total,
+            MAX(lbp_total) AS lbp_total,
             SUM(cost) AS cost,
             SUM(profit) AS profit,
             MAX(payment_type) AS payment_type,
             MAX(comment) AS comment');
 
-        if ($inputs['location_id'] != 'all') {    // TODO: Duplicated code
-            $builder->where('item_location', $inputs['location_id']);
-        }
-
-        switch ($inputs['sale_type']) {
-            case 'complete':
-                $builder->where('sale_status', COMPLETED);
-                $builder->groupStart();
-                $builder->where('sale_type', SALE_TYPE_POS);
-                $builder->orWhere('sale_type', SALE_TYPE_INVOICE);
-                $builder->orWhere('sale_type', SALE_TYPE_RETURN);
-                $builder->groupEnd();
-                break;
-
-            case 'sales':
-                $builder->where('sale_status', COMPLETED);
-                $builder->groupStart();
-                $builder->where('sale_type', SALE_TYPE_POS);
-                $builder->orWhere('sale_type', SALE_TYPE_INVOICE);
-                $builder->groupEnd();
-                break;
-
-            case 'quotes':
-                $builder->where('sale_status', SUSPENDED);
-                $builder->where('sale_type', SALE_TYPE_QUOTE);
-                break;
-
-            case 'work_orders':
-                $builder->where('sale_status', SUSPENDED);
-                $builder->where('sale_type', SALE_TYPE_WORK_ORDER);
-                break;
-
-            case 'canceled':
-                $builder->where('sale_status', CANCELED);
-                break;
-
-            case 'returns':
-                $builder->where('sale_status', COMPLETED);
-                $builder->where('sale_type', SALE_TYPE_RETURN);
-                break;
-        }
+        $this->apply_filters($inputs, $builder);
 
         $builder->groupBy('sale_id');
         $builder->orderBy('MAX(sale_time)');
 
-        $data = [];
+        $data            = [];
         $data['summary'] = $builder->get()->getResultArray();
         $data['details'] = [];
         $data['rewards'] = [];
@@ -190,7 +143,7 @@ class Detailed_sales extends Report
             if (count($inputs['definition_ids']) > 0) {
                 $format = $this->db->escape(dateformat_mysql());
                 $builder->select('GROUP_CONCAT(DISTINCT CONCAT_WS(\'_\', definition_id, attribute_value) ORDER BY definition_id SEPARATOR \'|\') AS attribute_values');
-                $builder->select("GROUP_CONCAT(DISTINCT CONCAT_WS('_', definition_id, DATE_FORMAT(attribute_date, $format)) SEPARATOR '|') AS attribute_dtvalues");
+                $builder->select("GROUP_CONCAT(DISTINCT CONCAT_WS('_', definition_id, DATE_FORMAT(attribute_date, {$format})) SEPARATOR '|') AS attribute_dtvalues");
                 $builder->select('GROUP_CONCAT(DISTINCT CONCAT_WS(\'_\', definition_id, attribute_decimal) SEPARATOR \'|\') AS attribute_dvalues');
                 $builder->join('attribute_links', 'attribute_links.item_id = sales_items_temp.item_id AND attribute_links.sale_id = sales_items_temp.sale_id AND definition_id IN (' . implode(',', $inputs['definition_ids']) . ')', 'left');
                 $builder->join('attribute_values', 'attribute_values.attribute_id = attribute_links.attribute_id', 'left');
@@ -210,15 +163,55 @@ class Detailed_sales extends Report
     }
 
     /**
-     * @param array $inputs
-     * @return array
+     * Returns the report totals, with the saved Lebanese pound total of all matching sales as `lbp_total`.
+     *
+     * `lbp_total` is 0 when no sale matches, and null when any matching sale has no saved pound total.
      */
     public function getSummaryData(array $inputs): array
     {
         $builder = $this->db->table('sales_items_temp');
         $builder->select('SUM(subtotal) AS subtotal, SUM(tax) AS tax, SUM(total) AS total, SUM(cost) AS cost, SUM(profit) AS profit');
+        $this->apply_filters($inputs, $builder);
 
-        if ($inputs['location_id'] != 'all') {    // TODO: Duplicated code
+        $summary              = $builder->get()->getRowArray();
+        $summary['lbp_total'] = complete_lbp_total($this->get_lbp_total_row($inputs));
+
+        return $summary;
+    }
+
+    /**
+     * Sums the saved pound totals of the sales matching the report filters, counting each sale once.
+     *
+     * The working table holds one row per sale item, so the pound total is taken once per sale before summing.
+     *
+     * @param array $inputs Report filters: sale_type and location_id.
+     *
+     * @return array<string, int|string|null>|null Row with lbp_total, sale_count and missing_count.
+     */
+    public function get_lbp_total_row(array $inputs): ?array
+    {
+        $builder = $this->db->table('sales_items_temp');
+        $builder->select('sale_id, MAX(lbp_total) AS lbp_total');
+        $this->apply_filters($inputs, $builder);
+        $builder->groupBy('sale_id');
+
+        $matching_sales = $builder->getCompiledSelect();
+
+        return $this->db->query(
+            'SELECT SUM(matching_sales.lbp_total) AS lbp_total, COUNT(*) AS sale_count, SUM(matching_sales.lbp_total IS NULL) AS missing_count'
+            . ' FROM (' . $matching_sales . ') AS matching_sales',
+        )->getRowArray();
+    }
+
+    /**
+     * Applies the location and sale type filters shared by the report rows and totals.
+     *
+     * @param array       $inputs  Report filters: sale_type and location_id.
+     * @param BaseBuilder $builder Query on the sales_items_temp working table.
+     */
+    public function apply_filters(array $inputs, BaseBuilder $builder): void
+    {
+        if ($inputs['location_id'] != 'all') {
             $builder->where('item_location', $inputs['location_id']);
         }
 
@@ -259,7 +252,5 @@ class Detailed_sales extends Report
                 $builder->where('sale_type', SALE_TYPE_RETURN);
                 break;
         }
-
-        return $builder->get()->getRowArray();
     }
 }

@@ -1,6 +1,7 @@
 import { sql } from "../lib/sql.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { dollarsToLbpInput } from "../lib/money.mjs";
 
 const specs = {
     1: ["Milk", "Grocery", "7", "10", "5", "123456789012"],
@@ -9,7 +10,7 @@ const specs = {
     7: ["QA negative cost", "Grocery", "-1", "10", "5", ""],
     8: ["QA negative price", "Grocery", "7", "-1", "5", ""],
     9: ["QA huge price", "Grocery", "7", "100000000000001", "5", ""],
-    10: ["QA decimal", "Grocery", "7", "10.50", "5", ""],
+    10: ["QA decimal", "Grocery", "7", "940000.50", "5", ""],
     11: ["حليب طازج", "Grocery", "7", "10", "5", ""],
     12: ["حليب UHT 1L", "Grocery", "7", "10", "5", ""],
     13: ["N".repeat(255), "Grocery", "7", "10", "5", ""],
@@ -33,7 +34,7 @@ const specs = {
     38: ["QA deleted", "Grocery", "7", "10", "5", ""],
 };
 
-/** Open, fill, submit, and verify item scenarios in the real item modal. */
+/** Run item modal checks and verify the saved ITEM-01 prices in the item list. */
 export async function itemScenario(ctx, number) {
     const { page, ui, base } = ctx;
     await ctx.login("qacashier", "QACashier2026");
@@ -163,8 +164,8 @@ export async function itemScenario(ctx, number) {
     const [name, category, cost, price, quantity, barcode] = spec;
     await form.locator("#name").fill(name);
     await form.locator("#category").fill(category);
-    await form.locator("#cost_price").fill(cost);
-    await form.locator("#unit_price").fill(price);
+    await form.locator("#cost_price").fill(number === 7 ? cost : dollarsToLbpInput(cost));
+    await form.locator("#unit_price").fill([8, 9, 10].includes(number) ? price : dollarsToLbpInput(price));
     const qty = form.locator('input[id^="quantity_"]').first();
     await qty.fill(number === 22 ? "0" : quantity);
     if (await form.locator("#receiving_quantity").count())
@@ -221,7 +222,7 @@ export async function itemScenario(ctx, number) {
         await ctx.page.locator("#name").fill("Amount entry QA");
         await ctx.page.locator("#category").fill("Grocery");
         await ctx.page.locator("#cost_price").fill("0");
-        await ctx.page.locator("#unit_price").fill("10");
+        await ctx.page.locator("#unit_price").fill(dollarsToLbpInput("10"));
         await ctx.page.locator('input[id^="quantity_"]').first().fill("5");
         const amountSave = ctx.page.locator('.bootstrap-dialog-footer-buttons button[id="submit"]').last();
         await ui.click(amountSave);
@@ -269,16 +270,41 @@ export async function itemScenario(ctx, number) {
     const row = rowSql.rows?.[0] || "";
     const saved = !!row;
     let status = saved ? "pass" : "fail";
+    let itemListPrices = null;
+    if (number === 1 && saved) {
+        const itemId = row.split("\t")[0];
+        const itemRow = page.locator(`#table tr[data-uniqueid="${itemId}"]`);
+        await itemRow.waitFor({ state: "visible", timeout: 10000 });
+        const costIndex = await page
+            .locator('#table thead th[data-field="cost_price"]')
+            .evaluate((header) => Array.from(header.parentElement.children).indexOf(header));
+        const retailIndex = await page
+            .locator('#table thead th[data-field="unit_price"]')
+            .evaluate((header) => Array.from(header.parentElement.children).indexOf(header));
+        itemListPrices = {
+            cost: await itemRow.locator("td").nth(costIndex).innerText(),
+            retail: await itemRow.locator("td").nth(retailIndex).innerText(),
+        };
+        if (itemListPrices.cost !== "627,000 LL" || itemListPrices.retail !== "895,000 LL") status = "fail";
+    }
     if (number === 9 && !saved) status = "pass";
     if ([7, 8, 10, 13, 18, 19, 23, 24, 35, 38].includes(number)) status = "finding";
     if (number === 9 && saved) status = "fail";
     if (number === 16) status = saved ? "fail" : "pass";
     return {
         status,
-        expected: "Modal submit completes after validation and stored item values match input",
-        actual: { saveResponse: response?.status() || null, sql: rowSql.rows, barcode: row.split("\t")[2] || null },
+        expected:
+            number === 1
+                ? "Modal save stores dollar prices and refreshes the item row with 627,000 LL cost and 895,000 LL retail"
+                : "Modal submit completes after validation and stored item values match input",
+        actual: {
+            saveResponse: response?.status() || null,
+            sql: rowSql.rows,
+            itemListPrices,
+            barcode: row.split("\t")[2] || null,
+        },
         note: saved
-            ? `SQL verified item row ${row}`
+            ? `SQL verified item row ${row}${itemListPrices ? `; list shows cost ${itemListPrices.cost} and retail ${itemListPrices.retail}` : ""}`
             : `No matching item row; response=${response?.status() || "none"}; errors=${(
                   await page
                       .locator("#error_message_box")
@@ -468,8 +494,8 @@ async function uploadImage(ctx) {
         const form = ctx.page.locator("#item_form");
         await form.locator("#name").fill(name);
         await form.locator("#category").fill("Grocery");
-        await form.locator("#cost_price").fill("1");
-        await form.locator("#unit_price").fill("2");
+        await form.locator("#cost_price").fill(dollarsToLbpInput("1"));
+        await form.locator("#unit_price").fill(dollarsToLbpInput("2"));
         await form.locator('input[id^="quantity_"]').first().fill("1");
         await form.locator("input[name=items_image]").setInputFiles({
             name: `qa-image.${image === "jpeg" ? "jpg" : "png"}`,
@@ -559,8 +585,8 @@ async function attributeScenario(ctx) {
     const form = ctx.page.locator("#item_form");
     await form.locator("#name").fill("Attribute QA item");
     await form.locator("#category").fill("Grocery");
-    await form.locator("#cost_price").fill("1");
-    await form.locator("#unit_price").fill("2");
+    await form.locator("#cost_price").fill(dollarsToLbpInput("1"));
+    await form.locator("#unit_price").fill(dollarsToLbpInput("2"));
     await form.locator('input[id^="quantity_"]').first().fill("5");
     const selector = form.locator("#definition_name");
     const optionValues = await selector
@@ -721,8 +747,8 @@ async function validationScenario(ctx, number) {
     if (number === 33) {
         await form.locator("#name").fill("Invalid rate QA");
         await form.locator("#category").fill("Grocery");
-        await form.locator("#cost_price").fill("1");
-        await form.locator("#unit_price").fill("2");
+        await form.locator("#cost_price").fill(dollarsToLbpInput("1"));
+        await form.locator("#unit_price").fill(dollarsToLbpInput("2"));
         await form.locator('input[id^="quantity_"]').first().fill("5");
         await form.locator("#tax_mode_own").check();
         await form.locator("#tax_name_1").fill("TVA");
@@ -734,8 +760,8 @@ async function validationScenario(ctx, number) {
                 activeForm = ctx.page.locator("#item_form");
                 await activeForm.locator("#name").fill("Invalid rate QA");
                 await activeForm.locator("#category").fill("Grocery");
-                await activeForm.locator("#cost_price").fill("1");
-                await activeForm.locator("#unit_price").fill("2");
+                await activeForm.locator("#cost_price").fill(dollarsToLbpInput("1"));
+                await activeForm.locator("#unit_price").fill(dollarsToLbpInput("2"));
                 await activeForm.locator('input[id^="quantity_"]').first().fill("5");
                 await activeForm.locator("#tax_mode_own").check();
                 await activeForm.locator("#tax_name_1").fill("TVA");

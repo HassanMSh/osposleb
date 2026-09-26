@@ -22,6 +22,48 @@ The first install takes this lock before setup begins; setup accepts only that l
 
 The exported `OSPOS_IMAGE_TAG` set by `./shop` takes priority over a value in `ospos.conf`.
 
+## Item prices and pound amounts
+
+Enter item cost and retail prices in Lebanese pounds (LL) on the item form.
+
+Cost and retail prices both show rounded to the nearest 1,000 LL, with 500 LL and above rounding up.
+
+The Items list shows those same rounded LBP cost and retail prices.
+
+The database stores prices in dollars with two decimal places, and the current Settings rate controls the LBP values shown on item forms, the Items list, the till, and new receipts.
+
+Saving an item without changing its displayed prices keeps its stored dollar prices unchanged.
+
+On the till, each customer-paid unit is rounded to the nearest 1,000 LL after discount and TVA, then multiplied by its quantity; the LBP sale total is the sum of those rounded lines.
+
+The change helper and receipt pound total use that same LBP sale total, while receipt lines and payment entry stay in dollars.
+
+The amount-due line below the dollar amount due is rounded to a whole pound and shows zero when the sale is fully paid.
+
+Rule R can make a displayed retail price differ from the exact dollar price times the rate by up to 500 LL per unit.
+
+Storing a typed pound price in cents can add up to 450 LL of difference at a 90,000 rate.
+
+Retail prices typed outside whole thousands show rounded to the nearest 1,000 LL, so 2,500 LL shows as 3,000 LL.
+
+A cost of 100,000 LL at a 90,000 rate stores as $1.11 and reopens at 99,900 LL because the database keeps cents.
+
+At 90,000 LL per dollar, a $4.22 report total is 379,800 LL while rounded item lines can collect 380,000 LL, so the pound cash drawer may differ from the dollar total times the rate.
+
+Each completed sale and return also saves the LBP sale total the till showed and the rate used, and returns save a negative total.
+
+The "Total (LBP)" column and footer of the Sales Summary report add up those saved sale totals, so they match what the till charged even after the rate changes.
+
+Use that figure as the expected pound total at closing, and still count the drawer and check the recorded payments separately.
+
+The "Total (LBP)" cell stays blank for a day that includes a sale completed before this total was saved, and the footer stays blank when any such sale is in the selected dates.
+
+The Detailed Transactions report also has a "Total (LBP)" column with each sale's saved total, blank for older sales, and a footer that follows the same rule.
+
+Held sales, quotes, and work orders save no LBP total until they are completed.
+
+A reprinted or emailed receipt shows the saved LBP total and the rate used at the sale, not today's rate; receipts of older sales still use the current rate.
+
 ## Start the shop
 
 ```bash

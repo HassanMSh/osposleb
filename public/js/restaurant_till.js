@@ -41,6 +41,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             let discountType = cartForm.querySelector('input[name="discount_type"]');
             if (!discountType) {
+                discountType = register.querySelector(`input[name="discount_type"][form="${cartForm.id}"]`);
+            }
+            if (!discountType) {
                 discountType = document.createElement("input");
                 discountType.type = "hidden";
                 discountType.name = "discount_type";

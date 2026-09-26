@@ -135,6 +135,19 @@ final class CurrencyHelperTest extends CIUnitTestCase
     }
 
     /**
+     * Converts fixed discounts entered in Lebanese pounds and preserves an unchanged displayed value.
+     */
+    public function testFixedDiscountLbpConversionUsesCurrencyDecimalsAndPreservesStoredValue(): void
+    {
+        $this->assertSame('0.11', lbp_to_dollar_string('10000', '89500', null, false, 2));
+
+        $stored_discount = '0.12';
+        $shown_lbp       = round_lbp_to_whole_pound((float) $stored_discount * 89_500);
+
+        $this->assertSame('0.12', lbp_to_dollar_string((string) $shown_lbp, '89500', $stored_discount, false, 2, $shown_lbp));
+    }
+
+    /**
      * Confirms plain pound digits parse under the English and Lebanese number locales.
      */
     public function testPlainIntegerPoundsParseInEnglishAndArabicLocales(): void

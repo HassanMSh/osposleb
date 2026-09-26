@@ -85,3 +85,23 @@
 .till-restaurant #register td {
     vertical-align: middle;
 }
+
+.till-restaurant #register .input-group {
+    display: flex;
+}
+
+.till-restaurant #register .input-group .form-control {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+}
+
+.till-restaurant #register .input-group-btn {
+    display: flex;
+    flex: 0 0 auto;
+    width: auto;
+}
+
+.till-restaurant #register .input-group .toggle {
+    min-width: 48px;
+}

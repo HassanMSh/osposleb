@@ -107,12 +107,15 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         </div>
     <?= form_close() ?>
 
-    <?php $tabindex = 0;
+    <?php
+    $tabindex = 0;
 if ($restaurant_till) {
-    echo view('sales/restaurant_menu', ['controller_name' => $controller_name, 'restaurant_menu_items' => $restaurant_menu_items]);
-} ?>
+    echo view('sales/restaurant_menu', ['controller_name' => $controller_name, 'restaurant_menu_items' => $restaurant_menu_items, 'config' => $config]);
+}
+?>
 
-    <?php if (! $restaurant_till) { ?><?= form_open("{$controller_name}/add", ['id' => 'add_item_form', 'class' => 'form-horizontal panel panel-default']) ?>
+    <?php if (! $restaurant_till) { ?>
+        <?= form_open("{$controller_name}/add", ['id' => 'add_item_form', 'class' => 'form-horizontal panel panel-default']) ?>
         <div class="panel-body form-group">
             <ul>
                 <li class="pull-left first_li">
@@ -129,7 +132,8 @@ if ($restaurant_till) {
                 </li>
             </ul>
         </div>
-    <?= form_close() ?><?php } ?>
+        <?= form_close() ?>
+    <?php } ?>
 
 
     <!-- Sale Items List -->
@@ -141,7 +145,11 @@ if ($restaurant_till) {
                 <th style="width: 15%;"><?= lang(ucfirst($controller_name) . '.item_number') ?></th>
                 <th style="width: 30%;"><?= lang(ucfirst($controller_name) . '.item_name') ?></th>
                 <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.price') ?></th>
-                <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.quantity') ?></th><?= $restaurant_till ? '<th style="width: 15%;">' . lang(ucfirst($controller_name) . '.discount') . '</th>' : "\n                " ?><th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.total') ?></th>
+                <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.quantity') ?></th>
+                <?php if ($restaurant_till) { ?>
+                    <th style="width: 15%;"><?= lang(ucfirst($controller_name) . '.discount') ?></th>
+                <?php } ?>
+                <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.total') ?></th>
                 <th style="width: 5%;"><?= lang(ucfirst($controller_name) . '.update') ?></th>
             </tr>
         </thead>
@@ -212,7 +220,11 @@ if ($restaurant_till) {
                         echo form_input(['name' => 'quantity', 'class' => 'form-control input-sm', 'value' => to_quantity_decimals($item['quantity']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
                     }
                     ?>
-                            </td><?= $restaurant_till ? view('sales/restaurant_discount_cell', ['config' => $config, 'item' => $item, 'line' => $line, 'tabindex' => ++$tabindex]) : "\n\n                            " ?><td>
+                            </td>
+                            <?php if ($restaurant_till) { ?>
+                                <?= view('sales/restaurant_discount_cell', ['config' => $config, 'item' => $item, 'line' => $line, 'tabindex' => ++$tabindex]) ?>
+                            <?php } ?>
+                            <td>
                                 <?php
                     if ((int) $item['item_type'] === ITEM_AMOUNT_ENTRY) {
                         echo form_input(['name' => 'discounted_total', 'class' => 'form-control input-sm', 'dir' => 'ltr', 'value' => format_lbp_input($lbp_line['line_total_lbp']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);

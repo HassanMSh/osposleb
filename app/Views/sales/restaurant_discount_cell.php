@@ -5,16 +5,24 @@
  * @var int|string $line
  * @var int        $tabindex
  */
+$discount_type = (int) ($item['discount_type'] ?? 0);
+$discount_lbp  = round_lbp_to_whole_pound((float) ($item['discount'] ?? 0) * (float) ($config['lbp_exchange_rate'] ?? 0));
 ?>
 <td>
     <div class="input-group">
         <?= form_input([
             'name'     => 'discount',
             'class'    => 'form-control input-sm',
-            'value'    => $item['discount_type'] ? to_currency_no_money($item['discount']) : to_decimals($item['discount']),
+            'value'    => $discount_type ? format_lbp_input($discount_lbp) : to_decimals($item['discount']),
             'tabindex' => $tabindex,
             'onClick'  => 'this.select();',
             'form'     => "cart_{$line}",
+        ]) ?>
+        <?= form_input([
+            'type'  => 'hidden',
+            'name'  => 'discount_type',
+            'value' => (string) $discount_type,
+            'form'  => "cart_{$line}",
         ]) ?>
         <span class="input-group-btn">
             <?= form_checkbox([
@@ -24,7 +32,7 @@
                 'data-toggle'  => 'toggle',
                 'data-size'    => 'small',
                 'data-onstyle' => 'success',
-                'data-on'      => '<b>' . $config['currency_symbol'] . '</b>',
+                'data-on'      => '<b>LL</b>',
                 'data-off'     => '<b>%</b>',
                 'data-line'    => $line,
                 'form'         => "cart_{$line}",

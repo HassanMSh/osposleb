@@ -2,8 +2,10 @@
 /**
  * @var string $controller_name
  * @var array  $restaurant_menu_items
+ * @var array  $config
  */
 $restaurant_categories = [];
+$lbp_rate              = $config['lbp_exchange_rate'] ?? 0;
 
 foreach ($restaurant_menu_items as $restaurant_menu_item) {
     $category_name = trim((string) $restaurant_menu_item['category']);
@@ -53,7 +55,10 @@ foreach ($restaurant_menu_items as $restaurant_menu_item) {
                             value="<?= (int) $restaurant_menu_item['item_id'] ?>"
                         >
                             <span class="restaurant-menu-item-name"><?= esc($restaurant_menu_item['name']) ?></span>
-                            <span class="restaurant-menu-item-price" dir="ltr"><?= to_currency($restaurant_menu_item['unit_price']) ?></span>
+                            <span class="restaurant-menu-item-price" dir="ltr">
+                                <?= esc(format_lbp(round_lbp_to_thousand((float) $restaurant_menu_item['unit_price'] * $lbp_rate))) ?>
+                                <small><?= to_currency($restaurant_menu_item['unit_price']) ?></small>
+                            </span>
                         </button>
                     <?php } ?>
                 </div>

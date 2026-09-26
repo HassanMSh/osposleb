@@ -599,7 +599,7 @@ class Sales extends Secure_Controller
     /**
      * Edit an item in the sale. Used in app/Views/sales/register.php
      *
-     * Converts posted LBP prices and amount-entry totals to dollars before editing a cart line.
+     * Converts posted LBP prices, restaurant fixed discounts, and amount-entry totals to dollars before editing a cart line.
      * Refuses the edit when the LBP exchange rate is missing or invalid.
      * Rejects missing or non-string price and quantity values before validation.
      * Rejects a quantity of zero, so a cart line cannot be sold for nothing. Negative
@@ -650,20 +650,33 @@ class Sales extends Secure_Controller
                 $discount_input = '0';
             }
 
-            $discount = $discount_type
-                ? parse_quantity($discount_input)
-                : parse_decimals($discount_input);
-
-            $item_location = $this->request->getPost('location', FILTER_VALIDATE_INT);
-            if (! is_int($item_location)) {
-                $cart          = $this->sale_lib->get_cart();
-                $item_location = $cart[$line]['item_location'] ?? $this->sale_lib->get_sale_location();
-            }
-
             $cart              = $this->sale_lib->get_cart();
             $line_item         = $cart[$line] ?? [];
             $currency_decimals = (int) ($this->config['currency_decimals'] ?? 2);
-            $price             = lbp_to_dollar_string(
+
+            if ($discount_type && Till_layout::get_layout($this->config) === 'restaurant') {
+                $discount_lbp       = parse_decimals($discount_input);
+                $shown_discount_lbp = round_lbp_to_whole_pound((float) ($line_item['discount'] ?? 0) * (float) $lbp_rate);
+                $discount           = lbp_to_dollar_string(
+                    (string) $discount_lbp,
+                    $lbp_rate,
+                    $line_item['discount'] ?? null,
+                    false,
+                    $currency_decimals,
+                    $shown_discount_lbp,
+                );
+            } else {
+                $discount = $discount_type
+                    ? parse_quantity($discount_input)
+                    : parse_decimals($discount_input);
+            }
+
+            $item_location = $this->request->getPost('location', FILTER_VALIDATE_INT);
+            if (! is_int($item_location)) {
+                $item_location = $cart[$line]['item_location'] ?? $this->sale_lib->get_sale_location();
+            }
+
+            $price = lbp_to_dollar_string(
                 (string) $price_lbp,
                 $lbp_rate,
                 $line_item['price'] ?? null,

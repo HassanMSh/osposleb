@@ -65,6 +65,24 @@ function round_lbp_to_whole_pound(float|int|string|null $pound_amount): int
 }
 
 /**
+ * Returns the exchange rate to save with a completed sale, or null when no usable rate is set.
+ *
+ * A sale saved with a null rate also saves a null pound total, so reports show it as unknown.
+ *
+ * @param float|int|string|null $rate Lebanese pounds per dollar.
+ *
+ * @return float|null Rate above zero, or null.
+ */
+function lbp_rate_to_save(float|int|string|null $rate): ?float
+{
+    if ($rate === null || ! is_numeric($rate) || (float) $rate <= 0) {
+        return null;
+    }
+
+    return (float) $rate;
+}
+
+/**
  * Builds display prices for cart lines and the sum of their rounded pound totals.
  *
  * The customer unit includes the discounted line amount and only excluded tax.
@@ -123,6 +141,50 @@ function get_lbp_cart_totals(array $cart, array $item_taxes, float|int|string $r
     }
 
     return ['lines' => $lines, 'total' => $total];
+}
+
+/**
+ * Returns a report's pound sum only when every sale in the group has a saved pound total.
+ *
+ * @param array|null $lbp_row Row with lbp_total (sum) and missing_count (sales without a saved total), or null.
+ *
+ * @return int|null Pound total, 0 for a group without sales, or null when it is unknown.
+ */
+function complete_lbp_total(?array $lbp_row): ?int
+{
+    if ($lbp_row === null || (int) ($lbp_row['missing_count'] ?? 0) > 0) {
+        return null;
+    }
+
+    return (int) ($lbp_row['lbp_total'] ?? 0);
+}
+
+/**
+ * Builds the pound figures for a stored sale, such as a reprinted or emailed receipt.
+ *
+ * A sale saved with its pound total and exchange rate shows that total, and its line figures use the saved rate.
+ * A sale without them, such as one completed before they were saved, uses today's rate for everything.
+ *
+ * @param array                 $cart        Cart lines rebuilt from the stored sale.
+ * @param array                 $item_taxes  Per-line tax rows returned by Tax_lib::get_taxes().
+ * @param array|null            $sale_info   Sale row with lbp_total and lbp_exchange_rate, or null.
+ * @param float|int|string|null $config_rate Current Lebanese pounds per dollar setting.
+ *
+ * @return array{rate: float|int|string, lbp_totals: array, total: int} Rate used, line values, and the pound total.
+ */
+function get_stored_sale_lbp_totals(array $cart, array $item_taxes, ?array $sale_info, float|int|string|null $config_rate): array
+{
+    $saved_rate  = lbp_rate_to_save($sale_info['lbp_exchange_rate'] ?? null);
+    $saved_total = $sale_info['lbp_total'] ?? null;
+    $has_saved   = $saved_rate !== null && is_numeric($saved_total);
+    $rate        = $has_saved ? $saved_rate : ($config_rate ?? 0);
+    $lbp_totals  = get_lbp_cart_totals($cart, $item_taxes, $rate);
+
+    return [
+        'rate'       => $rate,
+        'lbp_totals' => $lbp_totals,
+        'total'      => $has_saved ? (int) $saved_total : $lbp_totals['total'],
+    ];
 }
 
 /**

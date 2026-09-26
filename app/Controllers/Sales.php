@@ -816,8 +816,13 @@ class Sales extends Secure_Controller
         $data['taxes']      = $tax_details[0];
         $data['lbp_totals'] = get_lbp_cart_totals($data['cart'], $tax_details[1], $this->config['lbp_exchange_rate'] ?? 0);
         $data['lbp_total']  = $data['lbp_totals']['total'];
+        $data['lbp_rate']   = $this->config['lbp_exchange_rate'] ?? 0;
         $data['discount']   = $this->sale_lib->get_discount();
         $data['payments']   = $this->sale_lib->get_payments();
+
+        // Completed sales keep the pound total the till showed and the rate used for it.
+        $saved_lbp_rate  = lbp_rate_to_save($data['lbp_rate']);
+        $saved_lbp_total = $saved_lbp_rate === null ? null : $data['lbp_total'];
 
         // Returns 'subtotal', 'total', 'cash_total', 'payment_total', 'amount_due', 'cash_amount_due', 'payments_cover_total'
         $totals                       = $this->sale_lib->get_totals($tax_details[0]);
@@ -882,7 +887,7 @@ class Sales extends Secure_Controller
                 $invoice_view = $this->config['invoice_type'];
 
                 // Save the data to the sales table
-                $data['sale_id_num'] = $this->sale->save_value($sale_id, $data['sale_status'], $data['cart'], $customer_id, $employee_id, $data['comments'], $invoice_number, $work_order_number, $quote_number, $sale_type, $data['payments'], $data['dinner_table'], $tax_details);
+                $data['sale_id_num'] = $this->sale->save_value($sale_id, $data['sale_status'], $data['cart'], $customer_id, $employee_id, $data['comments'], $invoice_number, $work_order_number, $quote_number, $sale_type, $data['payments'], $data['dinner_table'], $tax_details, $saved_lbp_total, $saved_lbp_rate);
                 $data['sale_id']     = 'POS ' . $data['sale_id_num'];
 
                 // Resort and filter cart lines for printing
@@ -966,7 +971,7 @@ class Sales extends Secure_Controller
                 $sale_type = SALE_TYPE_POS;
             }
 
-            $data['sale_id_num'] = $this->sale->save_value($sale_id, $data['sale_status'], $data['cart'], $customer_id, $employee_id, $data['comments'], $invoice_number, $work_order_number, $quote_number, $sale_type, $data['payments'], $data['dinner_table'], $tax_details);
+            $data['sale_id_num'] = $this->sale->save_value($sale_id, $data['sale_status'], $data['cart'], $customer_id, $employee_id, $data['comments'], $invoice_number, $work_order_number, $quote_number, $sale_type, $data['payments'], $data['dinner_table'], $tax_details, $saved_lbp_total, $saved_lbp_rate);
 
             $data['sale_id'] = 'POS ' . $data['sale_id_num'];
 
@@ -1128,6 +1133,7 @@ class Sales extends Secure_Controller
 
     /**
      * Loads an existing sale with rounded LBP totals for receipt views and optional day-first dates.
+     * Sales saved with a pound total show that total and its exchange rate; older sales use the current rate.
      *
      * @param int  $sale_id          Sale identifier.
      * @param bool $receipt_datetime Whether to use the receipt date format.
@@ -1148,8 +1154,10 @@ class Sales extends Secure_Controller
         $data['selected_payment_type'] = $this->sale_lib->get_payment_type();
 
         $tax_details                  = $this->tax_lib->get_taxes($data['cart'], $sale_id);
-        $data['lbp_totals']           = get_lbp_cart_totals($data['cart'], $tax_details[1], $this->config['lbp_exchange_rate'] ?? 0);
-        $data['lbp_total']            = $data['lbp_totals']['total'];
+        $lbp_values                   = get_stored_sale_lbp_totals($data['cart'], $tax_details[1], $sale_info, $this->config['lbp_exchange_rate'] ?? 0);
+        $data['lbp_rate']             = $lbp_values['rate'];
+        $data['lbp_totals']           = $lbp_values['lbp_totals'];
+        $data['lbp_total']            = $lbp_values['total'];
         $data['taxes']                = $this->sale->get_sales_taxes($sale_id);
         $data['discount']             = $this->sale_lib->get_discount();
         $sale_timestamp               = strtotime($sale_info['sale_time']);

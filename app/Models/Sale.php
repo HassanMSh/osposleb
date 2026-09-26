@@ -29,6 +29,8 @@ class Sale extends Model
         'dinner_table_id',
         'work_order_number',
         'sale_type',
+        'lbp_total',
+        'lbp_exchange_rate',
     ];
 
     public function __construct()
@@ -77,6 +79,8 @@ class Sale extends Model
                 MAX(IFnull(payments.sale_payment_amount, 0)) AS amount_tendered,
                 (MAX(payments.sale_payment_amount)) - ({$sale_total}) AS change_due,
                 " . '
+                MAX(sales.lbp_total) AS lbp_total,
+                MAX(sales.lbp_exchange_rate) AS lbp_exchange_rate,
                 MAX(payments.payment_type) AS payment_type';
 
         $builder = $this->db->table('sales_items AS sales_items');
@@ -507,6 +511,12 @@ class Sale extends Model
      * Save the sale information after the sales is complete but before the final document is printed
      * The sales_taxes variable needs to be initialized to an empty array before calling
      *
+     * The rounded Lebanese pound total and the exchange rate are written to the sale row on every save.
+     * Pass them only for completed sales; null clears them, for example when a sale is suspended.
+     *
+     * @param int|null   $lbp_total         Rounded pound total the till showed, negative for returns.
+     * @param float|null $lbp_exchange_rate Pounds per dollar used for that total.
+     *
      * @throws ReflectionException
      */
     public function save_value(
@@ -523,6 +533,8 @@ class Sale extends Model
         ?array $payments,
         ?int $dinner_table_id,
         ?array &$sales_taxes,
+        ?int $lbp_total = null,
+        ?float $lbp_exchange_rate = null,
     ): int {    // TODO: this method returns the sale_id but the override is expecting it to return a bool. The signature needs to be reworked.  Generally when there are more than 3 maybe 4 parameters, there's a good chance that an object needs to be passed rather than so many params.
         if (! $this->hasOnlyCashPayments($payments)) {
             return -1;
@@ -556,6 +568,8 @@ class Sale extends Model
             'work_order_number' => $work_order_number,
             'dinner_table_id'   => $dinner_table_id,
             'sale_type'         => $sale_type,
+            'lbp_total'         => $lbp_total,
+            'lbp_exchange_rate' => $lbp_exchange_rate,
         ];
 
         // Run these queries as a transaction, we want to make sure we do all or nothing
@@ -1138,6 +1152,7 @@ class Sale extends Model
                     sales.sale_id AS sale_id,
                     MAX(sales.sale_status) AS sale_status,
                     MAX(sales.sale_type) AS sale_type,
+                    MAX(sales.lbp_total) AS lbp_total,
                     MAX(sales.comment) AS comment,
                     MAX(sales.invoice_number) AS invoice_number,
                     MAX(sales.quote_number) AS quote_number,

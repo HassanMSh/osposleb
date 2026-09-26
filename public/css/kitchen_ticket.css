@@ -1,0 +1,65 @@
+.kitchen-ticket {
+    border-top: 3px dashed #555;
+    margin: 18px 0;
+    padding: 16px 8px 8px;
+    text-align: start;
+}
+
+.kitchen-ticket-title {
+    font-size: 1.4em;
+    font-weight: 700;
+    margin: 0 0 12px;
+}
+
+.kitchen-ticket-meta {
+    font-size: 1em;
+    margin-bottom: 14px;
+}
+
+.kitchen-ticket-label {
+    font-weight: 700;
+}
+
+.kitchen-ticket-line {
+    align-items: baseline;
+    display: flex;
+    font-size: 1.35em;
+    gap: 0.5em;
+    line-height: 1.35;
+    margin: 5px 0;
+}
+
+.kitchen-ticket-qty {
+    font-weight: 700;
+    min-width: 2.5em;
+    text-align: start;
+}
+
+.kitchen-ticket-name {
+    font-weight: 600;
+}
+
+.kitchen-ticket-comment {
+    font-size: 1.1em;
+    margin-top: 16px;
+}
+
+@media print {
+    .kitchen-ticket {
+        break-before: page;
+        border: 0;
+        margin: 0;
+        page-break-before: always;
+        padding: 3mm;
+    }
+
+    .kitchen-ticket-line {
+        font-size: 16pt;
+        line-height: 1.4;
+        margin: 2mm 0;
+    }
+
+    .kitchen-ticket-title {
+        font-size: 18pt;
+    }
+}

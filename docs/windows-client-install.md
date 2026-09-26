@@ -89,6 +89,10 @@ git pull --ff-only origin develop
 
 ### Restaurant till setup
 
+After each restaurant sale, the printer prints the customer receipt and then the kitchen ticket.
+The print button on the receipt page and in the sales list reprints both.
+The cut between them depends on the printer driver cutting after each page.
+
 In Settings > General, set Till layout to Restaurant and save.
 Create each menu choice as a standard item on the Items page and give it a category.
 Set each restaurant item's Tax mode to No TVA and choose Non-stock.

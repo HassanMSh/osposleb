@@ -5,6 +5,7 @@
  * @var array $config
  */
 
+use App\Libraries\Till_layout;
 use App\Models\Employee;
 
 ?>
@@ -73,6 +74,16 @@ if ($employee->has_grant('reports_sales', session('person_id'))): ?>
     <?php endif; ?>
 </div>
 
-<?= view('sales/' . $config['receipt_template']) ?>
+<?= view('sales/' . $config['receipt_template']) ?><?php
+if (Till_layout::get_layout($config) === 'restaurant') {
+    echo view('sales/kitchen_ticket', [
+        'cart'             => $cart,
+        'comments'         => $comments,
+        'language_code'    => current_language_code(),
+        'sale_id_num'      => $sale_id_num,
+        'transaction_time' => $transaction_time,
+    ]);
+}
+?>
 
 <?= view('partial/footer') ?>

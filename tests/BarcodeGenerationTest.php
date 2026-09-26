@@ -277,6 +277,59 @@ final class BarcodeGenerationTest extends CIUnitTestCase
     }
 
     /**
+     * Keeps a bad Tax Mode failure when the same CSV row also has a new, unique barcode.
+     */
+    public function testCsvImportBadTaxModeWithUniqueBarcodeIsNotSaved(): void
+    {
+        $this->requireDatabase();
+        session()->set('person_id', 1);
+
+        $item      = $this->makeItem();
+        $barcode   = 'CSV-159-' . bin2hex(random_bytes(4));
+        $locations = array_values((new Stock_location())->get_allowed_locations());
+        $header    = 'Id,Barcode,"Item Name",Category,"Supplier ID","Cost Price","Unit Price","Tax 1 Name","Tax 1 Percent","Tax 2 Name","Tax 2 Percent","Reorder Level",Description,"Allow Alt Description","Item has Serial Number",Image,HSN,"Stock Type","Tax Mode"';
+
+        foreach ($locations as $location) {
+            $header .= ',"location_' . $location . '"';
+        }
+        $csv_path = tempnam(sys_get_temp_dir(), 'ospos-barcode-');
+        file_put_contents($csv_path, implode("\n", [
+            $header,
+            '0,' . $barcode . ',Bad tax mode item,Test,,1,2,,,,,0,Description,0,0,,,Non-stock,Something' . str_repeat(',0', count($locations)),
+        ]));
+        $old_files           = $_FILES;
+        $_FILES['file_path'] = [
+            'error'    => UPLOAD_ERR_OK,
+            'name'     => 'items.csv',
+            'tmp_name' => $csv_path,
+            'type'     => 'text/csv',
+            'size'     => filesize($csv_path),
+        ];
+
+        try {
+            $controller = $this->makeItemsController($item);
+            ob_start();
+            $controller->postImportCsvFile();
+            $response = json_decode((string) ob_get_clean(), true);
+        } catch (Throwable $exception) {
+            ob_end_clean();
+
+            throw $exception;
+        } finally {
+            $_FILES = $old_files;
+            unlink($csv_path);
+        }
+
+        $saved = $this->database->table('items')->where('item_number', $barcode)->countAllResults();
+        $this->database->table('items')->where('item_number', $barcode)->delete();
+
+        $this->assertIsArray($response);
+        $this->assertFalse($response['success']);
+        $this->assertStringContainsString(lang('Items.csv_import_tax_mode_invalid'), $response['message']);
+        $this->assertSame(0, $saved);
+    }
+
+    /**
      * Reports the generated barcode and its owner when a CSV row has an empty barcode collision.
      */
     public function testCsvImportGeneratedBarcodeCollisionNamesOwner(): void

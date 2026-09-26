@@ -8,6 +8,7 @@
  * @var array     $stock_locations
  * @var array     $stock_location
  * @var array     $cart
+ * @var int|null  $restaurant_target_line
  * @var bool      $items_module_allowed
  * @var bool      $change_price
  * @var float|int $item_count
@@ -135,6 +136,10 @@ if ($restaurant_till) {
         <?= form_close() ?>
     <?php } ?>
 
+    <?php if ($restaurant_till) { ?>
+        <?= form_open("{$controller_name}/setTargetLine", ['id' => 'restaurant_target_form']) ?>
+        <?= form_close() ?>
+    <?php } ?>
 
     <!-- Sale Items List --><?= $restaurant_till ? '<div class="restaurant-cart">' : "\n" ?>
 
@@ -169,9 +174,14 @@ if ($restaurant_till) {
                     $lbp_line                   = $lbp_totals['lines'][$line];
                     $customer_paid_unit_differs = abs((float) $lbp_line['customer_unit_usd'] - (float) $item['price']) > 0.00000001;
                     $is_addon                   = Till_layout::is_addon_category($item['category'] ?? null, $config);
+                    $is_target                  = $restaurant_till && (int) $line === $restaurant_target_line;
+                    $row_class                  = $is_addon ? 'restaurant-addon-line' : '';
+                    if ($is_target) {
+                        $row_class .= ($row_class === '' ? '' : ' ') . 'restaurant-target-line';
+                    }
                     ?>
                     <?= form_open("{$controller_name}/editItem/{$line}", ['class' => 'form-horizontal', 'id' => "cart_{$line}"]) ?>
-                        <tr<?= $is_addon ? ' class="restaurant-addon-line"' : '' ?>>
+                        <tr<?= $row_class !== '' ? ' class="' . esc($row_class) . '"' : '' ?><?= $is_target ? ' aria-current="true"' : '' ?>>
                             <td>
                                 <?= anchor("{$controller_name}/deleteItem/{$line}", '<span class="glyphicon glyphicon-trash"></span>');
                     echo form_input(['type' => 'hidden', 'name' => 'location', 'value' => (string) $item['item_location'], 'form' => "cart_{$line}"]);
@@ -186,7 +196,16 @@ if ($restaurant_till) {
                             <?php } else { ?>
                                 <td><?= esc($item['item_number']) ?></td>
                                 <td style="align: center;">
-                                    <?= $is_addon ? '<bdi dir="auto">+ ' . esc($item['name']) . '</bdi>' : esc($item['name']) ?> <?= implode(' ', [$item['attribute_values'], $item['attribute_dtvalues']]) ?>
+                                    <?php
+                                    if ($is_addon) {
+                                        echo '<bdi dir="auto">+ ' . esc($item['name']) . '</bdi>';
+                                    } elseif ($restaurant_till) {
+                                        echo '<button type="submit" class="restaurant-target-button" form="restaurant_target_form" formaction="' . esc(site_url("{$controller_name}/setTargetLine/{$line}")) . '" title="' . esc(lang('Sales.restaurant_target_line'), 'attr') . '" aria-label="' . esc(lang('Sales.restaurant_target_line') . ': ' . $item['name'], 'attr') . '">';
+                                        echo '<span class="glyphicon glyphicon-pushpin" aria-hidden="true"></span> ' . esc($item['name']) . '</button>';
+                                    } else {
+                                        echo esc($item['name']);
+                                    }
+                                ?> <?= implode(' ', [$item['attribute_values'], $item['attribute_dtvalues']]) ?>
                                     <br>
                                     <?php if ((string) $item['stock_type'] === '0'): echo '[' . to_quantity_decimals($item['in_stock']) . ' in ' . $item['stock_name'] . ']';
                                     endif; ?>

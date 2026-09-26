@@ -285,7 +285,7 @@ export async function itemScenario(ctx, number) {
             cost: await itemRow.locator("td").nth(costIndex).innerText(),
             retail: await itemRow.locator("td").nth(retailIndex).innerText(),
         };
-        if (itemListPrices.cost !== "626,500 LL" || itemListPrices.retail !== "895,000 LL") status = "fail";
+        if (itemListPrices.cost !== "627,000 LL" || itemListPrices.retail !== "895,000 LL") status = "fail";
     }
     if (number === 9 && !saved) status = "pass";
     if ([7, 8, 10, 13, 18, 19, 23, 24, 35, 38].includes(number)) status = "finding";
@@ -295,7 +295,7 @@ export async function itemScenario(ctx, number) {
         status,
         expected:
             number === 1
-                ? "Modal save stores dollar prices and refreshes the item row with 626,500 LL cost and 895,000 LL retail"
+                ? "Modal save stores dollar prices and refreshes the item row with 627,000 LL cost and 895,000 LL retail"
                 : "Modal submit completes after validation and stored item values match input",
         actual: {
             saveResponse: response?.status() || null,

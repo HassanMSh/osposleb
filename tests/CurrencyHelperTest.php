@@ -116,9 +116,10 @@ final class CurrencyHelperTest extends CIUnitTestCase
         $this->assertSame('1.22', lbp_to_dollar_string('110000', 90_000));
         $this->assertSame('0.28', lbp_to_dollar_string('25000', 90_000));
 
-        $cost_shown = round_lbp_to_whole_pound(1.23 * 90_000);
+        $cost_shown = round_lbp_to_thousand(1.23 * 90_000);
 
-        $this->assertSame(110_700, $cost_shown);
+        $this->assertSame(111_000, $cost_shown);
+        $this->assertSame('1.23', lbp_to_dollar_string('111000', 90_000, '1.23', true));
         $this->assertSame('1.23', lbp_to_dollar_string('110700', 90_000, '1.23', false));
         $this->assertSame('110000', format_lbp_input(110_000));
     }

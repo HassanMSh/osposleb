@@ -71,6 +71,11 @@
     padding-block-start: 3px;
 }
 
+/* Hide the second cart row when it would only say "No description". The row stays for temporary and serialized items and items with a description. */
+#register #cart_contents > tr.cart-description-empty {
+    display: none;
+}
+
 #register #cart_contents tr:has(input[name="price"]) > td:nth-child(4) .form-control,
 #register #cart_contents tr:has(input[name="price"]) > td:nth-child(5) .form-control {
     width: 100%;

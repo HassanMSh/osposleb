@@ -105,7 +105,7 @@ On narrower screens, the sections, items, and bill are stacked and the page scro
 Select a section, then tap an item.
 The Add-ons section appears last, and add-on items have dashed borders.
 On the three-column layout, the order lines and the bill details scroll on their own, and the Amount Tendered box and the Complete button stay at the bottom of the screen.
-Empty "No description" lines are not shown; items that allow or have a description still show it and it can be edited.
+On both the shop and restaurant tills, empty "No description" lines are not shown in the cart; items that allow or have a description still show it and it can be edited.
 After each restaurant sale, the printer prints the customer receipt and then the kitchen ticket.
 The print button on the receipt page and in the sales list reprints both.
 The cut between them depends on the printer driver cutting after each page.

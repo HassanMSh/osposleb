@@ -262,7 +262,7 @@ if ($restaurant_till) {
                                 </a>
                             </td>
                         </tr>
-                        <tr<?= $restaurant_till && (int) $item['allow_alt_description'] === 0 && (int) $item['item_type'] !== ITEM_TEMP && (string) $item['description'] === '' && ! $item['is_serialized'] ? ' class="restaurant-description-empty"' : '' ?>>
+                        <tr<?= (int) $item['allow_alt_description'] === 0 && (int) $item['item_type'] !== ITEM_TEMP && (string) $item['description'] === '' && ! $item['is_serialized'] ? ' class="cart-description-empty"' : '' ?>>
                             <?php if ((int) $item['item_type'] === ITEM_TEMP) { ?>
                                 <td><?= form_input(['type' => 'hidden', 'name' => 'item_id', 'value' => $item['item_id'], 'form' => "cart_{$line}"]) ?></td>
                                 <td style="align: center;" colspan="5">

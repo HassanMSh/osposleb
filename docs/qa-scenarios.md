@@ -154,7 +154,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 
 | ID | What the cashier does | Expected result |
 |---|---|---|
-| REST-01 | Opens the register. | There is no item or barcode box; items are picked by tapping. |
+| REST-01 | Opens the register. | There is no item or barcode box and no change helper; items are picked by tapping. |
 | REST-02 | Taps Burger, Cola, Burger. | Three lines in that order; the second Burger is not merged into the first. |
 | REST-03 | Taps Burger, No onion, Extra cheese, Burger, Cola. | The two add-ons show under the first Burger with a `+`; the total is $23.00 and 2,059,000 LL. |
 | REST-04 | Taps Burger twice in a row. | One line with quantity 2. |
@@ -163,7 +163,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-07 | Reprints the sale from the receipt page, then from the sales list. | Both the receipt and the kitchen ticket print again, in that order. |
 | REST-08 | Checks the receipt. | No zero TVA line shows. |
 | REST-09 | Returns the sale in Return mode, and separately suspends a sale. | Neither prints a kitchen ticket. |
-| REST-10 | Admin sets Till layout back to Shop. | The item box and barcode scanning are back, repeated scans merge into one line, and no kitchen ticket prints. |
+| REST-10 | Admin sets Till layout back to Shop. | The item box, barcode scanning and the change helper are back, repeated scans merge into one line, and no kitchen ticket prints. |
 | REST-11 | On the T80A, completes REST-03. | The printer cuts between the receipt and the kitchen ticket. Hardware check, still to run on the real printer (#154). |
 | REST-12 | Taps Burger, Cola, then taps the Burger line in the cart, then Extra cheese. | The Burger line is highlighted as the chosen line; Extra cheese goes under Burger, not after Cola; the total is $13.00. |
 | REST-13 | Continues REST-12: changes the Burger quantity to 2, then gives Burger a discount. | Extra cheese keeps its own quantity and price; only the Burger line changes. |

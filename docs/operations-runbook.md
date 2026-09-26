@@ -36,7 +36,7 @@ Saving an item without changing its displayed prices keeps its stored dollar pri
 
 On the till, each customer-paid unit is rounded to the nearest 1,000 LL after discount and TVA, then multiplied by its quantity; the LBP sale total is the sum of those rounded lines.
 
-The change helper and receipt pound total use that same LBP sale total, while receipt lines and payment entry stay in dollars.
+The change helper and receipt pound total use that same LBP sale total, while receipt lines and payment entry stay in dollars. The restaurant till does not show the change helper.
 
 The amount-due line below the dollar amount due is rounded to a whole pound and shows zero when the sale is fully paid.
 

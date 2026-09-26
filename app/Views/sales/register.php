@@ -363,6 +363,7 @@ if ($restaurant_till) {
                 </tr>
             </table>
 
+            <?php if (! $restaurant_till) { ?>
             <table class="sales_table_100" id="change_helper">
                 <tr>
                     <th colspan="2"><?= lang('Sales.change_helper') ?></th>
@@ -391,6 +392,7 @@ if ($restaurant_till) {
                     <td style="text-align: right;"><span dir="ltr" id="change_helper_pounds"><?= esc(format_lbp('0')) ?></span></td>
                 </tr>
             </table>
+            <?php } ?>
 
             <div id="payment_details">
                 <?php if ($payments_cover_total) { // Show Complete sale button instead of Add Payment if there is no amount due left?>

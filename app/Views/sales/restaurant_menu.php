@@ -4,6 +4,9 @@
  * @var array  $restaurant_menu_items
  * @var array  $config
  */
+
+use App\Libraries\Till_layout;
+
 $restaurant_categories = [];
 $lbp_rate              = $config['lbp_exchange_rate'] ?? 0;
 
@@ -15,6 +18,8 @@ foreach ($restaurant_menu_items as $restaurant_menu_item) {
 
     $restaurant_categories[$category_name][] = $restaurant_menu_item;
 }
+
+$restaurant_categories = Till_layout::order_categories($restaurant_categories, $config);
 ?>
 
 <?= form_open("{$controller_name}/add", ['id' => 'restaurant_add_item_form', 'class' => 'restaurant-menu panel panel-default']) ?>
@@ -26,7 +31,7 @@ foreach ($restaurant_menu_items as $restaurant_menu_item) {
             <?php foreach ($restaurant_categories as $category_name => $category_items) { ?>
                 <button
                     type="button"
-                    class="btn btn-default restaurant-menu-tab"
+                    class="btn btn-default restaurant-menu-tab<?= Till_layout::is_addon_category($category_name, $config) ? ' restaurant-menu-tab-addon' : '' ?>"
                     role="tab"
                     id="restaurant-menu-tab-<?= $category_index ?>"
                     aria-controls="restaurant-menu-category-<?= $category_index ?>"
@@ -38,9 +43,9 @@ foreach ($restaurant_menu_items as $restaurant_menu_item) {
         </nav>
 
         <?php $category_index = 0; ?>
-        <?php foreach ($restaurant_categories as $category_items) { ?>
-            <section
-                class="restaurant-menu-category"
+            <?php foreach ($restaurant_categories as $category_name => $category_items) { ?>
+                <section
+                    class="restaurant-menu-category<?= Till_layout::is_addon_category($category_name, $config) ? ' restaurant-menu-category-addon' : '' ?>"
                 role="tabpanel"
                 id="restaurant-menu-category-<?= $category_index ?>"
                 aria-labelledby="restaurant-menu-tab-<?= $category_index ?>"
@@ -50,7 +55,7 @@ foreach ($restaurant_menu_items as $restaurant_menu_item) {
                     <?php foreach ($category_items as $restaurant_menu_item) { ?>
                         <button
                             type="submit"
-                            class="btn btn-default restaurant-menu-item"
+                            class="btn btn-default restaurant-menu-item<?= Till_layout::is_addon_category($restaurant_menu_item['category'] ?? null, $config) ? ' restaurant-menu-item-addon' : '' ?>"
                             name="item"
                             value="<?= (int) $restaurant_menu_item['item_id'] ?>"
                         >

@@ -65,4 +65,22 @@ final class TillLayoutTest extends CIUnitTestCase
             'till_addon_category' => 'Add-ons',
         ]));
     }
+
+    /**
+     * Keeps regular sections first and moves the configured add-on section to the end.
+     */
+    public function testAddonCategoryIsLastInRestaurantMenuOrder(): void
+    {
+        $categories = [
+            'Add-ons' => ['extra'],
+            'Drinks'  => ['cola'],
+            'Food'    => ['burger'],
+        ];
+        $config = ['till_layout' => 'restaurant', 'till_addon_category' => ' add-ons '];
+
+        $this->assertSame(
+            ['Drinks', 'Food', 'Add-ons'],
+            array_keys(Till_layout::order_categories($categories, $config)),
+        );
+    }
 }

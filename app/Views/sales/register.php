@@ -55,7 +55,7 @@ if (isset($success)) {
 }
 ?>
 
-<div id="register_wrapper"<?= $restaurant_till ? ' class="till-restaurant"' : '' ?>>
+<?= $restaurant_till ? '<div class="restaurant-till-layout">' : '' ?><div id="register_wrapper"<?= $restaurant_till ? ' class="till-restaurant"' : '' ?>>
 
     <!-- Top register controls -->
     <?= form_open("{$controller_name}/changeMode", ['id' => 'mode_form', 'class' => 'form-horizontal panel panel-default']) ?>
@@ -136,7 +136,7 @@ if ($restaurant_till) {
     <?php } ?>
 
 
-    <!-- Sale Items List -->
+    <!-- Sale Items List --><?= $restaurant_till ? '<div class="restaurant-cart">' : "\n" ?>
 
     <table class="sales_table_100" id="register">
         <thead>
@@ -243,7 +243,7 @@ if ($restaurant_till) {
                                 </a>
                             </td>
                         </tr>
-                        <tr>
+                        <tr<?= $restaurant_till && (int) $item['allow_alt_description'] === 0 && (int) $item['item_type'] !== ITEM_TEMP && (string) $item['description'] === '' && ! $item['is_serialized'] ? ' class="restaurant-description-empty"' : '' ?>>
                             <?php if ((int) $item['item_type'] === ITEM_TEMP) { ?>
                                 <td><?= form_input(['type' => 'hidden', 'name' => 'item_id', 'value' => $item['item_id'], 'form' => "cart_{$line}"]) ?></td>
                                 <td style="align: center;" colspan="5">
@@ -296,7 +296,7 @@ if ($restaurant_till) {
             }
 ?>
         </tbody>
-    </table>
+    </table><?= $restaurant_till ? '</div>' : "\n" ?>
 </div>
 
 <!-- Overall Sale -->
@@ -507,7 +507,7 @@ if ($restaurant_till) {
         }
 ?>
     </div>
-</div>
+</div><?= $restaurant_till ? '</div>' : "\n" ?>
 
 <script type="text/javascript">
     $(document).ready(function() {

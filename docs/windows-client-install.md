@@ -102,6 +102,14 @@ Returns, quotes, and suspended sales do not print a kitchen ticket.
 Add-on lines show indented with a + under their item on the kitchen ticket too.
 Set Till layout back to Shop to restore the item search and barcode box.
 
+#### Load the menu from a CSV
+
+- Open Items > CSV Import and download the template first.
+- Set `Stock Type` to `Non-stock` and `Tax Mode` to `No TVA` for restaurant items.
+- Enter Unit Price in dollars: divide the Lebanese pound price by the exchange rate and round to 2 decimals.
+- Save the CSV file as UTF-8 so Arabic names stay readable.
+- The Image column only names a file; copy picture files into the `client_uploads` volume at `/app/public/uploads/item_pics` first.
+
 ## 4. Hardware
 
 The app runs in Chrome, so Windows and Chrome handle the hardware. Docker is not involved.

@@ -26,7 +26,7 @@ The exported `OSPOS_IMAGE_TAG` set by `./shop` takes priority over a value in `o
 
 Enter item cost and retail prices in Lebanese pounds (LL) on the item form.
 
-Retail prices show rounded to the nearest 1,000 LL, while cost prices show rounded to a whole pound.
+Cost and retail prices both show rounded to the nearest 1,000 LL, with 500 LL and above rounding up.
 
 The Items list shows those same rounded LBP cost and retail prices.
 

@@ -439,7 +439,7 @@ function get_item_data_row(object $item): array
     $config       = config(OSPOS::class)->settings;
     $lbp_rate     = (float) ($config['lbp_exchange_rate'] ?? 0);
     $cost_price   = $lbp_rate > 0
-        ? format_lbp(round_lbp_to_whole_pound((float) $item->cost_price * $lbp_rate))
+        ? format_lbp(round_lbp_to_thousand((float) $item->cost_price * $lbp_rate))
         : to_currency($item->cost_price);
     $unit_price = $lbp_rate > 0
         ? format_lbp(round_lbp_to_thousand((float) $item->unit_price * $lbp_rate))

@@ -36,7 +36,7 @@ $tax_mode_inherit_label = $default_tax_1_rate !== ''
     ])
     : lang('Items.tax_mode_inherit_none');
 $lbp_rate       = (float) ($config['lbp_exchange_rate'] ?? 0);
-$cost_price_lbp = round_lbp_to_whole_pound((float) $item_info->cost_price * $lbp_rate);
+$cost_price_lbp = round_lbp_to_thousand((float) $item_info->cost_price * $lbp_rate);
 $unit_price_lbp = round_lbp_to_thousand((float) $item_info->unit_price * $lbp_rate);
 ?>
 

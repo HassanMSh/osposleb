@@ -631,7 +631,7 @@ class Items extends Secure_Controller
 
         $stored_item       = $item_id === NEW_ENTRY ? null : $this->item->get_info($item_id);
         $currency_decimals = (int) ($this->config['currency_decimals'] ?? 2);
-        $cost_price        = lbp_to_dollar_string((string) $cost_lbp, $lbp_rate, $stored_item->cost_price ?? null, false, $currency_decimals);
+        $cost_price        = lbp_to_dollar_string((string) $cost_lbp, $lbp_rate, $stored_item->cost_price ?? null, true, $currency_decimals);
         $unit_price        = lbp_to_dollar_string((string) $unit_lbp, $lbp_rate, $stored_item->unit_price ?? null, true, $currency_decimals);
 
         $upload_data    = $this->upload_image();

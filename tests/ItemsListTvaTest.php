@@ -88,13 +88,13 @@ final class ItemsListTvaTest extends CIUnitTestCase
         $row = get_item_data_row($this->makeItem());
 
         $this->assertSame('<span dir="ltr" class="text-nowrap">179,000 LL</span>', $row['unit_price']);
-        $this->assertSame('<span dir="ltr" class="text-nowrap">89,500 LL</span>', $row['cost_price']);
+        $this->assertSame('<span dir="ltr" class="text-nowrap">90,000 LL</span>', $row['cost_price']);
     }
 
     /**
-     * Rounds retail prices to thousands and cost prices to whole pounds in the list.
+     * Rounds both retail and cost prices to thousands in the list.
      */
-    public function testItemPricesUseDifferentLbpRoundingRules(): void
+    public function testItemPricesRoundCostAndRetailToThousands(): void
     {
         $this->setSettings('11', false, 'TVA', '90000');
         $item             = $this->makeItem();
@@ -104,7 +104,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
         $row = get_item_data_row($item);
 
         $this->assertSame('<span dir="ltr" class="text-nowrap">110,000 LL</span>', $row['unit_price']);
-        $this->assertSame('<span dir="ltr" class="text-nowrap">110,700 LL</span>', $row['cost_price']);
+        $this->assertSame('<span dir="ltr" class="text-nowrap">111,000 LL</span>', $row['cost_price']);
     }
 
     /**

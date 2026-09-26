@@ -148,9 +148,9 @@ final class KitchenTicketTest extends CIUnitTestCase
                 'sale_status'   => COMPLETED,
                 'sale_type'     => SALE_TYPE_POS,
                 'ticket_lines'  => [
-                    ['line' => 1, 'quantity_purchased' => '1.000', 'name' => 'Burger', 'description' => ''],
-                    ['line' => 2, 'quantity_purchased' => '2.000', 'name' => 'Cola', 'description' => ''],
-                    ['line' => 3, 'quantity_purchased' => '1.000', 'name' => 'Burger', 'description' => ''],
+                    ['line' => 1, 'quantity_purchased' => '1.000', 'name' => 'Burger', 'description' => '', 'item_unit_price' => '12.34', 'discount' => '5.00'],
+                    ['line' => 2, 'quantity_purchased' => '2.000', 'name' => 'Cola', 'description' => '', 'item_unit_price' => '2.50', 'discount' => '0.00'],
+                    ['line' => 3, 'quantity_purchased' => '1.000', 'name' => 'Burger', 'description' => '', 'item_unit_price' => '12.34', 'discount' => '5.00'],
                 ],
                 'transaction_time' => '2026-09-26 12:00:00',
             ], $overrides));

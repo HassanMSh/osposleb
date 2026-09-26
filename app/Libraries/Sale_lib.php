@@ -94,6 +94,10 @@ class Sale_lib
         return $this->session->get('sales_cart');
     }
 
+    /**
+     * Filters out lines that are not printed and sorts the rest by the line sequence setting.
+     * The restaurant till always sorts by entry sequence.
+     */
     public function sort_and_filter_cart(array $cart): array
     {
         if (empty($cart)) {
@@ -113,7 +117,8 @@ class Sale_lib
 
         // TODO: This set of if/elseif/else needs to be converted to a switch statement
         // Entry sequence (this will render kits in the expected sequence)
-        if ($this->config['line_sequence'] == '0') {
+        // The restaurant till always uses entry sequence, so an add-on stays under the item it belongs to.
+        if ($this->config['line_sequence'] == '0' || Till_layout::get_layout($this->config) === 'restaurant') {
             $sort = [];
 
             foreach ($filtered_cart as $k => $v) {

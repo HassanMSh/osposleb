@@ -1,0 +1,87 @@
+.till-restaurant .restaurant-menu {
+    margin-block-end: 1rem;
+    padding: 1rem;
+}
+
+.till-restaurant .restaurant-menu-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-block-end: 1rem;
+    overflow-x: auto;
+    padding-block: 0.25rem;
+}
+
+.till-restaurant .restaurant-menu-tabs .restaurant-menu-tab {
+    flex: 0 0 auto;
+    min-height: 48px;
+    padding-inline: 1rem;
+    touch-action: manipulation;
+}
+
+.till-restaurant .restaurant-menu-tabs .restaurant-menu-tab.active {
+    background-color: #2c3e50;
+    color: #fff;
+}
+
+.till-restaurant .restaurant-menu-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 145px), 1fr));
+}
+
+.till-restaurant .restaurant-menu-item {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    justify-content: center;
+    min-height: 80px;
+    padding: 0.65rem;
+    text-align: start;
+    touch-action: manipulation;
+    white-space: normal;
+}
+
+.till-restaurant .restaurant-menu-item-name {
+    font-weight: 600;
+}
+
+.till-restaurant .restaurant-menu-item-price {
+    unicode-bidi: isolate;
+}
+
+.till-restaurant .restaurant-menu-empty {
+    margin: 0;
+    padding: 1rem;
+}
+
+.till-restaurant input:not([type="hidden"]),
+.till-restaurant select,
+.till-restaurant button,
+.till-restaurant .btn,
+.till-restaurant .bootstrap-select > .dropdown-toggle {
+    min-height: 48px;
+}
+
+.till-restaurant #register a[href*="/deleteItem/"],
+.till-restaurant #register a[href^="javascript:"] {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 48px;
+    min-width: 48px;
+    touch-action: manipulation;
+}
+
+.till-restaurant .restaurant-menu-item,
+.till-restaurant #register input,
+.till-restaurant #payment_details input,
+.till-restaurant #payment_details button,
+.till-restaurant #complete_sale_button,
+.till-restaurant #complete_sale_form button {
+    font-size: 1rem;
+}
+
+.till-restaurant #register td {
+    vertical-align: middle;
+}

@@ -30,8 +30,10 @@
  * @var array     $config
  */
 
+use App\Libraries\Till_layout;
 use App\Models\Employee;
 
+$restaurant_till = Till_layout::get_layout($config) === 'restaurant';
 ?>
 
 <?= view('partial/header') ?>
@@ -50,7 +52,7 @@ if (isset($success)) {
 }
 ?>
 
-<div id="register_wrapper">
+<div id="register_wrapper"<?= $restaurant_till ? ' class="till-restaurant"' : '' ?>>
 
     <!-- Top register controls -->
     <?= form_open("{$controller_name}/changeMode", ['id' => 'mode_form', 'class' => 'form-horizontal panel panel-default']) ?>
@@ -102,9 +104,9 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         </div>
     <?= form_close() ?>
 
-    <?php $tabindex = 0; ?>
+    <?php $tabindex = 0; if ($restaurant_till) { echo view('sales/restaurant_menu', ['controller_name' => $controller_name, 'restaurant_menu_items' => $restaurant_menu_items]); } ?>
 
-    <?= form_open("{$controller_name}/add", ['id' => 'add_item_form', 'class' => 'form-horizontal panel panel-default']) ?>
+    <?php if (!$restaurant_till) { ?><?= form_open("{$controller_name}/add", ['id' => 'add_item_form', 'class' => 'form-horizontal panel panel-default']) ?>
         <div class="panel-body form-group">
             <ul>
                 <li class="pull-left first_li">
@@ -121,7 +123,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 </li>
             </ul>
         </div>
-    <?= form_close() ?>
+    <?= form_close() ?><?php } ?>
 
 
     <!-- Sale Items List -->
@@ -133,8 +135,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 <th style="width: 15%;"><?= lang(ucfirst($controller_name) . '.item_number') ?></th>
                 <th style="width: 30%;"><?= lang(ucfirst($controller_name) . '.item_name') ?></th>
                 <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.price') ?></th>
-                <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.quantity') ?></th>
-                <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.total') ?></th>
+                <th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.quantity') ?></th><?= $restaurant_till ? '<th style="width: 15%;">' . lang(ucfirst($controller_name) . '.discount') . '</th>' : "\n                " ?><th style="width: 10%;"><?= lang(ucfirst($controller_name) . '.total') ?></th>
                 <th style="width: 5%;"><?= lang(ucfirst($controller_name) . '.update') ?></th>
             </tr>
         </thead>
@@ -142,13 +143,14 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         <tbody id="cart_contents">
             <?php if (count($cart) === 0) { ?>
                 <tr>
-                    <td colspan="7">
+                    <td colspan="<?= $restaurant_till ? 8 : 7 ?>">
                         <div class="alert alert-dismissible alert-info"><?= lang(ucfirst($controller_name) . '.no_items_in_cart') ?></div>
                     </td>
                 </tr>
             <?php
             } else {
-                foreach (array_reverse($cart, true) as $line => $item) {
+                $cart_display = $restaurant_till ? $cart : array_reverse($cart, true);
+                foreach ($cart_display as $line => $item) {
                     ?>
                     <?= form_open("{$controller_name}/editItem/{$line}", ['class' => 'form-horizontal', 'id' => "cart_{$line}"]) ?>
                         <tr>
@@ -193,9 +195,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                         echo form_input(['name' => 'quantity', 'class' => 'form-control input-sm', 'value' => to_quantity_decimals($item['quantity']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
                     }
                     ?>
-                            </td>
-
-                            <td>
+                            </td><?= $restaurant_till ? view('sales/restaurant_discount_cell', ['config' => $config, 'item' => $item, 'line' => $line, 'tabindex' => ++$tabindex]) : "\n\n                            " ?><td>
                                 <?php
                     if ((int) $item['item_type'] === ITEM_AMOUNT_ENTRY) {
                         echo form_input(['name' => 'discounted_total', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($item['discounted_total']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);

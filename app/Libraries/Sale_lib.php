@@ -2,6 +2,7 @@
 
 namespace app\Libraries;
 
+use App\Libraries\Till_layout;
 use App\Models\Attribute;
 use App\Models\Customer;
 use App\Models\Dinner_table;
@@ -755,8 +756,11 @@ class Sale_lib
         $this->session->remove('sales_rewards_remainder');
     }
 
-    // TODO: this function needs to be reworked... way too many parameters.  Also, optional parameters must go after mandatory parameters.
-
+    /**
+     * Adds an item to the cart while keeping the shop merge path and restaurant tap order separate.
+     *
+     * @noinspection PhpUnused
+     */
     public function add_item(string &$item_id, int $item_location, string $quantity = '1', string &$discount = '0.0', int $discount_type = 0, int $price_mode = PRICE_MODE_STANDARD, ?int $kit_price_option = null, ?int $kit_print_option = null, ?string $price_override = null, ?string $description = null, ?string $serialnumber = null, ?int $sale_id = null, bool $include_deleted = false, ?bool $print_option = null, ?bool $line = null): bool
     {
         $item_info = $this->item->get_info_by_id_or_number($item_id, $include_deleted);
@@ -818,19 +822,33 @@ class Sale_lib
         $insertkey         = 0;                // Key to use for new entry.     // TODO: $insertkey is never used
         $updatekey         = 0;                // Key to use to update(quantity)
 
-        foreach ($items as $item) {
-            // We primed the loop so maxkey is 0 the first time.
-            // Also, we have stored the key in the element itself so we can compare.
-
-            if ($maxkey <= $item['line']) {    // TODO: variable naming here does not match the convention
-                $maxkey = $item['line'];
+        if (Till_layout::get_layout($this->config) === 'restaurant') {
+            foreach ($items as $item) {
+                if ($maxkey <= $item['line']) {
+                    $maxkey = $item['line'];
+                }
             }
 
-            if ($item['item_id'] == $item_id && $item['item_location'] == $item_location) {    // TODO: === ?
+            $updatekey = self::get_restaurant_item_merge_line($items, (int) $item_id, $item_location, (bool) $item_info->is_serialized);
+            if ($updatekey !== null) {
                 $itemalreadyinsale = true;
-                $updatekey         = $item['line'];
-                if (! $item_info->is_serialized) {
-                    $quantity = bcadd($quantity, $items[$updatekey]['quantity']);
+                $quantity          = bcadd($quantity, $items[$updatekey]['quantity']);
+            }
+        } else {
+            foreach ($items as $item) {
+                // We primed the loop so maxkey is 0 the first time.
+                // Also, we have stored the key in the element itself so we can compare.
+
+                if ($maxkey <= $item['line']) {    // TODO: variable naming here does not match the convention
+                    $maxkey = $item['line'];
+                }
+
+                if ($item['item_id'] == $item_id && $item['item_location'] == $item_location) {    // TODO: === ?
+                    $itemalreadyinsale = true;
+                    $updatekey         = $item['line'];
+                    if (! $item_info->is_serialized) {
+                        $quantity = bcadd($quantity, $items[$updatekey]['quantity']);
+                    }
                 }
             }
         }
@@ -909,6 +927,29 @@ class Sale_lib
         $this->set_cart($items);
 
         return true;
+    }
+
+    /**
+     * Returns the highest restaurant cart line only when it matches the tapped item and location.
+     */
+    public static function get_restaurant_item_merge_line(array $items, int $item_id, int $item_location, bool $is_serialized): ?int
+    {
+        if ($is_serialized || $items === []) {
+            return null;
+        }
+
+        $last_item = null;
+        foreach ($items as $item) {
+            if ($last_item === null || $item['line'] > $last_item['line']) {
+                $last_item = $item;
+            }
+        }
+
+        if ($last_item['item_id'] != $item_id || $last_item['item_location'] != $item_location) {    // TODO: === ?
+            return null;
+        }
+
+        return (int) $last_item['line'];
     }
 
     public function out_of_stock(int $item_id, int $item_location): string

@@ -7,6 +7,8 @@
  * @var string $controller_name
  * @var array $config
  */
+
+use App\Libraries\Till_layout;
 ?>
 
 <?= form_open('config/saveGeneral/', ['id' => 'general_config_form', 'enctype' => 'multipart/form-data', 'class' => 'form-horizontal']) ?>
@@ -80,6 +82,21 @@
                             ]) ?>
                         </span>
                     </div>
+                </div>
+            </div>
+
+            <div class="form-group form-group-sm">
+                <?= form_label(lang('Config.till_layout'), 'till_layout', ['class' => 'control-label col-xs-2']) ?>
+                <div class="col-xs-2">
+                    <?= form_dropdown(
+                        'till_layout',
+                        [
+                            'shop'       => lang('Config.till_layout_shop'),
+                            'restaurant' => lang('Config.till_layout_restaurant')
+                        ],
+                        Till_layout::get_layout($config),
+                        ['id' => 'till_layout', 'class' => 'form-control input-sm']
+                    ) ?>
                 </div>
             </div>
 

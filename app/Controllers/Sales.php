@@ -6,6 +6,7 @@ use App\Libraries\Barcode_lib;
 use App\Libraries\Email_lib;
 use App\Libraries\Sale_lib;
 use App\Libraries\Tax_lib;
+use App\Libraries\Till_layout;
 use App\Libraries\Token_lib;
 use App\Models\Customer;
 use App\Models\Customer_rewards;
@@ -722,7 +723,7 @@ class Sales extends Secure_Controller
         $data                 = [];
         $data['dinner_table'] = $this->sale_lib->get_dinner_table();
 
-        $data['cart'] = $this->sale_lib->get_cart();
+        $data['cart']  = $this->sale_lib->get_cart();
 
         $data['include_hsn']          = (bool) $this->config['include_hsn'];
         $transaction_timestamp        = time();
@@ -1164,6 +1165,9 @@ class Sales extends Secure_Controller
         return $data;
     }
 
+    /**
+     * Reloads the register and supplies the category menu when the restaurant till is selected.
+     */
     private function _reload(array $data = []): void    // TODO: Hungarian notation
     {
         $sale_id = $this->session->get('sale_id');    // TODO: This variable is never used
@@ -1177,7 +1181,10 @@ class Sales extends Secure_Controller
         // cash_rounding indicates only that the site is configured for cash rounding
         $data['cash_rounding'] = $cash_rounding;
 
-        $data['cart']  = $this->sale_lib->get_cart();
+        $data['cart'] = $this->sale_lib->get_cart();
+        if (Till_layout::get_layout($this->config) === 'restaurant') {
+            $data['restaurant_menu_items'] = $this->item->get_restaurant_menu_items();
+        }
         $customer_info = $this->_load_customer_data($this->sale_lib->get_customer(), $data, true);
 
         $data['modes']                  = $this->sale_lib->get_register_mode_options();

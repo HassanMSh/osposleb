@@ -51,6 +51,32 @@
     text-align: center;
 }
 
+/* Keep the cart controls level when a price has extra lines below it. */
+#register #cart_contents tr > td {
+    vertical-align: top;
+}
+
+#register #cart_contents tr:has(input[name="price"]) > td:not([colspan]):not(:has(.form-control)) {
+    padding-block-start: 11px;
+}
+
+.till-restaurant #register #cart_contents tr:has(input[name="price"]) > td:not([colspan]):not(:has(.form-control)) {
+    padding-block-start: 21px;
+}
+
+/* The restaurant delete and update links are already as tall as the inputs. */
+.till-restaurant #register #cart_contents tr:has(input[name="price"]) > td:not([colspan]):has(> a[href*="/deleteItem/"]),
+.till-restaurant #register #cart_contents tr:has(input[name="price"]) > td:not([colspan]):has(> a[href^="javascript:"]) {
+    padding-block-start: 3px;
+}
+
+#register #cart_contents tr:has(input[name="price"]) > td:nth-child(4) .form-control,
+#register #cart_contents tr:has(input[name="price"]) > td:nth-child(5) .form-control {
+    width: 100%;
+    max-width: 8.5em;
+    margin-inline: auto;
+}
+
 #overall_sale {
     width: 29%;
     float: left;

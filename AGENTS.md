@@ -91,6 +91,20 @@ Do not modify files outside this directory.
 - Preserve existing sales and historical transaction data.
 - Never silently change tax, pricing, inventory, refund, or reporting behavior.
 
+## Shop and restaurant versions
+
+The Till layout setting (Settings > General, `till_layout`, read through `App\Libraries\Till_layout`) switches the app between the shop version (the default) and the restaurant version. Decided by the project owner on 2026-09-26.
+
+- A change made for the restaurant version must not change what the shop version shows or does, and a change made for the shop version must not change the restaurant version, unless the owner explicitly says the change is for both.
+- Much of the code is shared by both versions: the cart, sale saving, totals, discounts, receipts, stock, reports, settings, and the Items page. When new behaviour can be kept to one version with a check of the switch or a new file used only by that version, do it without asking.
+- When one version needs different behaviour in shared code, stop and ask the owner before implementing. Present what is shared, what differs, what each version would see under each option, and a recommendation. The owner then chooses:
+  - **Change both:** one change that applies to both versions.
+  - **Split:** keep the shared part in one place and move only the part that differs into small pieces, one per version, chosen by the switch. Never copy code to split the versions.
+- Split only as much as the current task needs. The rule against abstractions without a current requirement still applies.
+- Parts that cannot be split, such as the database, backups, logins, and permissions, always affect both versions. Say so in the plan and the pull request.
+- Test both versions after every change, not only the one the change is for. Every implementer and reviewer brief must say this.
+- Each issue and pull request that changes app behaviour says which version it affects: shop only, restaurant only, or both.
+
 ## Scope boundaries
 
 Included:
@@ -144,6 +158,7 @@ Stop and ask the user before:
 - Choosing ambiguous TVA, rounding, exemption, or price-inclusion rules.
 - Performing destructive database operations.
 - Removing existing functionality.
+- Changing shared code so that one version (shop or restaurant) needs different behaviour from the other. See "Shop and restaurant versions".
 - Pushing, merging, rebasing shared branches, or opening pull requests.
 - Claiming hardware compatibility without real-device testing.
 

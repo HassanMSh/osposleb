@@ -895,6 +895,115 @@ class Items extends Secure_Controller
     }
 
     /**
+     * Parses optional CSV stock and tax columns and returns item fields, tax rows, or a localized error.
+     *
+     * @param array<string, mixed> $row CSV values keyed by their header names.
+     *
+     * @return array<string, mixed>
+     */
+    public static function getCsvStockAndTaxData(array $row, bool $use_destination_based_tax): array
+    {
+        $result               = [];
+        $stock_type           = strtolower(trim((string) ($row['Stock Type'] ?? '')));
+        $tax_mode             = strtolower(trim((string) ($row['Tax Mode'] ?? '')));
+        $tax_exemption_reason = strtolower(trim((string) ($row['Tax Exemption Reason'] ?? '')));
+
+        if ($stock_type !== '') {
+            if ($stock_type === 'stock') {
+                $result['stock_type'] = HAS_STOCK;
+            } elseif ($stock_type === 'non-stock') {
+                $result['stock_type'] = HAS_NO_STOCK;
+            } else {
+                return ['error' => lang('Items.csv_import_stock_type_invalid')];
+            }
+        }
+
+        if ($tax_mode === '') {
+            if ($tax_exemption_reason !== '') {
+                return ['error' => lang('Items.csv_import_tax_exemption_reason_invalid')];
+            }
+
+            return $result;
+        }
+
+        if (! in_array($tax_mode, ['default', 'own', 'no tva'], true)) {
+            return ['error' => lang('Items.csv_import_tax_mode_invalid')];
+        }
+
+        if ($tax_mode === 'no tva' && $use_destination_based_tax) {
+            return ['error' => lang('Items.csv_import_no_tva_destination_based_tax')];
+        }
+
+        if ($tax_mode !== 'no tva' && $tax_exemption_reason !== '') {
+            return ['error' => lang('Items.csv_import_tax_exemption_reason_invalid')];
+        }
+
+        $tax_columns = [
+            [
+                'name'    => trim((string) ($row['Tax 1 Name'] ?? '')),
+                'percent' => trim((string) ($row['Tax 1 Percent'] ?? '')),
+            ],
+            [
+                'name'    => trim((string) ($row['Tax 2 Name'] ?? '')),
+                'percent' => trim((string) ($row['Tax 2 Percent'] ?? '')),
+            ],
+        ];
+
+        if ($tax_mode !== 'own') {
+            foreach ($tax_columns as $tax_column) {
+                if ($tax_column['name'] !== '' || $tax_column['percent'] !== '') {
+                    return ['error' => lang('Items.csv_import_tax_columns_must_be_empty')];
+                }
+            }
+        }
+
+        if ($tax_mode === 'no tva') {
+            if ($tax_exemption_reason !== '' && ! in_array($tax_exemption_reason, ['exempt', 'zero-rated'], true)) {
+                return ['error' => lang('Items.csv_import_tax_exemption_reason_invalid')];
+            }
+
+            $result['taxable']              = 0;
+            $result['tax_exemption_reason'] = $tax_exemption_reason === '' ? 'exempt' : $tax_exemption_reason;
+            $result['taxes']                = [];
+
+            return $result;
+        }
+
+        $result['taxable'] = 1;
+
+        if ($tax_mode === 'default') {
+            $result['taxes'] = [];
+
+            return $result;
+        }
+
+        $taxes = [];
+
+        foreach ($tax_columns as $tax_column) {
+            $name    = $tax_column['name'];
+            $percent = $tax_column['percent'];
+
+            if ($name === '' && $percent === '') {
+                continue;
+            }
+
+            if ($name === '' || $percent === '' || ! is_numeric($percent)) {
+                return ['error' => lang('Items.csv_import_own_tax_required')];
+            }
+
+            $taxes[] = ['name' => $name, 'percent' => $percent];
+        }
+
+        if ($taxes === []) {
+            return ['error' => lang('Items.csv_import_own_tax_required')];
+        }
+
+        $result['taxes'] = $taxes;
+
+        return $result;
+    }
+
+    /**
      * Returns a localized error when a stored item name is longer than 255 Unicode characters.
      */
     public static function getItemNameValidationError(string $name): ?string
@@ -1139,7 +1248,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Imports CSV items after checking name and price limits, and reports failed rows with localized details.
+     * Imports CSV items after validating item, stock, and tax data, and reports failed rows with localized details.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -1175,12 +1284,13 @@ class Items extends Secure_Controller
                 $db->transBegin();    // TODO: This section needs to be reworked so that the data array is being created then passed to the Item model because $db doesn't exist in the controller without being instantiated, but database operations should be restricted to the model
 
                 foreach ($csv_rows as $key => $row) {
-                    $is_failed_row  = false;
-                    $duplicate_item = null;
-                    $row_error      = null;
-                    $item_id        = (int) $row['Id'];
-                    $is_update      = ($item_id > 0);
-                    $item_data      = [
+                    $is_failed_row      = false;
+                    $duplicate_item     = null;
+                    $row_error          = null;
+                    $validated_tax_data = null;
+                    $item_id            = (int) $row['Id'];
+                    $is_update          = ($item_id > 0);
+                    $item_data          = [
                         'item_id'       => $item_id,
                         'name'          => $row['Item Name'],
                         'description'   => $row['Description'],
@@ -1192,6 +1302,20 @@ class Items extends Secure_Controller
                         'hsn_code'      => $row['HSN'],
                         'pic_filename'  => $row['Image'],
                     ];
+
+                    $stock_tax_data = self::getCsvStockAndTaxData(
+                        $row,
+                        (bool) ($this->config['use_destination_based_tax'] ?? false),
+                    );
+
+                    if (isset($stock_tax_data['error'])) {
+                        $row_error     = $stock_tax_data['error'];
+                        $is_failed_row = true;
+                    } else {
+                        $validated_tax_data = $stock_tax_data['taxes'] ?? null;
+                        unset($stock_tax_data['taxes']);
+                        $item_data = array_merge($item_data, $stock_tax_data);
+                    }
 
                     if (! empty($row['supplier ID'])) {
                         $item_data['supplier_id'] = $this->supplier->exists($row['Supplier ID']) ? $row['Supplier ID'] : null;
@@ -1208,7 +1332,7 @@ class Items extends Secure_Controller
                     if ($row['Barcode'] !== null && $row['Barcode'] !== '' && ! $is_update) {
                         $item_data['item_number'] = $row['Barcode'];
                         $duplicate_item           = $this->item->get_item_number_owner($item_data['item_number']);
-                        $is_failed_row            = $duplicate_item !== null;
+                        $is_failed_row            = $is_failed_row || $duplicate_item !== null;
                     }
 
                     if (! $is_failed_row) {
@@ -1224,7 +1348,7 @@ class Items extends Secure_Controller
                     $item_data = array_filter($item_data, static fn ($value) => $value !== null && strlen($value));
 
                     if (! $is_failed_row && $this->item->save_value($item_data, $item_id)) {
-                        $this->save_tax_data($row, $item_data);
+                        $this->save_tax_data($row, $item_data, $validated_tax_data);
                         $this->save_inventory_quantities($row, $item_data, $allowed_stock_locations, $employee_id);
                         $is_failed_row = $this->save_attribute_data($row, $item_data, $attribute_data);    // TODO: $is_failed_row never gets used after this.
 
@@ -1468,23 +1592,25 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Saves the tax data found in the line of the CSV items import file
+     * Saves validated tax rows or the legacy tax columns from one imported CSV row.
+     *
+     * @param array<int, array{name: string, percent: string}>|null $validated_tax_data Tax rows from the optional Tax Mode column.
      */
-    private function save_tax_data(array $row, array $item_data): void
+    private function save_tax_data(array $row, array $item_data, ?array $validated_tax_data = null): void
     {
-        $items_taxes_data = [];
+        $items_taxes_data = $validated_tax_data ?? [];
 
-        if (is_numeric($row['Tax 1 Percent']) && $row['Tax 1 Name'] !== '') {
-            $items_taxes_data[] = ['name' => $row['Tax 1 Name'], 'percent' => $row['Tax 1 Percent']];
+        if ($validated_tax_data === null) {
+            if (is_numeric($row['Tax 1 Percent']) && $row['Tax 1 Name'] !== '') {
+                $items_taxes_data[] = ['name' => $row['Tax 1 Name'], 'percent' => $row['Tax 1 Percent']];
+            }
+
+            if (is_numeric($row['Tax 2 Percent']) && $row['Tax 2 Name'] !== '') {
+                $items_taxes_data[] = ['name' => $row['Tax 2 Name'], 'percent' => $row['Tax 2 Percent']];
+            }
         }
 
-        if (is_numeric($row['Tax 2 Percent']) && $row['Tax 2 Name'] !== '') {
-            $items_taxes_data[] = ['name' => $row['Tax 2 Name'], 'percent' => $row['Tax 2 Percent']];
-        }
-
-        if (isset($items_taxes_data)) {
-            $this->item_taxes->save_value($items_taxes_data, $item_data['item_id']);
-        }
+        $this->item_taxes->save_value($items_taxes_data, $item_data['item_id']);
     }
 
     /**

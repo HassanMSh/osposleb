@@ -92,6 +92,10 @@ git pull --ff-only origin develop
 In Settings > General, set Till layout to Restaurant and save.
 Create each menu choice as a standard item on the Items page and give it a category.
 Set each restaurant item's Tax mode to No TVA and choose Non-stock.
+Tap a main item in the cart to choose where new add-ons go.
+New add-ons go under the chosen item, even when other cart lines follow it.
+Deleting a main item also deletes its add-ons.
+Changing an item's quantity, price, or discount does not change its add-ons.
 Fixed line discounts are entered in Lebanese pounds (LL), while percentage discounts are entered as a percent.
 Create a category such as "Add-ons" and put extras and removals like "Extra cheese" or "No onion" in it with their own price or 0.
 In Settings > General, enter that category in Add-on category.
@@ -101,6 +105,14 @@ The cut between them depends on the printer driver cutting after each page.
 Returns, quotes, and suspended sales do not print a kitchen ticket.
 Add-on lines show indented with a + under their item on the kitchen ticket too.
 Set Till layout back to Shop to restore the item search and barcode box.
+
+#### Load the menu from a CSV
+
+- Open Items > CSV Import and download the template first.
+- Set `Stock Type` to `Non-stock` and `Tax Mode` to `No TVA` for restaurant items.
+- Enter Unit Price in dollars: divide the Lebanese pound price by the exchange rate and round to 2 decimals.
+- Save the CSV file as UTF-8 so Arabic names stay readable.
+- The Image column only names a file; copy picture files into the `client_uploads` volume at `/app/public/uploads/item_pics` first.
 
 ## 4. Hardware
 

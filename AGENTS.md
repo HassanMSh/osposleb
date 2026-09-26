@@ -225,6 +225,7 @@ Suggested branch prefixes:
 - The development stack builds assets itself through the one-shot `assets` service.
 - The shop image is published to Docker Hub as `hassanshamseddine/osposlb`. The local Docker client is already logged in to that account.
 - Publishing is live: the `publish` job in `.github/workflows/main.yml` runs only on pushes to `develop` after all checks pass. It skips merges from `docs/` and `chore/` branches, so name a branch that way only when it does not change the shop image.
+- Every check job also skips `docs/` branches, both on the pull request and on the merge into `develop`. A `docs/` branch is never checked, so use it only for documentation changes.
 - The job pushes `hassanshamseddine/osposlb:develop`, which follows the newest published `develop` commit, and `hassanshamseddine/osposlb:develop-<short sha>`, which stays fixed for pinning and rollback.
 - Client machines pull the published image and never build it.
 - Development still builds the image locally with `docker-compose.dev.yml`.

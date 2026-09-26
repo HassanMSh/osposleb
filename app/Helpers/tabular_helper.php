@@ -382,6 +382,9 @@ function get_supplier_data_row(object $supplier): array
     ];
 }
 
+/**
+ * Returns item-list headers that allow direction markup in price cells.
+ */
 function item_headers(): array
 {
     return [
@@ -390,8 +393,8 @@ function item_headers(): array
         ['name'         => lang('Items.name')],
         ['category'     => lang('Items.category')],
         ['company_name' => lang('Suppliers.company_name')],
-        ['cost_price'   => lang('Items.cost_price')],
-        ['unit_price'   => lang('Items.unit_price')],
+        ['cost_price'   => lang('Items.cost_price'), 'escape' => false],
+        ['unit_price'   => lang('Items.unit_price'), 'escape' => false],
         ['quantity'     => lang('Items.quantity')],
     ];
 }
@@ -426,7 +429,7 @@ function get_items_manage_table_headers(): string
 }
 
 /**
- * Builds the item table row, keeping inherited rate labels together and left to right.
+ * Builds the item row with left-to-right prices and tax labels.
  */
 function get_item_data_row(object $item): array
 {
@@ -434,6 +437,13 @@ function get_item_data_row(object $item): array
     $item_taxes   = model(Item_taxes::class);
     $tax_category = model(Tax_category::class);
     $config       = config(OSPOS::class)->settings;
+    $lbp_rate     = (float) ($config['lbp_exchange_rate'] ?? 0);
+    $cost_price   = $lbp_rate > 0
+        ? format_lbp(round_lbp_to_whole_pound((float) $item->cost_price * $lbp_rate))
+        : to_currency($item->cost_price);
+    $unit_price = $lbp_rate > 0
+        ? format_lbp(round_lbp_to_thousand((float) $item->unit_price * $lbp_rate))
+        : to_currency($item->unit_price);
 
     if ($config['use_destination_based_tax']) {
         if ($item->tax_category_id == null) {    // TODO: === ?
@@ -500,8 +510,8 @@ function get_item_data_row(object $item): array
         'name'          => $item->name,
         'category'      => $item->category,
         'company_name'  => $item->company_name,    // TODO: This isn't in the items table. Should this be here?
-        'cost_price'    => to_currency($item->cost_price),
-        'unit_price'    => to_currency($item->unit_price),
+        'cost_price'    => '<span dir="ltr" class="text-nowrap">' . esc($cost_price) . '</span>',
+        'unit_price'    => '<span dir="ltr" class="text-nowrap">' . esc($unit_price) . '</span>',
         'quantity'      => to_quantity_decimals($item->quantity),
         'tax_percents'  => ! $tax_percents ? '-' : $tax_percents,
         'item_pic'      => $image,

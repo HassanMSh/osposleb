@@ -345,7 +345,6 @@ final class CurrencyHelperTest extends CIUnitTestCase
                 APPPATH . 'Controllers/Reports.php',
                 APPPATH . 'Controllers/Cashups.php',
                 APPPATH . 'Models/Cashup.php',
-                APPPATH . 'Helpers/tabular_helper.php',
             ],
         );
 
@@ -356,5 +355,18 @@ final class CurrencyHelperTest extends CIUnitTestCase
             $this->assertStringNotContainsString('lbp_exchange_rate', $source, $path);
             $this->assertStringNotContainsString('to_lbp(', $source, $path);
         }
+
+        $tabular = file_get_contents(APPPATH . 'Helpers/tabular_helper.php');
+
+        $this->assertIsString($tabular);
+        $this->assertStringNotContainsString('to_lbp(', $tabular);
+        $this->assertSame(1, substr_count($tabular, 'lbp_exchange_rate'), 'Only the Items list row may read the exchange rate.');
+
+        $item_row_start = strpos($tabular, 'function get_item_data_row(');
+        $item_row_end   = strpos($tabular, "\nfunction ", $item_row_start + 1);
+        $rate_position  = strpos($tabular, 'lbp_exchange_rate');
+
+        $this->assertIsInt($item_row_start);
+        $this->assertTrue($rate_position > $item_row_start && $rate_position < $item_row_end, 'The exchange rate is read outside get_item_data_row().');
     }
 }

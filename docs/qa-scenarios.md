@@ -40,7 +40,7 @@ The cashier opens Items, clicks New Item, fills the form, and saves. Start each 
 
 | ID | What the cashier does | Expected result |
 |---|---|---|
-| ITEM-01 | Creates a normal item: name, category, cost 626500 LL, retail price 895000 LL, stock 5. | The item saves and appears in the list with $7.00 cost and $10.00 retail price in storage. |
+| ITEM-01 | Creates a normal item: name, category, cost 626500 LL, retail price 895000 LL, stock 5. | The item saves as $7.00 cost and $10.00 retail in storage, and the Items list shows 626,500 LL cost and 895,000 LL retail. |
 | ITEM-02 | Leaves the name empty. | The form shows an error and does not save. |
 | ITEM-03 | Leaves the category empty. | The form shows an error and does not save. |
 | ITEM-04 | Leaves cost, price, stock, receiving quantity, or reorder level empty, one at a time. | Each empty field blocks the save. |

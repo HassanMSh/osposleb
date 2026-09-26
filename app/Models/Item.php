@@ -1112,6 +1112,23 @@ class Item extends Model
     }
 
     /**
+     * Returns the distinct, non-empty categories used by non-deleted items in alphabetical order.
+     */
+    public function get_category_names(): array
+    {
+        $builder = $this->db->table('items');
+        $builder->distinct();
+        $builder->select('category');
+        $builder->where('deleted', 0);
+        $builder->where('category !=', '');
+        $builder->orderBy('category', 'asc');
+
+        $categories = array_column($builder->get()->getResultArray(), 'category');
+
+        return array_values(array_filter($categories, static fn (string $category): bool => trim($category) !== ''));
+    }
+
+    /**
      * changes the cost price of a given item
      * calculates the average price between received items and items on stock
      * $item_id : the item which price should be changed

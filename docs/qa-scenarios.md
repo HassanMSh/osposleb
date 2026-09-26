@@ -1,6 +1,6 @@
 # Cashier QA scenarios
 
-This file lists the cashier journeys to check before a release: creating items and making sales.
+This file lists the cashier journeys to check before a release: creating items, making sales, and using the restaurant till.
 
 Every scenario has an ID. The browser suite in `tests/qa-e2e/` runs the same IDs automatically, so a manual tester and the script report against the same list.
 
@@ -144,6 +144,31 @@ Money checks to repeat on SALE-30, SALE-44, and SALE-49:
 - With "tax included" on, a $10.00 item totals $10.00, of which about $0.99 is TVA.
 - Three taxable $0.05 items total $0.17, with $0.02 TVA and 15,000 LL from the rounded line sum.
 
+## Restaurant till
+
+These scenarios are manual. The browser suite in `tests/qa-e2e/` does not run them yet.
+
+Setup once as admin: set Till layout to Restaurant and Add-on category to `Add-ons` in Settings > General, then create these standard, non-stock, No TVA items: Burger $10.00 and Cola $2.00 in category `Food`, and No onion $0.00 and Extra cheese $1.00 in category `Add-ons`.
+
+Run each scenario once as the Arabic cashier and once as the English admin.
+
+| ID | What the cashier does | Expected result |
+|---|---|---|
+| REST-01 | Opens the register. | There is no item or barcode box; items are picked by tapping. |
+| REST-02 | Taps Burger, Cola, Burger. | Three lines in that order; the second Burger is not merged into the first. |
+| REST-03 | Taps Burger, No onion, Extra cheese, Burger, Cola. | The two add-ons show under the first Burger with a `+`; the total is $23.00 and 2,059,000 LL. |
+| REST-04 | Taps Burger twice in a row. | One line with quantity 2. |
+| REST-05 | Gives one line a percent discount, then another line a fixed discount in LL. | Each line total drops by its discount and the sale total matches the sum of the lines. |
+| REST-06 | Adds a comment and completes REST-03 with cash. | The receipt prints, then the kitchen ticket on a new page: sale number, date and time, lines in order with add-ons indented, the comment, and no prices. |
+| REST-07 | Reprints the sale from the receipt page, then from the sales list. | Both the receipt and the kitchen ticket print again, in that order. |
+| REST-08 | Checks the receipt. | No zero TVA line shows. |
+| REST-09 | Returns the sale in Return mode, and separately suspends a sale. | Neither prints a kitchen ticket. |
+| REST-10 | Admin sets Till layout back to Shop. | The item box and barcode scanning are back, repeated scans merge into one line, and no kitchen ticket prints. |
+| REST-11 | On the T80A, completes REST-03. | The printer cuts between the receipt and the kitchen ticket. Hardware check, still to run on the real printer (#154). |
+| REST-12 | Taps Burger, Cola, then taps the Burger line in the cart, then Extra cheese. | The Burger line is highlighted as the chosen line; Extra cheese goes under Burger, not after Cola; the total is $13.00. |
+| REST-13 | Continues REST-12: changes the Burger quantity to 2, then gives Burger a discount. | Extra cheese keeps its own quantity and price; only the Burger line changes. |
+| REST-14 | Continues REST-13: deletes the Burger line. | Extra cheese is deleted with it; Cola stays and becomes the chosen line. |
+
 ## Speed and repetitive work
 
 | ID | What is measured | Result on 2026-09-23 |
@@ -159,3 +184,4 @@ Money checks to repeat on SALE-30, SALE-44, and SALE-49:
 - Real barcode scanners, receipt printers, and cash drawers. The suite types barcodes. It does not use a device.
 - Printed paper output. The suite checks the receipt page only.
 - The Windows shop computer.
+- The restaurant till scenarios. They are run by hand.

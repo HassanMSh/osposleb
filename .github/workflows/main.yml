@@ -205,6 +205,7 @@ jobs:
             echo "The ospos_migrations table has no rows."
             exit 1
           fi
+          echo "ospos_migrations has $migration_count rows."
 
       # The generated front-end assets are gitignored, so build them before
       # AssetIntegrityTest checks the generated header partial and its files.
@@ -245,7 +246,10 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           changed_files="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA")"
-          if grep -Eq '^(Dockerfile$|\.dockerignore$|docker/|composer\.json$|composer\.lock$|package\.json$|package-lock\.json$|gulpfile\.js$|app/Database/|app/Config/|public/index\.php$|public/\.htaccess$|\.github/workflows/)' <<< "$changed_files"; then
+          image_files="$(grep -E '^(Dockerfile$|\.dockerignore$|docker/|composer\.json$|composer\.lock$|package\.json$|package-lock\.json$|gulpfile\.js$|app/Database/|app/Config/|public/index\.php$|public/\.htaccess$|\.github/workflows/)' <<< "$changed_files" || true)"
+          if [ -n "$image_files" ]; then
+            echo "Image-related files changed:"
+            echo "$image_files"
             echo "image=true" >> "$GITHUB_OUTPUT"
           else
             echo "No image-related files changed."
@@ -300,13 +304,14 @@ jobs:
               exit 1
             fi
 
-            http_status="$(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/login || true)"
+            http_status="$(curl -fs -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/login || true)"
             if [ "$http_status" = "200" ]; then
               app_logs="$(docker logs ospos 2>&1)"
               if ! grep -Fq 'Migrations complete.' <<< "$app_logs"; then
                 echo "The ospos entry point did not report completed migrations."
                 exit 1
               fi
+              grep -E "^(The database is ready|Migrat|Starting Apache)" <<< "$app_logs" || true
               echo "The login page returned HTTP 200 and migrations completed."
               exit 0
             fi
@@ -344,6 +349,8 @@ jobs:
         run: |
           changed_files="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA" -- '.github/workflows/')"
           if [ -n "$changed_files" ]; then
+            echo "Workflow files changed:"
+            echo "$changed_files"
             echo "workflows=true" >> "$GITHUB_OUTPUT"
           else
             echo "No workflow files changed."
@@ -353,7 +360,9 @@ jobs:
       - name: Lint workflows
         if: steps.changes.outputs.workflows == 'true'
         # actionlint 1.7.7 does not know GitHub's supported queue: max setting.
-        run: docker run --rm -v "$GITHUB_WORKSPACE":/repo:ro -w /repo rhysd/actionlint:1.7.7 -color -ignore 'unexpected key "queue" for "concurrency" section'
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/repo:ro -w /repo rhysd/actionlint:1.7.7 -color -ignore 'unexpected key "queue" for "concurrency" section'
+          echo "actionlint found no problems."
 
   # The one check the develop ruleset requires before a pull request can merge.
   # It always runs and passes when every needed job passed or was skipped

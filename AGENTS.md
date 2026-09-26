@@ -55,6 +55,21 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 - If you are `gpt-6-sol`, you are the reviewer. Review the work yourself in this run and do not edit files. Do not start `codex exec`, another Codex session, or any sub-agent, and do not run your own review rounds.
 - One run is one round. The implementer and the reviewer each finish their run with a report and stop. The coordinating agent decides whether another round is needed and starts it.
 
+### Containers for the implementer
+
+- `gpt-6-luna` may start Docker containers to run tests, a throwaway app stack, or browser QA, but only from inside the Codex sandbox.
+- Start it with `-s workspace-write -c sandbox_workspace_write.network_access=true --add-dir /home/dev-hassanshd/hassan/pos/plans`. Files outside the worktree and the added folders stay read-only, and the network setting is what lets the Docker command reach the Docker service.
+- Never start the implementer with `danger-full-access` or `--dangerously-bypass-approvals-and-sandbox`.
+- The Docker service runs as root, so the sandbox does not limit what a container mounts. The rules below are therefore part of every implementer brief.
+- Use one throwaway Compose project per task, named after the issue (for example `ospos143`), with its own network, its own volumes, and its own host port bound to `127.0.0.1`.
+- Mount only the task worktree read-write. Mount anything else read-only, such as `vendor` from the main checkout.
+- Never mount `/`, the home folder, `/var/run/docker.sock`, or any path outside `/home/dev-hassanshd/hassan/pos`.
+- Never run privileged containers or containers with host networking.
+- Never stop, remove, or change containers, volumes, or networks the implementer did not create in this run, including the development stack (`ospos_dev`, `mysql`, port 18090) and other throwaway projects.
+- Never run `docker push`, `docker login`, `docker logout`, or `docker system prune`, and never tag an image as `hassanshamseddine/*`.
+- Remove the throwaway project with its volumes (`docker compose down -v`) before finishing, and say in the report that it was removed.
+- The reviewer (`gpt-6-sol`) still runs with `-s read-only` and never starts containers.
+
 ## Working directory
 
 All repositories, documentation, ADRs, scripts, and project artifacts must remain under:

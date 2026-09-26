@@ -40,7 +40,7 @@ class Sale extends Model
     }
 
     /**
-     * Get sale info
+     * Gets sale information, including its status and type.
      */
     public function get_info(int $sale_id): ResultInterface
     {
@@ -63,6 +63,7 @@ class Sale extends Model
                 MAX(sales.sale_time) AS sale_time,
                 MAX(sales.comment) AS comment,
                 MAX(sales.sale_status) AS sale_status,
+                MAX(sales.sale_type) AS sale_type,
                 MAX(sales.invoice_number) AS invoice_number,
                 MAX(sales.quote_number) AS quote_number,
                 MAX(sales.employee_id) AS employee_id,
@@ -887,6 +888,23 @@ class Sale extends Model
         $builder->where('sale_id', $sale_id);
 
         return $builder->get();
+    }
+
+    /**
+     * Gets the saved item lines for a kitchen ticket in their original sale order.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function get_kitchen_ticket_lines(int $sale_id): array
+    {
+        $item    = model(Item::class);
+        $builder = $this->db->table('sales_items AS sales_items');
+        $builder->select('sales_items.line, sales_items.quantity_purchased, sales_items.description, ' . $item->get_item_name('name'));
+        $builder->join('items AS items', 'sales_items.item_id = items.item_id');
+        $builder->where('sales_items.sale_id', $sale_id);
+        $builder->orderBy('sales_items.line', 'asc');
+
+        return $builder->get()->getResultArray();
     }
 
     /**

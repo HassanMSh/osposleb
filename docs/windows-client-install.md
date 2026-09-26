@@ -92,6 +92,7 @@ git pull --ff-only origin develop
 After each restaurant sale, the printer prints the customer receipt and then the kitchen ticket.
 The print button on the receipt page and in the sales list reprints both.
 The cut between them depends on the printer driver cutting after each page.
+Returns, quotes, and suspended sales do not print a kitchen ticket.
 
 In Settings > General, set Till layout to Restaurant and save.
 Create each menu choice as a standard item on the Items page and give it a category.

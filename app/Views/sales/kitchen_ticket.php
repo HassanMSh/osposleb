@@ -1,21 +1,22 @@
 <?php
 /**
- * @var array      $cart
- * @var string     $comments
- * @var string     $language_code
- * @var int|string $sale_id_num
- * @var string     $transaction_time
+ * @var array           $config
+ * @var string          $comments
+ * @var string          $language_code
+ * @var int|string      $sale_id_num
+ * @var int|string|null $sale_status
+ * @var int|string|null $sale_type
+ * @var array           $ticket_lines
+ * @var string          $transaction_time
  */
-$ticket_lines = [];
+$ticket_lines = array_values(array_filter(
+    $ticket_lines,
+    static fn (array $ticket_line): bool => (float) ($ticket_line['quantity_purchased'] ?? 0) > 0,
+));
 
-foreach ($cart as $cart_line => $item) {
-    $ticket_lines[] = [
-        'line' => (int) ($item['line'] ?? $cart_line),
-        'item' => $item,
-    ];
+if (! App\Libraries\Kitchen_ticket::is_eligible($config, $sale_status, $sale_type) || $ticket_lines === []) {
+    return;
 }
-
-usort($ticket_lines, static fn (array $left, array $right): int => $left['line'] <=> $right['line']);
 ?>
 
 <div id="kitchen_ticket" class="kitchen-ticket" lang="<?= esc($language_code) ?>" dir="<?= esc(text_direction($language_code)) ?>">
@@ -27,10 +28,14 @@ usort($ticket_lines, static fn (array $left, array $right): int => $left['line']
 
     <div class="kitchen-ticket-lines">
         <?php foreach ($ticket_lines as $ticket_line): ?>
-            <?php $item = $ticket_line['item']; ?>
             <div class="kitchen-ticket-line">
-                <span class="kitchen-ticket-qty" dir="ltr"><?= esc(to_quantity_decimals($item['quantity'])) ?></span>
-                <span class="kitchen-ticket-name"><?= esc($item['name']) ?></span>
+                <span class="kitchen-ticket-qty" dir="ltr"><?= esc(to_quantity_decimals($ticket_line['quantity_purchased'])) ?></span>
+                <span class="kitchen-ticket-name">
+                    <?= esc($ticket_line['name']) ?>
+                    <?php if (! empty($config['receipt_show_description']) && ! empty($ticket_line['description'])): ?>
+                        <span class="kitchen-ticket-description"><?= esc($ticket_line['description']) ?></span>
+                    <?php endif; ?>
+                </span>
             </div>
         <?php endforeach; ?>
     </div>

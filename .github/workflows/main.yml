@@ -101,7 +101,7 @@ jobs:
           coverage: none
 
       - name: Get composer cache directory
-        run: echo "COMPOSER_CACHE_FILES_DIR=$(composer config cache-files-dir)" >> $GITHUB_ENV
+        run: echo "COMPOSER_CACHE_FILES_DIR=$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -134,13 +134,35 @@ jobs:
   # Runs on 8.2 only. composer.lock pins dev tooling (PHPUnit 11 and its
   # sebastian/* dependencies) that requires PHP 8.2 or later, so the dev
   # dependencies cannot be installed on 8.1 at all. The application itself still
-  # supports 8.1, which the syntax job above checks.
+  # supports 8.1, which the syntax job above checks. Database tests need MariaDB;
+  # fail-on-skipped catches a database setup failure instead of hiding it.
   tests:
     name: PHP 8.2 Tests
     if: >-
       !startsWith(github.head_ref, 'docs/') &&
       !(github.event_name == 'push' && contains(github.event.head_commit.message, format('from {0}/docs/', github.repository_owner)))
     runs-on: ubuntu-22.04
+    env:
+      MYSQL_HOST_NAME: 127.0.0.1
+      MYSQL_DB_NAME: ospos
+      MYSQL_USERNAME: admin
+      MYSQL_PASSWORD: pointofsale
+    services:
+      mysql:
+        image: mariadb:10.5
+        # Throwaway CI values matching docker-compose.dev.yml.
+        env:
+          MYSQL_ROOT_PASSWORD: pointofsale
+          MYSQL_DATABASE: ospos
+          MYSQL_USER: admin
+          MYSQL_PASSWORD: pointofsale
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent --host=127.0.0.1 --user=root --password=pointofsale"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - name: Checkout
@@ -150,11 +172,11 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: intl, mbstring, gd, zip
+          extensions: intl, mbstring, gd, zip, mysqli
           coverage: none
 
       - name: Get composer cache directory
-        run: echo "COMPOSER_CACHE_FILES_DIR=$(composer config cache-files-dir)" >> $GITHUB_ENV
+        run: echo "COMPOSER_CACHE_FILES_DIR=$(composer config cache-files-dir)" >> "$GITHUB_ENV"
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -167,6 +189,22 @@ jobs:
 
       - name: Install dependencies
         run: composer install --ansi --no-interaction --no-progress
+
+      - name: Load the test database schema
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -u admin -ppointofsale ospos < app/Database/tables.sql
+          mysql -h 127.0.0.1 -P 3306 -u admin -ppointofsale ospos < app/Database/constraints.sql
+
+      - name: Run database migrations
+        run: php docker/migrations.php migrate
+
+      - name: Check database migrations ran
+        run: |
+          migration_count="$(mysql -h 127.0.0.1 -P 3306 -u admin -ppointofsale --batch --skip-column-names --execute='SELECT COUNT(*) FROM ospos_migrations' ospos)"
+          if [ "$migration_count" -lt 1 ]; then
+            echo "The ospos_migrations table has no rows."
+            exit 1
+          fi
 
       # The generated front-end assets are gitignored, so build them before
       # AssetIntegrityTest checks the generated header partial and its files.
@@ -182,7 +220,140 @@ jobs:
           npm run build
 
       - name: Run PHPUnit
-        run: vendor/bin/phpunit --no-coverage --colors=always
+        run: vendor/bin/phpunit --no-coverage --colors=always --fail-on-skipped
+
+  image:
+    name: Shop image
+    if: >-
+      github.event_name == 'pull_request' &&
+      !startsWith(github.head_ref, 'docs/')
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The image copies the whole repository, but ordinary code changes are
+      # covered by the other jobs. Build only for files that decide how the
+      # image is built or how the app starts, and for this workflow itself.
+      - name: Check for image-related changes
+        id: changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          changed_files="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA")"
+          if grep -Eq '^(Dockerfile$|\.dockerignore$|docker/|composer\.json$|composer\.lock$|package\.json$|package-lock\.json$|gulpfile\.js$|app/Database/|app/Config/|public/index\.php$|public/\.htaccess$|\.github/workflows/)' <<< "$changed_files"; then
+            echo "image=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No image-related files changed."
+            echo "image=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.changes.outputs.image == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build shop image
+        if: steps.changes.outputs.image == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ospos
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: osposlb-ci:pr
+          cache-from: type=gha
+
+      - name: Check image startup
+        id: startup
+        if: steps.changes.outputs.image == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create ospos-ci
+          docker run --detach --name mysql --network ospos-ci \
+            --env MYSQL_ROOT_PASSWORD=pointofsale \
+            --env MYSQL_DATABASE=ospos \
+            --env MYSQL_USER=admin \
+            --env MYSQL_PASSWORD=pointofsale \
+            --volume "$GITHUB_WORKSPACE/app/Database/tables.sql:/docker-entrypoint-initdb.d/01-tables.sql:ro" \
+            --volume "$GITHUB_WORKSPACE/app/Database/constraints.sql:/docker-entrypoint-initdb.d/02-constraints.sql:ro" \
+            mariadb:10.5
+          docker run --detach --name ospos --network ospos-ci \
+            --publish 127.0.0.1:8080:80 \
+            --env CI_ENVIRONMENT=production \
+            --env FORCE_HTTPS=false \
+            --env PHP_TIMEZONE=UTC \
+            --env MYSQL_HOST_NAME=mysql \
+            --env MYSQL_DB_NAME=ospos \
+            --env MYSQL_USERNAME=admin \
+            --env MYSQL_PASSWORD=pointofsale \
+            osposlb-ci:pr
+
+          for ((attempt = 1; attempt <= 180; attempt++)); do
+            if [ "$(docker inspect --format='{{.State.Running}}' ospos)" != "true" ]; then
+              echo "The ospos container stopped before the login page became ready."
+              exit 1
+            fi
+
+            http_status="$(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/login || true)"
+            if [ "$http_status" = "200" ]; then
+              app_logs="$(docker logs ospos 2>&1)"
+              if ! grep -Fq 'Migrations complete.' <<< "$app_logs"; then
+                echo "The ospos entry point did not report completed migrations."
+                exit 1
+              fi
+              echo "The login page returned HTTP 200 and migrations completed."
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "The login page did not return HTTP 200 within 180 seconds."
+          exit 1
+
+      - name: Show startup logs after a failure
+        if: failure() && steps.startup.outcome == 'failure' && steps.changes.outputs.image == 'true'
+        run: |
+          docker logs ospos 2>&1 || true
+          docker logs mysql 2>&1 || true
+
+  workflow-lint:
+    name: Workflow lint
+    if: >-
+      !startsWith(github.head_ref, 'docs/') &&
+      !(github.event_name == 'push' && contains(github.event.head_commit.message, format('from {0}/docs/', github.repository_owner)))
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for workflow changes
+        id: changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          changed_files="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA" -- '.github/workflows/')"
+          if [ -n "$changed_files" ]; then
+            echo "workflows=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No workflow files changed."
+            echo "workflows=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Lint workflows
+        if: steps.changes.outputs.workflows == 'true'
+        # actionlint 1.7.7 does not know GitHub's supported queue: max setting.
+        run: docker run --rm -v "$GITHUB_WORKSPACE":/repo:ro -w /repo rhysd/actionlint:1.7.7 -color -ignore 'unexpected key "queue" for "concurrency" section'
 
   # The one check the develop ruleset requires before a pull request can merge.
   # It always runs and passes when every needed job passed or was skipped
@@ -193,7 +364,7 @@ jobs:
   checks-passed:
     name: Checks passed
     if: always()
-    needs: [syntax, coding-standards, tests]
+    needs: [syntax, coding-standards, tests, image, workflow-lint]
     runs-on: ubuntu-22.04
 
     steps:

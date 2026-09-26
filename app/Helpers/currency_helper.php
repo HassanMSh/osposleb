@@ -144,6 +144,22 @@ function get_lbp_cart_totals(array $cart, array $item_taxes, float|int|string $r
 }
 
 /**
+ * Returns a report's pound sum only when every sale in the group has a saved pound total.
+ *
+ * @param array|null $lbp_row Row with lbp_total (sum) and missing_count (sales without a saved total), or null.
+ *
+ * @return int|null Pound total, 0 for a group without sales, or null when it is unknown.
+ */
+function complete_lbp_total(?array $lbp_row): ?int
+{
+    if ($lbp_row === null || (int) ($lbp_row['missing_count'] ?? 0) > 0) {
+        return null;
+    }
+
+    return (int) ($lbp_row['lbp_total'] ?? 0);
+}
+
+/**
  * Builds the pound figures for a stored sale, such as a reprinted or emailed receipt.
  *
  * A sale saved with its pound total and exchange rate shows that total, and its line figures use the saved rate.

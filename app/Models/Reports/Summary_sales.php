@@ -54,7 +54,7 @@ class Summary_sales extends Summary_report
         }
 
         foreach ($rows as &$row) {
-            $row['lbp_total'] = $this->complete_lbp_total($lbp_by_day[$row['sale_date']] ?? null);
+            $row['lbp_total'] = complete_lbp_total($lbp_by_day[$row['sale_date']] ?? null);
         }
         unset($row);
 
@@ -70,7 +70,7 @@ class Summary_sales extends Summary_report
     {
         $summary              = parent::getSummaryData($inputs);
         $lbp_rows             = $this->get_lbp_totals($inputs, false);
-        $summary['lbp_total'] = $this->complete_lbp_total($lbp_rows[0] ?? null);
+        $summary['lbp_total'] = complete_lbp_total($lbp_rows[0] ?? null);
 
         return $summary;
     }
@@ -103,21 +103,5 @@ class Summary_sales extends Summary_report
         }
 
         return $this->db->query('SELECT ' . $select . ' FROM (' . $matching_sales . ') AS matching_sales')->getResultArray();
-    }
-
-    /**
-     * Returns the pound sum only when every sale in the group has a saved pound total.
-     *
-     * @param array|null $lbp_row Row from get_lbp_totals(), or null when there is none.
-     *
-     * @return int|null Pound total, 0 for a group without sales, or null when it is unknown.
-     */
-    public function complete_lbp_total(?array $lbp_row): ?int
-    {
-        if ($lbp_row === null || (int) $lbp_row['missing_count'] > 0) {
-            return null;
-        }
-
-        return (int) $lbp_row['lbp_total'];
     }
 }

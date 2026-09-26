@@ -56,6 +56,8 @@ Use that figure as the expected pound total at closing, and still count the draw
 
 The "Total (LBP)" cell stays blank for a day that includes a sale completed before this total was saved, and the footer stays blank when any such sale is in the selected dates.
 
+The Detailed Transactions report also has a "Total (LBP)" column with each sale's saved total, blank for older sales, and a footer that follows the same rule.
+
 Held sales, quotes, and work orders save no LBP total until they are completed.
 
 A reprinted or emailed receipt shows the saved LBP total and the rate used at the sale, not today's rate; receipts of older sales still use the current rate.

@@ -36,6 +36,17 @@ final class SaleLbpTotalTest extends CIUnitTestCase
     }
 
     /**
+     * Shows a report pound sum only when no sale in the group is missing its saved total.
+     */
+    public function testReportPoundSumIsBlankWhenAnySaleIsMissing(): void
+    {
+        $this->assertSame(200000, complete_lbp_total(['lbp_total' => '200000', 'sale_count' => '2', 'missing_count' => '0']));
+        $this->assertSame(0, complete_lbp_total(['lbp_total' => null, 'sale_count' => '0', 'missing_count' => null]));
+        $this->assertNull(complete_lbp_total(['lbp_total' => '90000', 'sale_count' => '2', 'missing_count' => '1']));
+        $this->assertNull(complete_lbp_total(null));
+    }
+
+    /**
      * Gives a return a negative pound total, so saved sales and returns net out in reports.
      */
     public function testReturnCartHasNegativePoundTotal(): void

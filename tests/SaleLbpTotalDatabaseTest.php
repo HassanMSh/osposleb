@@ -4,6 +4,7 @@ namespace Tests;
 
 use App\Database\Migrations\Migration_sale_lbp_total;
 use App\Models\Item;
+use App\Models\Reports\Detailed_sales;
 use App\Models\Reports\Summary_sales;
 use App\Models\Sale;
 use CodeIgniter\Test\CIUnitTestCase;
@@ -158,6 +159,50 @@ final class SaleLbpTotalDatabaseTest extends CIUnitTestCase
         $this->assertArrayHasKey(self::REPORT_DAY_ONE, $rows);
         $this->assertNull($rows[self::REPORT_DAY_ONE]);
         $this->assertSame(180000, $rows[self::REPORT_DAY_TWO]);
+        $this->assertNull($report->getSummaryData($inputs)['lbp_total']);
+    }
+
+    /**
+     * Shows each sale's saved pound total in the detailed report, and nets the footer once per sale.
+     */
+    public function testDetailedReportShowsPoundTotalPerSale(): void
+    {
+        $sale_id   = $this->saveSale(NEW_ENTRY, COMPLETED, SALE_TYPE_POS, [1, 2, 3], 300000, 90000.0);
+        $return_id = $this->saveSale(NEW_ENTRY, COMPLETED, SALE_TYPE_RETURN, [-1], -100000, 90000.0);
+        $this->moveSaleToDay($sale_id, self::REPORT_DAY_ONE);
+        $this->moveSaleToDay($return_id, self::REPORT_DAY_ONE);
+
+        $report = new Detailed_sales();
+        $inputs = $this->reportInputs(self::REPORT_DAY_ONE, self::REPORT_DAY_ONE, 'complete') + ['definition_ids' => []];
+        $report->create($inputs);
+
+        $rows = array_column($report->getData($inputs)['summary'], 'lbp_total', 'sale_id');
+        $this->assertSame('300000', (string) $rows[$sale_id]);
+        $this->assertSame('-100000', (string) $rows[$return_id]);
+        $this->assertSame(200000, $report->getSummaryData($inputs)['lbp_total']);
+        $this->assertSame('300000', (string) $report->getDataBySaleId($sale_id)['lbp_total']);
+
+        $returns_only = $this->reportInputs(self::REPORT_DAY_ONE, self::REPORT_DAY_ONE, 'returns');
+        $this->assertSame(-100000, $report->getSummaryData($returns_only)['lbp_total']);
+    }
+
+    /**
+     * Leaves an older sale's pound cell and the detailed report footer blank.
+     */
+    public function testDetailedReportLeavesOlderSaleBlank(): void
+    {
+        $new_sale_id = $this->saveSale(NEW_ENTRY, COMPLETED, SALE_TYPE_POS, [1], 90000, 90000.0);
+        $old_sale_id = $this->saveSale(NEW_ENTRY, COMPLETED, SALE_TYPE_POS, [1]);
+        $this->moveSaleToDay($new_sale_id, self::REPORT_DAY_TWO);
+        $this->moveSaleToDay($old_sale_id, self::REPORT_DAY_TWO);
+
+        $report = new Detailed_sales();
+        $inputs = $this->reportInputs(self::REPORT_DAY_TWO, self::REPORT_DAY_TWO, 'complete') + ['definition_ids' => []];
+        $report->create($inputs);
+
+        $rows = array_column($report->getData($inputs)['summary'], 'lbp_total', 'sale_id');
+        $this->assertSame('90000', (string) $rows[$new_sale_id]);
+        $this->assertNull($rows[$old_sale_id]);
         $this->assertNull($report->getSummaryData($inputs)['lbp_total']);
     }
 

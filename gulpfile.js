@@ -234,7 +234,8 @@ gulp.task('debug-css', function() {
         './public/css/register.css',
         './public/css/reports.css',
         './public/css/ospos_rtl.css',
-        './public/css/restaurant_till.css'
+        './public/css/restaurant_till.css',
+        './public/css/kitchen_ticket.css'
     ]).pipe(rev()).pipe(gulp.dest('public/resources/css'));
     return gulp.src('./app/Views/partial/header_assets.php').pipe(inject(debugcss,{addRootSlash: false, ignorePath: '/public/', starttag: '<!-- inject:debug:css -->'})).pipe(gulp.dest('./app/Views/partial'));
 });
@@ -267,7 +268,8 @@ gulp.task('prod-css', function() {
         './public/css/register.css',
         './public/css/reports.css',
         './public/css/ospos_rtl.css',
-        './public/css/restaurant_till.css'
+        './public/css/restaurant_till.css',
+        './public/css/kitchen_ticket.css'
     ]).pipe(cleanCSS({compatibility: 'ie8'}));
 
     var prodcss = series(opensourcepos1css, opensourcepos2css, opensourcepos3css, opensourcepos4css, opensourcepos5css)

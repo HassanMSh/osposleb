@@ -1,11 +1,15 @@
 <?php
 /**
- * @var int   $sale_id_num
- * @var bool  $print_after_sale
- * @var array $config
+ * @var int             $sale_id_num
+ * @var bool            $print_after_sale
+ * @var array           $config
+ * @var int|string|null $sale_status
+ * @var int|string|null $sale_type
  */
 
+use App\Libraries\Kitchen_ticket;
 use App\Models\Employee;
+use App\Models\Sale;
 
 ?>
 
@@ -73,6 +77,19 @@ if ($employee->has_grant('reports_sales', session('person_id'))): ?>
     <?php endif; ?>
 </div>
 
-<?= view('sales/' . $config['receipt_template']) ?>
+<?= view('sales/' . $config['receipt_template']) ?><?php
+if (Kitchen_ticket::is_eligible($config, $sale_status ?? null, $sale_type ?? null)) {
+    echo view('sales/kitchen_ticket', [
+        'config'           => $config,
+        'comments'         => $comments,
+        'language_code'    => current_language_code(),
+        'sale_id_num'      => $sale_id_num,
+        'sale_status'      => $sale_status,
+        'sale_type'        => $sale_type,
+        'ticket_lines'     => model(Sale::class)->get_kitchen_ticket_lines((int) $sale_id_num),
+        'transaction_time' => $transaction_time,
+    ]);
+}
+?>
 
 <?= view('partial/footer') ?>

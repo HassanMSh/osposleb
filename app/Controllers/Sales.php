@@ -773,6 +773,7 @@ class Sales extends Secure_Controller
 
     /**
      * Completes a cash-only sale without buyer data and supplies rounded LBP receipt totals.
+     * Provides sale status and type to the receipt so kitchen-ticket eligibility is clear.
      * Builds a day-first timestamp when the completed sale is rendered as a receipt.
      * Refuses to complete while any cart line has a quantity of zero.
      *
@@ -993,6 +994,7 @@ class Sales extends Secure_Controller
             } else {
                 $sale_type = SALE_TYPE_POS;
             }
+            $data['sale_type'] = $sale_type;
 
             $data['sale_id_num'] = $this->sale->save_value($sale_id, $data['sale_status'], $data['cart'], $customer_id, $employee_id, $data['comments'], $invoice_number, $work_order_number, $quote_number, $sale_type, $data['payments'], $data['dinner_table'], $tax_details, $saved_lbp_total, $saved_lbp_rate);
 
@@ -1161,7 +1163,7 @@ class Sales extends Secure_Controller
      * @param int  $sale_id          Sale identifier.
      * @param bool $receipt_datetime Whether to use the receipt date format.
      *
-     * @return array<string, mixed> Sale data for the selected view.
+     * @return array<string, mixed> Sale data, including status and type, for the selected view.
      */
     private function _load_sale_data(int $sale_id, bool $receipt_datetime = false): array    // TODO: Hungarian notation
     {
@@ -1223,6 +1225,7 @@ class Sales extends Secure_Controller
         $data['invoice_number'] = $sale_info['invoice_number'];
         $data['quote_number']   = $sale_info['quote_number'];
         $data['sale_status']    = $sale_info['sale_status'];
+        $data['sale_type']      = $sale_info['sale_type'];
 
         $data['company_info'] = implode("\n", [$this->config['address'], $this->config['phone']]);    // TODO: Duplicated code.
 

@@ -6,7 +6,7 @@
  * @var int        $tabindex
  */
 $discount_type = (int) ($item['discount_type'] ?? 0);
-$discount_lbp  = round_lbp_to_whole_pound((float) ($item['discount'] ?? 0) * (float) ($config['lbp_exchange_rate'] ?? 0));
+$discount_lbp  = round_lbp_to_thousand((float) ($item['discount'] ?? 0) * (float) ($config['lbp_exchange_rate'] ?? 0));
 ?>
 <td>
     <div class="input-group">

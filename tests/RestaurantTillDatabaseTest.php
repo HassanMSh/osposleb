@@ -121,9 +121,54 @@ final class RestaurantTillDatabaseTest extends CIUnitTestCase
     }
 
     /**
+     * Keeps edited restaurant line prices and discounts separate from later taps.
+     */
+    public function testRestaurantTapsMergeOnlyWhenPriceAndDiscountMatch(): void
+    {
+        $item_id                 = $this->createItem('Tap Price A', 'Burgers', ITEM, false, 10.00);
+        $ospos_config            = config(OSPOS::class);
+        $this->had_till_layout   = array_key_exists('till_layout', $ospos_config->settings);
+        $this->saved_till_layout = $ospos_config->settings['till_layout'] ?? null;
+        $location_id             = (int) $this->database->table('stock_locations')->select('location_id')->get()->getRow()->location_id;
+        $previous_bc_scale       = bcscale();
+
+        try {
+            bcscale(8);
+
+            $cart         = $this->addTaps('restaurant', [$item_id], $location_id);
+            $sale_library = new Sale_lib();
+            $sale_library->edit_item('1', '', '', '1', '0', (string) PERCENT, '8.00');
+            $this->addTap($sale_library, $item_id, $location_id);
+            $cart = $sale_library->get_cart();
+
+            $this->assertCount(2, $cart);
+            $this->assertSame([8.0, 10.0], array_map(static fn (array $item): float => (float) $item['price'], array_values($cart)));
+            $this->assertSame([8.0, 10.0], array_map(static fn (array $item): float => (float) $item['discounted_total'], array_values($cart)));
+
+            $cart         = $this->addTaps('restaurant', [$item_id], $location_id);
+            $sale_library = new Sale_lib();
+            $sale_library->edit_item('1', '', '', '1', '10', (string) PERCENT, '10.00');
+            $this->addTap($sale_library, $item_id, $location_id);
+            $cart = $sale_library->get_cart();
+
+            $this->assertCount(2, $cart);
+            $this->assertSame(['10', '0'], array_column(array_values($cart), 'discount'));
+            $this->assertSame([9.0, 10.0], array_map(static fn (array $item): float => (float) $item['discounted_total'], array_values($cart)));
+
+            $cart = $this->addTaps('restaurant', [$item_id, $item_id], $location_id);
+            $this->assertCount(1, $cart);
+            $this->assertSame(2.0, (float) array_values($cart)[0]['quantity']);
+            $this->assertSame(20.0, (float) array_values($cart)[0]['total']);
+        } finally {
+            bcscale($previous_bc_scale);
+            session()->remove('sales_cart');
+        }
+    }
+
+    /**
      * Creates one standard or excluded item fixture at the test database's first location.
      */
-    private function createItem(string $name, string $category, int $item_type = ITEM, bool $deleted = false): int
+    private function createItem(string $name, string $category, int $item_type = ITEM, bool $deleted = false, float $unit_price = 4.5): int
     {
         $location_id = (int) $this->database->table('stock_locations')->select('location_id')->get()->getRow()->location_id;
         $this->database->table('items')->insert([
@@ -132,7 +177,7 @@ final class RestaurantTillDatabaseTest extends CIUnitTestCase
             'item_number'           => 'RT' . bin2hex(random_bytes(5)),
             'description'           => '',
             'cost_price'            => 0,
-            'unit_price'            => 4.5,
+            'unit_price'            => $unit_price,
             'reorder_level'         => 0,
             'receiving_quantity'    => 1,
             'allow_alt_description' => 0,
@@ -176,5 +221,15 @@ final class RestaurantTillDatabaseTest extends CIUnitTestCase
         }
 
         return $sale_library->get_cart();
+    }
+
+    /**
+     * Adds one item tap to an existing sale cart.
+     */
+    private function addTap(Sale_lib $sale_library, int $item_id, int $location_id): void
+    {
+        $item_id  = (string) $item_id;
+        $discount = '0';
+        $this->assertTrue($sale_library->add_item($item_id, $location_id, '1', $discount));
     }
 }

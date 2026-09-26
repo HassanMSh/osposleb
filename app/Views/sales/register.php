@@ -104,9 +104,12 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         </div>
     <?= form_close() ?>
 
-    <?php $tabindex = 0; if ($restaurant_till) { echo view('sales/restaurant_menu', ['controller_name' => $controller_name, 'restaurant_menu_items' => $restaurant_menu_items]); } ?>
+    <?php $tabindex = 0;
+if ($restaurant_till) {
+    echo view('sales/restaurant_menu', ['controller_name' => $controller_name, 'restaurant_menu_items' => $restaurant_menu_items]);
+} ?>
 
-    <?php if (!$restaurant_till) { ?><?= form_open("{$controller_name}/add", ['id' => 'add_item_form', 'class' => 'form-horizontal panel panel-default']) ?>
+    <?php if (! $restaurant_till) { ?><?= form_open("{$controller_name}/add", ['id' => 'add_item_form', 'class' => 'form-horizontal panel panel-default']) ?>
         <div class="panel-body form-group">
             <ul>
                 <li class="pull-left first_li">
@@ -150,6 +153,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             <?php
             } else {
                 $cart_display = $restaurant_till ? $cart : array_reverse($cart, true);
+
                 foreach ($cart_display as $line => $item) {
                     ?>
                     <?= form_open("{$controller_name}/editItem/{$line}", ['class' => 'form-horizontal', 'id' => "cart_{$line}"]) ?>

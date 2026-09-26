@@ -939,6 +939,7 @@ class Sale_lib
         }
 
         $last_item = null;
+
         foreach ($items as $item) {
             if ($last_item === null || $item['line'] > $last_item['line']) {
                 $last_item = $item;

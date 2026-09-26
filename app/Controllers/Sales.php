@@ -723,7 +723,7 @@ class Sales extends Secure_Controller
         $data                 = [];
         $data['dinner_table'] = $this->sale_lib->get_dinner_table();
 
-        $data['cart']  = $this->sale_lib->get_cart();
+        $data['cart'] = $this->sale_lib->get_cart();
 
         $data['include_hsn']          = (bool) $this->config['include_hsn'];
         $transaction_timestamp        = time();

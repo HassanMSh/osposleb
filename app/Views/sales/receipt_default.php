@@ -12,6 +12,7 @@
  * @var array  $taxes
  * @var float  $total
  * @var int    $lbp_total
+ * @var float  $lbp_rate  Exchange rate used for the pound figures.
  * @var array  $payments
  * @var float  $amount_change
  * @var string $barcode
@@ -185,7 +186,7 @@ foreach ($payments as $payment) {
             </tr>
         <?php } ?>
         <tr>
-            <td colspan="4" class="receipt-label"><?= esc(lang('Sales.lbp_rate')) ?> <span dir="ltr"><?= esc(format_lbp($config['lbp_exchange_rate'])) ?></span></td>
+            <td colspan="4" class="receipt-label"><?= esc(lang('Sales.lbp_rate')) ?> <span dir="ltr"><?= esc(format_lbp($lbp_rate ?? $config['lbp_exchange_rate'])) ?></span></td>
         </tr>
     </table>
 

@@ -28,7 +28,7 @@ Enter item cost and retail prices in Lebanese pounds (LL) on the item form.
 
 Retail prices show rounded to the nearest 1,000 LL, while cost prices show rounded to a whole pound.
 
-The database stores prices in dollars with two decimal places, and the current Settings rate controls the LBP values shown on item forms, the till, and receipts.
+The database stores prices in dollars with two decimal places, and the current Settings rate controls the LBP values shown on item forms, the till, and new receipts.
 
 Saving an item without changing its displayed prices keeps its stored dollar prices unchanged.
 
@@ -46,7 +46,19 @@ Retail prices typed outside whole thousands show rounded to the nearest 1,000 LL
 
 A cost of 100,000 LL at a 90,000 rate stores as $1.11 and reopens at 99,900 LL because the database keeps cents.
 
-At 90,000 LL per dollar, a $4.22 report total is 379,800 LL while rounded item lines can collect 380,000 LL, so the pound cash drawer may differ from a dollar-based report at closing.
+At 90,000 LL per dollar, a $4.22 report total is 379,800 LL while rounded item lines can collect 380,000 LL, so the pound cash drawer may differ from the dollar total times the rate.
+
+Each completed sale and return also saves the LBP sale total the till showed and the rate used, and returns save a negative total.
+
+The "Total (LBP)" column and footer of the Sales Summary report add up those saved sale totals, so they match what the till charged even after the rate changes.
+
+Use that figure as the expected pound total at closing, and still count the drawer and check the recorded payments separately.
+
+The "Total (LBP)" cell stays blank for a day that includes a sale completed before this total was saved, and the footer stays blank when any such sale is in the selected dates.
+
+Held sales, quotes, and work orders save no LBP total until they are completed.
+
+A reprinted or emailed receipt shows the saved LBP total and the rate used at the sale, not today's rate; receipts of older sales still use the current rate.
 
 ## Start the shop
 

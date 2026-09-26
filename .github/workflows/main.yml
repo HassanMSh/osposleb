@@ -311,7 +311,7 @@ jobs:
                 echo "The ospos entry point did not report completed migrations."
                 exit 1
               fi
-              grep -E "^(The database is ready|Migrat|Starting Apache)" <<< "$app_logs" || true
+              grep -E "^(The database is ready|Migrations complete|Starting Apache)" <<< "$app_logs" || true
               echo "The login page returned HTTP 200 and migrations completed."
               exit 0
             fi

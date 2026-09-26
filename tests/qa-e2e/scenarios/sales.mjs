@@ -1,4 +1,5 @@
 import { sql } from "../lib/sql.mjs";
+import { dollarsToLbpInput } from "../lib/money.mjs";
 
 const absent = new Map([
     [17, "line discount"],
@@ -69,19 +70,26 @@ export async function saleScenario(ctx, number) {
         const item = await findItem(ctx, "خبز");
         if (!item) return blocked("ITEM-32", "Exempt item missing after ITEM-32");
         await addBarcode(ctx, item.barcode);
-        await page.locator("#change_helper_currency").selectOption(number === 38 ? "usd" : "lbp");
-        await page.locator("#change_helper_amount").fill(number === 38 ? "20" : "1000000");
+        await page.locator("#change_helper_currency").selectOption(number === 38 ? "lbp" : "usd");
+        await page.locator("#change_helper_amount").fill(number === 38 ? "1000000" : "20");
         await page.waitForTimeout(150);
         const dollars = (await page.locator("#change_helper_dollars").innerText()).trim();
         const pounds = (await page.locator("#change_helper_pounds").innerText()).trim();
-        const expected = number === 38 ? ["$10.00", "895,000 LL"] : ["$1.17", "105,000 LL"];
+        const expected = number === 38 ? ["$1.17", "105,000 LL"] : ["$10.00", "895,000 LL"];
+        const salePounds = (await page.locator("#sale_total_lbp").innerText()).trim();
+        const hiddenPrice = await page.locator('#register_wrapper input[name="price"][type="hidden"]').first().inputValue();
         return {
             status:
-                dollars !== "NaN" && pounds !== "NaN" && dollars === expected[0] && pounds === expected[1]
+                dollars !== "NaN" &&
+                pounds !== "NaN" &&
+                dollars === expected[0] &&
+                pounds === expected[1] &&
+                salePounds === "895,000 LL" &&
+                hiddenPrice === "895000"
                     ? "pass"
                     : "fail",
-            expected: { dollars: expected[0], pounds: expected[1] },
-            actual: { dollars, pounds },
+            expected: { dollars: expected[0], pounds: expected[1], salePounds: "895,000 LL", hiddenPrice: "895000" },
+            actual: { dollars, pounds, salePounds, hiddenPrice },
             note: `Checked helper immediately after scan; expected ${expected.join(" and ")}.`,
         };
     }
@@ -674,8 +682,8 @@ async function temporaryItem(ctx) {
     const form = page.locator("#item_form");
     await form.locator("#name").fill("Temporary sale QA");
     await form.locator("#category").fill("Grocery");
-    await form.locator("#cost_price").fill("1");
-    await form.locator("#unit_price").fill("2");
+    await form.locator("#cost_price").fill(dollarsToLbpInput("1"));
+    await form.locator("#unit_price").fill(dollarsToLbpInput("2"));
     if (await form.locator('input[name=stock_type][value="1"]').count())
         await form.locator('input[name=stock_type][value="1"]').check();
     const temp = form.locator('input[name=item_type][value="3"]');
@@ -1196,7 +1204,7 @@ async function createRoundingFixture(ctx) {
     await form.locator("#name").fill("Rounding 5 cent QA");
     await form.locator("#category").fill("Grocery");
     await form.locator("#cost_price").fill("0");
-    await form.locator("#unit_price").fill("0.05");
+    await form.locator("#unit_price").fill(dollarsToLbpInput("0.05"));
     await form.locator('input[id^="quantity_"]').first().fill("10");
     await ctx.ui.click(page.locator('.bootstrap-dialog-footer-buttons button[id="submit"]').last());
     await page.waitForTimeout(300);

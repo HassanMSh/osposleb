@@ -598,6 +598,8 @@ class Sales extends Secure_Controller
     /**
      * Edit an item in the sale. Used in app/Views/sales/register.php
      *
+     * Converts posted LBP prices and amount-entry totals to dollars before editing a cart line.
+     * Refuses the edit when the LBP exchange rate is missing or invalid.
      * Rejects missing or non-string price and quantity values before validation.
      * Rejects a quantity of zero, so a cart line cannot be sold for nothing. Negative
      * quantities stay allowed because returns use them.
@@ -620,16 +622,26 @@ class Sales extends Secure_Controller
             return;
         }
 
+        $lbp_rate = $this->config['lbp_exchange_rate'] ?? null;
+
+        if (! is_numeric($lbp_rate) || (float) $lbp_rate <= 0) {
+            $data['error'] = lang('Common.lbp_rate_missing');
+            $this->_reload($data);
+
+            return;
+        }
+
         $rules = [
-            'price'    => 'trim|required|decimal_locale',
-            'quantity' => 'trim|required|decimal_locale',
-            'discount' => 'trim|permit_empty|decimal_locale',
+            'price'            => 'trim|required|decimal_locale',
+            'quantity'         => 'trim|required|decimal_locale',
+            'discount'         => 'trim|permit_empty|decimal_locale',
+            'discounted_total' => 'trim|permit_empty|decimal_locale',
         ];
 
         if ($this->validate($rules)) {
             $description    = $this->request->getPost('description', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             $serialnumber   = $this->request->getPost('serialnumber', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-            $price          = parse_decimals($this->request->getPost('price'));
+            $price_lbp      = parse_decimals($this->request->getPost('price'));
             $quantity       = parse_decimals($this->request->getPost('quantity'));
             $discount_type  = $this->request->getPost('discount_type', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             $discount_input = $this->request->getPost('discount');
@@ -647,9 +659,43 @@ class Sales extends Secure_Controller
                 $item_location = $cart[$line]['item_location'] ?? $this->sale_lib->get_sale_location();
             }
 
-            $discounted_total = $this->request->getPost('discounted_total') != ''
-                ? parse_decimals($this->request->getPost('discounted_total') ?? '')
-                : null;
+            $cart              = $this->sale_lib->get_cart();
+            $line_item         = $cart[$line] ?? [];
+            $currency_decimals = (int) ($this->config['currency_decimals'] ?? 2);
+            $price             = lbp_to_dollar_string(
+                (string) $price_lbp,
+                $lbp_rate,
+                $line_item['price'] ?? null,
+                true,
+                $currency_decimals,
+            );
+
+            $posted_discounted_total = $this->request->getPost('discounted_total');
+            $discounted_total        = null;
+
+            if (is_string($posted_discounted_total) && trim($posted_discounted_total) !== '') {
+                $discounted_total_lbp = parse_decimals($posted_discounted_total);
+                $tax_details          = $this->tax_lib->get_taxes($cart);
+                $lbp_totals           = get_lbp_cart_totals($cart, $tax_details[1], $lbp_rate);
+                $shown_line_total     = $lbp_totals['lines'][$line]['line_total_lbp'] ?? null;
+                $discounted_total     = lbp_to_dollar_string(
+                    (string) $discounted_total_lbp,
+                    $lbp_rate,
+                    $line_item['discounted_total'] ?? null,
+                    true,
+                    $currency_decimals,
+                    $shown_line_total,
+                );
+
+                $current_discounted_total = (float) ($line_item['discounted_total'] ?? 0);
+                $excluded_tax_total       = (float) ($lbp_totals['lines'][$line]['excluded_tax_total_usd'] ?? 0);
+                if ((float) $discounted_total !== $current_discounted_total && $current_discounted_total != 0.0 && $excluded_tax_total != 0.0) {
+                    $excluded_tax_rate = $excluded_tax_total / $current_discounted_total;
+                    if (1 + $excluded_tax_rate != 0.0) {
+                        $discounted_total = number_format((float) $discounted_total / (1 + $excluded_tax_rate), $currency_decimals, '.', '');
+                    }
+                }
+            }
 
             if ($this->isZeroQuantity($quantity)) {
                 $data['error'] = lang('Sales.quantity_zero');
@@ -703,7 +749,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Completes a cash-only sale without buyer data. Used in app/Views/sales/register.php.
+     * Completes a cash-only sale without buyer data and supplies rounded LBP receipt totals.
      * Builds a day-first timestamp when the completed sale is rendered as a receipt.
      * Refuses to complete while any cart line has a quantity of zero.
      *
@@ -766,10 +812,12 @@ class Sales extends Secure_Controller
             $data['customer_comments'] = $customer_info->comments;
             $data['tax_id']            = $customer_info->tax_id;
         }
-        $tax_details      = $this->tax_lib->get_taxes($data['cart']);    // TODO: Duplicated code
-        $data['taxes']    = $tax_details[0];
-        $data['discount'] = $this->sale_lib->get_discount();
-        $data['payments'] = $this->sale_lib->get_payments();
+        $tax_details        = $this->tax_lib->get_taxes($data['cart']);    // TODO: Duplicated code
+        $data['taxes']      = $tax_details[0];
+        $data['lbp_totals'] = get_lbp_cart_totals($data['cart'], $tax_details[1], $this->config['lbp_exchange_rate'] ?? 0);
+        $data['lbp_total']  = $data['lbp_totals']['total'];
+        $data['discount']   = $this->sale_lib->get_discount();
+        $data['payments']   = $this->sale_lib->get_payments();
 
         // Returns 'subtotal', 'total', 'cash_total', 'payment_total', 'amount_due', 'cash_amount_due', 'payments_cover_total'
         $totals                       = $this->sale_lib->get_totals($tax_details[0]);
@@ -1079,7 +1127,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Loads an existing sale and optionally uses the day-first timestamp for receipt views.
+     * Loads an existing sale with rounded LBP totals for receipt views and optional day-first dates.
      *
      * @param int  $sale_id          Sale identifier.
      * @param bool $receipt_datetime Whether to use the receipt date format.
@@ -1100,6 +1148,8 @@ class Sales extends Secure_Controller
         $data['selected_payment_type'] = $this->sale_lib->get_payment_type();
 
         $tax_details                  = $this->tax_lib->get_taxes($data['cart'], $sale_id);
+        $data['lbp_totals']           = get_lbp_cart_totals($data['cart'], $tax_details[1], $this->config['lbp_exchange_rate'] ?? 0);
+        $data['lbp_total']            = $data['lbp_totals']['total'];
         $data['taxes']                = $this->sale->get_sales_taxes($sale_id);
         $data['discount']             = $this->sale_lib->get_discount();
         $sale_timestamp               = strtotime($sale_info['sale_time']);
@@ -1164,6 +1214,11 @@ class Sales extends Secure_Controller
         return $data;
     }
 
+    /**
+     * Prepares and renders the register with the current cart, taxes and LBP totals.
+     *
+     * @param array $data Additional values passed from the current action.
+     */
     private function _reload(array $data = []): void    // TODO: Hungarian notation
     {
         $sale_id = $this->session->get('sale_id');    // TODO: This variable is never used
@@ -1188,12 +1243,18 @@ class Sales extends Secure_Controller
         $data['stock_location']         = $this->sale_lib->get_sale_location();
         $data['tax_exclusive_subtotal'] = $this->sale_lib->get_subtotal(true, true);
         $tax_details                    = $this->tax_lib->get_taxes($data['cart']);    // TODO: Duplicated code.
+        $data['lbp_totals']             = get_lbp_cart_totals($data['cart'], $tax_details[1], $this->config['lbp_exchange_rate'] ?? 0);
+        $data['lbp_total']              = $data['lbp_totals']['total'];
         $data['taxes']                  = $tax_details[0];
         $data['discount']               = $this->sale_lib->get_discount();
         $data['payments']               = $this->sale_lib->get_payments();
 
         // Returns 'subtotal', 'total', 'cash_total', 'payment_total', 'amount_due', 'cash_amount_due', 'payments_cover_total'
         $totals = $this->sale_lib->get_totals($tax_details[0]);
+
+        $data['lbp_amount_due'] = $totals['payments_cover_total']
+            ? 0
+            : round_lbp_to_whole_pound($data['lbp_total'] - $totals['payment_total'] * (float) ($this->config['lbp_exchange_rate'] ?? 0));
 
         $data['item_count']           = $totals['item_count'];
         $data['total_units']          = $totals['total_units'];

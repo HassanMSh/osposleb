@@ -4,7 +4,7 @@ This file lists the cashier journeys to check before a release: creating items a
 
 Every scenario has an ID. The browser suite in `tests/qa-e2e/` runs the same IDs automatically, so a manual tester and the script report against the same list.
 
-The expected money values assume the setup below: prices in dollars with two decimals, TVA 11% added on top of the price, and an exchange rate of 89,500 LL per dollar.
+The expected money values assume dollar storage with two decimals, item-form prices entered in LBP, TVA 11% added on top of the price, and an exchange rate of 89,500 LL per dollar.
 
 ## Run the automated suite
 
@@ -40,16 +40,16 @@ The cashier opens Items, clicks New Item, fills the form, and saves. Start each 
 
 | ID | What the cashier does | Expected result |
 |---|---|---|
-| ITEM-01 | Creates a normal item: name, category, cost 7, price 10, stock 5. | The item saves and appears in the list. |
+| ITEM-01 | Creates a normal item: name, category, cost 626500 LL, retail price 895000 LL, stock 5. | The item saves and appears in the list with $7.00 cost and $10.00 retail price in storage. |
 | ITEM-02 | Leaves the name empty. | The form shows an error and does not save. |
 | ITEM-03 | Leaves the category empty. | The form shows an error and does not save. |
 | ITEM-04 | Leaves cost, price, stock, receiving quantity, or reorder level empty, one at a time. | Each empty field blocks the save. |
 | ITEM-05 | Enters cost 0. | Saves with cost 0.00. |
 | ITEM-06 | Enters price 0. | Saves with price 0.00. |
-| ITEM-07 | Enters cost -1. | The form and server reject the negative cost without saving. |
-| ITEM-08 | Enters price -1. | The form and server reject the negative price without saving. |
+| ITEM-07 | Enters cost -1 LL. | The form and server reject the negative cost without saving. |
+| ITEM-08 | Enters retail price -1 LL. | The form and server reject the negative price without saving. |
 | ITEM-09 | Enters a price of 100000000000001. | The form refuses it. |
-| ITEM-10 | Enters 10.50, then 10,50. | The dot form saves 10.50. Record what the comma form does. |
+| ITEM-10 | Enters 940000.50, then 940000,50. | The dot form stores $10.50 and reopens at 940000 LL; record what the comma form does. |
 | ITEM-11 | Uses an Arabic name, such as `حليب طازج`. | Saves and can be found by searching in Arabic. |
 | ITEM-12 | Uses a mixed name, such as `حليب UHT 1L`. | Saves and displays in the right order. |
 | ITEM-13 | Uses a 255-character Arabic name, then a 256-character name. | The 255-character name saves in full; the 256-character name shows an error and does not save. |
@@ -101,8 +101,8 @@ The cashier opens the register. "Scan" means typing the barcode and pressing Ent
 | SALE-12 | Changes a line quantity to 3. | Total $33.30. |
 | SALE-13 | Changes a line quantity to 0.5. | Record what happens. If allowed, the total is $5.55. |
 | SALE-14 | Changes a line quantity to 0, then -1. | Record what happens. |
-| SALE-15 | A normal cashier looks at the line price. | The price cannot be edited. |
-| SALE-16 | A cashier with the price-change permission sets the price to 20. | Total $22.20. |
+| SALE-15 | A normal cashier looks at the taxable line price. | The base price shows 895000 LL with muted $10.00; the customer-paid unit shows 993000 LL with muted $11.10, and the price cannot be edited. |
+| SALE-16 | A cashier with the price-change permission sets the price to 1790000 LL. | The stored base price is $20.00, the total is $22.20, and the customer-paid unit shows 1987000 LL. |
 | SALE-17 | Looks for a percent discount on a line. | There is no line discount in this shop. |
 | SALE-18 | Looks for a fixed discount on a line. | There is no line discount in this shop. |
 | SALE-19 | Looks for a discount on the whole sale. | There is no sale discount in this shop. |
@@ -116,16 +116,16 @@ The cashier opens the register. "Scan" means typing the barcode and pressing Ent
 | SALE-27 | Creates a new item from the register. | The item is added to the cart. |
 | SALE-28 | Looks for a customer picker. | There is none. Sales are walk-in only. |
 | SALE-29 | Finishes a sale with no customer. | The sale saves. |
-| SALE-30 | Enters $11.10 cash and presses Complete. | The sale saves in one action with no change and an $11.10 receipt total. |
-| SALE-31 | Enters $20.00 cash and presses Complete. | The sale saves in one action and the receipt shows $8.90 change. |
-| SALE-32 | Enters $5.00 cash and presses Complete. | $6.10 remains due, Complete remains available, and no receipt appears. |
+| SALE-30 | Enters $11.10 cash and presses Complete. | The sale saves in one action with no change; the receipt shows $11.10 and 993000 LL. |
+| SALE-31 | Enters $20.00 cash and presses Complete. | The sale saves in one action and the receipt shows $8.90 change; the change helper shows 797000 LL. |
+| SALE-32 | Enters $5.00 cash and presses Complete. | $6.10 and 545500 LL remain due, Complete remains available, and no receipt appears. |
 | SALE-33 | With $6.10 still due, enters $6.10 and presses Complete again. | The sale saves and the receipt appears. |
 | SALE-34 | Enters $5.00 cash and presses Complete, then deletes that payment. | The payment is removed and the full amount due returns. |
 | SALE-35 | Looks for card or cheque payment. | Cash only in this shop. |
 | SALE-36 | Looks for a pay-later option. | There is none. |
 | SALE-37 | Looks for gift card or rewards. | There is none. |
-| SALE-38 | Scans the $10.00 exempt item. In the change helper, picks pounds and enters 1,000,000. | Shows $1.17 and 105,000 LL change. No payment is recorded. |
-| SALE-39 | Same, but picks dollars and enters 20. | Shows $10.00 and 895,000 LL change. |
+| SALE-38 | Scans the $10.00 exempt item, confirms its unit and sale total show 895000 LL, then enters 1000000 in the pound change helper. | Shows $1.17 and 105000 LL change. No payment is recorded. |
+| SALE-39 | Scans the same item, then enters 20 in the dollar change helper. | Shows $10.00 and 895000 LL change. |
 | SALE-40 | Looks for a way to record a payment in pounds. | There is none. Payments are recorded in dollars. |
 | SALE-41 | Suspends the sale. | The register empties and the sale is held. |
 | SALE-42 | Opens held sales and resumes it. | The cart comes back. |
@@ -140,9 +140,9 @@ The cashier opens the register. "Scan" means typing the barcode and pressing Ent
 
 Money checks to repeat on SALE-30, SALE-44, and SALE-49:
 
-- One taxable $10.00 item and one exempt $10.00 item total $21.10.
+- One taxable $10.00 item and one exempt $10.00 item total $21.10 and 1,888,000 LL from the rounded line sum.
 - With "tax included" on, a $10.00 item totals $10.00, of which about $0.99 is TVA.
-- Three taxable $0.05 items total $0.17, with $0.02 TVA.
+- Three taxable $0.05 items total $0.17, with $0.02 TVA and 15,000 LL from the rounded line sum.
 
 ## Speed and repetitive work
 

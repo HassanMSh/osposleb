@@ -1,4 +1,5 @@
 import { sql } from "../lib/sql.mjs";
+import { dollarsToLbpInput } from "../lib/money.mjs";
 import { summarizeSql } from "../lib/sql.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -144,8 +145,8 @@ export async function perfScenario(ctx, number) {
             const form = page.locator("#item_form");
             await form.locator("#name").fill(`PERF modal ${i}`);
             await form.locator("#category").fill("Grocery");
-            await form.locator("#cost_price").fill("1");
-            await form.locator("#unit_price").fill("2");
+            await form.locator("#cost_price").fill(dollarsToLbpInput("1"));
+            await form.locator("#unit_price").fill(dollarsToLbpInput("2"));
             await form.locator('input[id^="quantity_"]').first().fill("5");
             const save = page.locator('.bootstrap-dialog-footer-buttons button[id="submit"]').last();
             await ui.click(save);

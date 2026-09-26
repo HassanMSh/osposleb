@@ -11,6 +11,7 @@
  * @var float  $subtotal
  * @var array  $taxes
  * @var float  $total
+ * @var int    $lbp_total
  * @var array  $payments
  * @var float  $amount_change
  * @var string $barcode
@@ -128,7 +129,7 @@
         </tr>
         <tr>
             <td colspan="3"></td>
-            <td class="total-value"><span dir="ltr"><?= esc(format_lbp(to_lbp($total))) ?></span></td>
+            <td class="total-value"><span dir="ltr"><?= esc(format_lbp($lbp_total)) ?></span></td>
         </tr>
 
         <?php foreach ($taxes as $tax) { ?>

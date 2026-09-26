@@ -43,7 +43,13 @@ final class BarcodeGenerationTest extends CIUnitTestCase
         parent::setUp();
 
         $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
-        $ospos->settings = ['barcode_generate_if_empty' => '1'];
+        $ospos->settings = [
+            'barcode_generate_if_empty' => '1',
+            'lbp_exchange_rate'         => '90000',
+            'currency_decimals'         => '2',
+            'number_locale'             => 'en_US',
+            'thousands_separator'       => '1',
+        ];
         Factories::injectMock('config', OSPOS::class, $ospos);
     }
 
@@ -384,6 +390,7 @@ final class BarcodeGenerationTest extends CIUnitTestCase
         $this->assignProperty($controller, 'config', [
             'currency_decimals'         => '2',
             'currency_symbol'           => '$',
+            'lbp_exchange_rate'         => '90000',
             'barcode_generate_if_empty' => '1',
             'number_locale'             => 'en_US',
             'quantity_decimals'         => '0',

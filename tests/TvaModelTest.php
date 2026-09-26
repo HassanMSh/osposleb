@@ -191,7 +191,7 @@ final class TvaModelTest extends CIUnitTestCase
         $exempt  = $this->findTaxGroup($taxes, 'exempt');
 
         $this->assertSame(45.70, round($total, 2));
-        $this->assertSame(4_090_150, to_lbp('45.70'));
+        $this->assertSame(4_090_000, get_lbp_cart_totals($cart, $details[1], 89_500)['total']);
         $this->assertSame(4.43, (float) $tax['sale_tax_amount']);
         $this->assertSame(0.0, (float) $exempt['sale_tax_amount']);
         $this->assertSame('0', $exempt['tax_rate']);
@@ -357,13 +357,14 @@ final class TvaModelTest extends CIUnitTestCase
     private function makeCartLine(int $itemId, float $price, int $line = 1, int $quantity = 1, float $discount = 0): array
     {
         return [
-            'item_id'         => $itemId,
-            'line'            => $line,
-            'quantity'        => (string) $quantity,
-            'price'           => number_format($price, 2, '.', ''),
-            'discount'        => number_format($discount, 2, '.', ''),
-            'discount_type'   => PERCENT,
-            'tax_category_id' => null,
+            'item_id'          => $itemId,
+            'line'             => $line,
+            'quantity'         => (string) $quantity,
+            'price'            => number_format($price, 2, '.', ''),
+            'discounted_total' => number_format($price * $quantity * (1 - $discount / 100), 2, '.', ''),
+            'discount'         => number_format($discount, 2, '.', ''),
+            'discount_type'    => PERCENT,
+            'tax_category_id'  => null,
         ];
     }
 

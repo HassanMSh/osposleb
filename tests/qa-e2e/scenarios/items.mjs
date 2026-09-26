@@ -34,7 +34,7 @@ const specs = {
     38: ["QA deleted", "Grocery", "7", "10", "5", ""],
 };
 
-/** Open, fill, submit, and verify item scenarios in the real item modal. */
+/** Run item modal checks and verify the saved ITEM-01 prices in the item list. */
 export async function itemScenario(ctx, number) {
     const { page, ui, base } = ctx;
     await ctx.login("qacashier", "QACashier2026");
@@ -270,16 +270,41 @@ export async function itemScenario(ctx, number) {
     const row = rowSql.rows?.[0] || "";
     const saved = !!row;
     let status = saved ? "pass" : "fail";
+    let itemListPrices = null;
+    if (number === 1 && saved) {
+        const itemId = row.split("\t")[0];
+        const itemRow = page.locator(`#table tr[data-uniqueid="${itemId}"]`);
+        await itemRow.waitFor({ state: "visible", timeout: 10000 });
+        const costIndex = await page
+            .locator('#table thead th[data-field="cost_price"]')
+            .evaluate((header) => Array.from(header.parentElement.children).indexOf(header));
+        const retailIndex = await page
+            .locator('#table thead th[data-field="unit_price"]')
+            .evaluate((header) => Array.from(header.parentElement.children).indexOf(header));
+        itemListPrices = {
+            cost: await itemRow.locator("td").nth(costIndex).innerText(),
+            retail: await itemRow.locator("td").nth(retailIndex).innerText(),
+        };
+        if (itemListPrices.cost !== "626,500 LL" || itemListPrices.retail !== "895,000 LL") status = "fail";
+    }
     if (number === 9 && !saved) status = "pass";
     if ([7, 8, 10, 13, 18, 19, 23, 24, 35, 38].includes(number)) status = "finding";
     if (number === 9 && saved) status = "fail";
     if (number === 16) status = saved ? "fail" : "pass";
     return {
         status,
-        expected: "Modal submit completes after validation and stored item values match input",
-        actual: { saveResponse: response?.status() || null, sql: rowSql.rows, barcode: row.split("\t")[2] || null },
+        expected:
+            number === 1
+                ? "Modal save stores dollar prices and refreshes the item row with 626,500 LL cost and 895,000 LL retail"
+                : "Modal submit completes after validation and stored item values match input",
+        actual: {
+            saveResponse: response?.status() || null,
+            sql: rowSql.rows,
+            itemListPrices,
+            barcode: row.split("\t")[2] || null,
+        },
         note: saved
-            ? `SQL verified item row ${row}`
+            ? `SQL verified item row ${row}${itemListPrices ? `; list shows cost ${itemListPrices.cost} and retail ${itemListPrices.retail}` : ""}`
             : `No matching item row; response=${response?.status() || "none"}; errors=${(
                   await page
                       .locator("#error_message_box")

@@ -28,7 +28,9 @@ Enter item cost and retail prices in Lebanese pounds (LL) on the item form.
 
 Retail prices show rounded to the nearest 1,000 LL, while cost prices show rounded to a whole pound.
 
-The database stores prices in dollars with two decimal places, and the current Settings rate controls the LBP values shown on item forms, the till, and new receipts.
+The Items list shows those same rounded LBP cost and retail prices.
+
+The database stores prices in dollars with two decimal places, and the current Settings rate controls the LBP values shown on item forms, the Items list, the till, and new receipts.
 
 Saving an item without changing its displayed prices keeps its stored dollar prices unchanged.
 

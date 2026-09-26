@@ -79,6 +79,85 @@ final class ItemsListTvaTest extends CIUnitTestCase
     }
 
     /**
+     * Shows stored item prices in LBP using the item's form rounding rules.
+     */
+    public function testItemPricesDisplayAsLbpAtConfiguredRate(): void
+    {
+        $this->setSettings('11', false, 'TVA', '89500');
+
+        $row = get_item_data_row($this->makeItem());
+
+        $this->assertSame('<span dir="ltr" class="text-nowrap">179,000 LL</span>', $row['unit_price']);
+        $this->assertSame('<span dir="ltr" class="text-nowrap">89,500 LL</span>', $row['cost_price']);
+    }
+
+    /**
+     * Rounds retail prices to thousands and cost prices to whole pounds in the list.
+     */
+    public function testItemPricesUseDifferentLbpRoundingRules(): void
+    {
+        $this->setSettings('11', false, 'TVA', '90000');
+        $item             = $this->makeItem();
+        $item->unit_price = '1.22';
+        $item->cost_price = '1.23';
+
+        $row = get_item_data_row($item);
+
+        $this->assertSame('<span dir="ltr" class="text-nowrap">110,000 LL</span>', $row['unit_price']);
+        $this->assertSame('<span dir="ltr" class="text-nowrap">110,700 LL</span>', $row['cost_price']);
+    }
+
+    /**
+     * Keeps dollar prices in the list when the LBP exchange rate is zero.
+     */
+    public function testItemPricesFallBackToDollarsWhenLbpRateIsZero(): void
+    {
+        $this->setSettings('11', false, 'TVA', '0');
+
+        $row = get_item_data_row($this->makeItem());
+
+        $this->assertSame('<span dir="ltr" class="text-nowrap">$2.00</span>', $row['unit_price']);
+        $this->assertSame('<span dir="ltr" class="text-nowrap">$1.00</span>', $row['cost_price']);
+    }
+
+    /**
+     * Keeps dollar prices in the list when the LBP exchange-rate setting is missing.
+     */
+    public function testItemPricesFallBackToDollarsWhenLbpRateIsMissing(): void
+    {
+        $this->setSettings('11');
+        $settings = config(OSPOS::class)->settings;
+        unset($settings['lbp_exchange_rate']);
+        config(OSPOS::class)->settings = $settings;
+
+        $row = get_item_data_row($this->makeItem());
+
+        $this->assertSame('<span dir="ltr" class="text-nowrap">$2.00</span>', $row['unit_price']);
+        $this->assertSame('<span dir="ltr" class="text-nowrap">$1.00</span>', $row['cost_price']);
+    }
+
+    /**
+     * Keeps item kit prices in dollars while item prices use the LBP exchange rate.
+     */
+    public function testItemKitPricesRemainInDollarsWithLbpRate(): void
+    {
+        $this->setSettings('11', false, 'TVA', '89500');
+        $itemKit = (object) [
+            'description'      => '',
+            'item_kit_id'      => 1,
+            'item_kit_number'  => '',
+            'name'             => 'Combo',
+            'total_cost_price' => '1.00',
+            'total_unit_price' => '2.00',
+        ];
+
+        $row = get_item_kit_data_row($itemKit);
+
+        $this->assertSame('$1.00', $row['total_cost_price']);
+        $this->assertSame('$2.00', $row['total_unit_price']);
+    }
+
+    /**
      * Shows the inherited global rate as one left-to-right group for an item without rows.
      */
     public function testTaxableItemWithoutRowsRendersTheInheritedGlobalRate(): void
@@ -194,6 +273,18 @@ final class ItemsListTvaTest extends CIUnitTestCase
 
         $this->assertCount(1, $taxHeaders);
         $this->assertFalse($taxHeaders[0]['escape']);
+    }
+
+    /**
+     * Keeps the price cells' direction wrappers active in the browser table.
+     */
+    public function testItemPriceColumnsKeepHtmlEnabled(): void
+    {
+        $headers      = json_decode(get_items_manage_table_headers(), true, 512, JSON_THROW_ON_ERROR);
+        $headersByKey = array_column($headers, null, 'field');
+
+        $this->assertFalse($headersByKey['cost_price']['escape']);
+        $this->assertFalse($headersByKey['unit_price']['escape']);
     }
 
     /**
@@ -326,9 +417,9 @@ final class ItemsListTvaTest extends CIUnitTestCase
     }
 
     /**
-     * Injects the tax, display, and number settings needed by the item row formatter.
+     * Injects the tax, LBP exchange-rate, display, and number settings needed by the item row formatter.
      */
-    private function setSettings(string $globalRate, bool $useDestinationBasedTax = false, string $globalName = 'TVA'): void
+    private function setSettings(string $globalRate, bool $useDestinationBasedTax = false, string $globalName = 'TVA', string $lbpExchangeRate = '0'): void
     {
         $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
         $ospos->settings = [
@@ -337,6 +428,7 @@ final class ItemsListTvaTest extends CIUnitTestCase
             'date_or_time_format'       => '',
             'default_tax_1_name'        => $globalName,
             'default_tax_1_rate'        => $globalRate,
+            'lbp_exchange_rate'         => $lbpExchangeRate,
             'multi_pack_enabled'        => false,
             'number_locale'             => 'en_US',
             'quantity_decimals'         => '0',

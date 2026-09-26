@@ -829,7 +829,15 @@ class Sale_lib
                 }
             }
 
-            $updatekey = self::get_restaurant_item_merge_line($items, (int) $item_id, $item_location, (bool) $item_info->is_serialized);
+            $updatekey = self::get_restaurant_item_merge_line(
+                $items,
+                (int) $item_id,
+                $item_location,
+                (bool) $item_info->is_serialized,
+                (string) $price,
+                (string) $applied_discount,
+                $discount_type,
+            );
             if ($updatekey !== null) {
                 $itemalreadyinsale = true;
                 $quantity          = bcadd($quantity, $items[$updatekey]['quantity']);
@@ -930,9 +938,21 @@ class Sale_lib
     }
 
     /**
-     * Returns the highest restaurant cart line only when it matches the tapped item and location.
+     * Returns the last restaurant line when item, location, price, and discount terms match the new tap.
+     * Price and discount are compared at the full stored precision, not the display precision,
+     * so a line whose price was edited by less than one displayed unit is never merged.
+     *
+     * @param array  $items         Current cart lines.
+     * @param int    $item_id       Item id on the new tap.
+     * @param int    $item_location Stock location on the new tap.
+     * @param bool   $is_serialized Whether the item needs a separate line per unit.
+     * @param string $price         Unit price on the new tap.
+     * @param string $discount      Discount value on the new tap.
+     * @param int    $discount_type Discount mode on the new tap.
+     *
+     * @return int|null Last matching line id, or null when a new line is needed.
      */
-    public static function get_restaurant_item_merge_line(array $items, int $item_id, int $item_location, bool $is_serialized): ?int
+    public static function get_restaurant_item_merge_line(array $items, int $item_id, int $item_location, bool $is_serialized, string $price, string $discount, int $discount_type): ?int
     {
         if ($is_serialized || $items === []) {
             return null;
@@ -946,7 +966,13 @@ class Sale_lib
             }
         }
 
-        if ($last_item['item_id'] != $item_id || $last_item['item_location'] != $item_location) {    // TODO: === ?
+        if (
+            $last_item['item_id'] != $item_id    // TODO: === ?
+            || $last_item['item_location'] != $item_location    // TODO: === ?
+            || $last_item['discount_type'] != $discount_type    // TODO: === ?
+            || bccomp((string) $last_item['price'], $price, 8) !== 0
+            || bccomp((string) $last_item['discount'], $discount, 8) !== 0
+        ) {
             return null;
         }
 

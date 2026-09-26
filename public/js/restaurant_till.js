@@ -25,8 +25,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    /** Saves the selected amount or percent mode with the cart line. */
-    const submitDiscountType = (discountToggle) => {
+    /** Saves the selected discount mode and clears the old value when that mode changes. */
+    const submitDiscountType = (discountToggle, resetDiscount = false) => {
         if (discountToggle.dataset.discountSubmitPending) {
             return;
         }
@@ -50,6 +50,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 cartForm.append(discountType);
             }
             discountType.value = discountToggle.checked ? "1" : "0";
+            if (resetDiscount) {
+                let discountInput = cartForm.querySelector('input[name="discount"]');
+                if (!discountInput) {
+                    discountInput = register.querySelector(`input[name="discount"][form="${cartForm.id}"]`);
+                }
+                if (discountInput) {
+                    discountInput.value = "0";
+                }
+            }
             cartForm.requestSubmit();
         }, 0);
     };
@@ -62,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const discountToggle = toggle.querySelector('input[name="discount_toggle"]');
         if (discountToggle) {
-            submitDiscountType(discountToggle);
+            submitDiscountType(discountToggle, true);
         }
     });
 
@@ -81,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const discountToggle = event.target.closest('input[name="discount_toggle"]');
         if (discountToggle) {
-            submitDiscountType(discountToggle);
+            submitDiscountType(discountToggle, true);
         }
     });
 });

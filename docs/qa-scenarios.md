@@ -165,6 +165,9 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-09 | Returns the sale in Return mode, and separately suspends a sale. | Neither prints a kitchen ticket. |
 | REST-10 | Admin sets Till layout back to Shop. | The item box and barcode scanning are back, repeated scans merge into one line, and no kitchen ticket prints. |
 | REST-11 | On the T80A, completes REST-03. | The printer cuts between the receipt and the kitchen ticket. Hardware check, still to run on the real printer (#154). |
+| REST-12 | Taps Burger, Cola, then taps the Burger line in the cart, then Extra cheese. | The Burger line is highlighted as the chosen line; Extra cheese goes under Burger, not after Cola; the total is $13.00. |
+| REST-13 | Continues REST-12: changes the Burger quantity to 2, then gives Burger a discount. | Extra cheese keeps its own quantity and price; only the Burger line changes. |
+| REST-14 | Continues REST-13: deletes the Burger line. | Extra cheese is deleted with it; Cola stays and becomes the chosen line. |
 
 ## Speed and repetitive work
 

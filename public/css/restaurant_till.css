@@ -365,12 +365,13 @@
         line-height: 14px;
     }
 
-    .restaurant-cart #register td small {
-        line-height: 12px;
+    /* The compact cell padding above overrides the text offset from register.css, so text cells get it back: half the 44px inputs minus half a 14px line. */
+    .restaurant-cart #register #cart_contents tr:has(input[name="price"]) > td:not([colspan]):not(:has(.form-control)):not(:has(> a, > button)) {
+        padding-block-start: 15px !important;
     }
 
-    .restaurant-cart #register tbody#cart_contents > tr.restaurant-description-empty {
-        display: none;
+    .restaurant-cart #register td small {
+        line-height: 12px;
     }
 
     .till-restaurant #register thead th:nth-child(2),
@@ -380,8 +381,8 @@
 
     .till-restaurant #register thead th:nth-child(1) { width: 8% !important; }
     .till-restaurant #register thead th:nth-child(3) { width: 21% !important; }
-    .till-restaurant #register thead th:nth-child(4) { width: 16% !important; }
-    .till-restaurant #register thead th:nth-child(5) { width: 11% !important; }
+    .till-restaurant #register thead th:nth-child(4) { width: 13.5% !important; }
+    .till-restaurant #register thead th:nth-child(5) { width: 13.5% !important; }
     .till-restaurant #register thead th:nth-child(6) { width: 19% !important; }
     .till-restaurant #register thead th:nth-child(7) { width: 15% !important; }
     .till-restaurant #register thead th:nth-child(8) { width: 10% !important; }

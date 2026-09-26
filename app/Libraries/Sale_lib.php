@@ -757,7 +757,7 @@ class Sale_lib
     }
 
     /**
-     * Adds an item to the cart while keeping the shop merge path and restaurant tap order separate.
+     * Adds an item to the cart while keeping its category for add-on display and preserving the restaurant tap order.
      *
      * @noinspection PhpUnused
      */
@@ -900,6 +900,7 @@ class Sale_lib
                     'stock_name'            => $this->stock_location->get_location_name($item_location),
                     'line'                  => $insertkey,
                     'name'                  => $item_info->name,
+                    'category'              => $item_info->category ?? '',
                     'item_number'           => $item_info->item_number,
                     'attribute_values'      => $attribute_links->attribute_values,
                     'attribute_dtvalues'    => $attribute_links->attribute_dtvalues,

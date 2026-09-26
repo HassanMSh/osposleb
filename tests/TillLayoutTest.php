@@ -41,4 +41,28 @@ final class TillLayoutTest extends CIUnitTestCase
         $this->assertSame('shop', Till_layout::normalize('restaurant '));
         $this->assertSame('shop', Till_layout::normalize(['restaurant']));
     }
+
+    /**
+     * Matches a non-empty add-on category after trimming spaces and ignoring letter case.
+     */
+    public function testAddonCategoryMatchesTrimmedCaseInsensitively(): void
+    {
+        $config = ['till_layout' => 'restaurant', 'till_addon_category' => '  ADD-ons  '];
+
+        $this->assertTrue(Till_layout::is_addon_category(' Add-ons ', $config));
+        $this->assertFalse(Till_layout::is_addon_category('Drinks', $config));
+        $this->assertFalse(Till_layout::is_addon_category(null, $config));
+    }
+
+    /**
+     * Does not mark lines as add-ons when the category setting is empty or the till uses Shop.
+     */
+    public function testAddonCategoryRequiresRestaurantLayoutAndASetting(): void
+    {
+        $this->assertFalse(Till_layout::is_addon_category('Add-ons', ['till_layout' => 'restaurant']));
+        $this->assertFalse(Till_layout::is_addon_category('Add-ons', [
+            'till_layout'         => 'shop',
+            'till_addon_category' => 'Add-ons',
+        ]));
+    }
 }

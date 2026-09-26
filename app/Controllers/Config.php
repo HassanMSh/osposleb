@@ -346,7 +346,7 @@ class Config extends Secure_Controller
     }
 
     /**
-     * Saves general configuration. Used in app/Views/configs/general_config.php
+     * Saves general configuration, including till layout and add-on category. Used in app/Views/configs/general_config.php
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -381,6 +381,7 @@ class Config extends Secure_Controller
             'include_hsn'                       => $this->request->getPost('include_hsn') !== null,
             'category_dropdown'                 => $this->request->getPost('category_dropdown') !== null,
             'till_layout'                       => Till_layout::normalize($this->request->getPost('till_layout')),
+            'till_addon_category'               => trim((string) $this->request->getPost('till_addon_category')),
         ];
 
         $this->module->set_show_office_group($this->request->getPost('show_office_group') !== null);

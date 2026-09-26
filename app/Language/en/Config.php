@@ -323,7 +323,7 @@ return [
     'till_addon_category'                       => 'Add-on category',
     'till_addon_category_help'                  => 'Items in this category print indented under the item before them',
     'till_category_order'                       => 'Section order',
-    'till_category_order_help'                  => 'One section per line. The top line shows first. New sections are added at the bottom automatically. Unlisted sections show after these, A to Z.',
+    'till_category_order_help'                  => 'One section per line. The top line shows first. New sections are added at the bottom automatically. Unlisted sections show after the listed ones, A to Z, but before the add-on section when it is on the last line. The add-on section shows last unless you move it.',
     'till_category_order_too_long'              => 'Section order is too long. Shorten the list to 500 characters or fewer.',
     'thousands_separator'                       => 'Thousands Separator',
     'timezone'                                  => 'Timezone',

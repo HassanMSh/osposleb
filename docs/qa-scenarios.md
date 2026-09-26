@@ -168,7 +168,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-12 | Taps Burger, Cola, then taps the Burger line in the cart, then Extra cheese. | The Burger line is highlighted as the chosen line; Extra cheese goes under Burger, not after Cola; the total is $13.00. |
 | REST-13 | Continues REST-12: changes the Burger quantity to 2, then gives Burger a discount. | Extra cheese keeps its own quantity and price; only the Burger line changes. |
 | REST-14 | Continues REST-13: deletes the Burger line. | Extra cheese is deleted with it; Cola stays and becomes the chosen line. |
-| REST-15 | Admin lists restaurant section names in Settings > General, saves, and opens the restaurant till. | Listed sections appear in that order, unlisted sections follow in A to Z order, and the add-on section remains last. |
+| REST-15 | Admin lists restaurant section names in Settings > General, saves, and opens the restaurant till. | Listed sections appear in that order, unlisted sections follow in A to Z order, and the add-on section stays last unless it is listed higher up, in which case it takes its listed place. When the add-on section is on the last line, a new section appears just before it. |
 
 ## Speed and repetitive work
 

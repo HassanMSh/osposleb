@@ -3,6 +3,7 @@
 namespace Tests;
 
 use App\Libraries\Sale_lib;
+use App\Libraries\Till_layout;
 use App\Models\Item;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\Test\CIUnitTestCase;
@@ -115,6 +116,35 @@ final class RestaurantTillDatabaseTest extends CIUnitTestCase
             $cart = $this->addTaps('shop', [$item_a, $item_b, $item_a], $location_id);
             $this->assertSame([$item_a, $item_b], array_map('intval', array_column(array_values($cart), 'item_id')));
             $this->assertSame(['2', '1'], array_column(array_values($cart), 'quantity'));
+        } finally {
+            session()->remove('sales_cart');
+        }
+    }
+
+    /**
+     * Keeps an item's category on its cart line so restaurant views can identify add-ons.
+     */
+    public function testRestaurantCartKeepsItemCategoryForAddonDetection(): void
+    {
+        $item_id                               = $this->createItem('Cart add-on fixture', 'Add-ons');
+        $ospos_config                          = config(OSPOS::class);
+        $this->had_till_layout                 = array_key_exists('till_layout', $ospos_config->settings);
+        $this->saved_till_layout               = $ospos_config->settings['till_layout'] ?? null;
+        $ospos_config->settings['till_layout'] = 'restaurant';
+        $location_id                           = (int) $this->database->table('stock_locations')->select('location_id')->get()->getRow()->location_id;
+
+        try {
+            $sale_library   = new Sale_lib();
+            $item_id_string = (string) $item_id;
+            $discount       = '0.0';
+            $sale_library->add_item($item_id_string, $location_id, '1', $discount);
+            $cart_line = array_values($sale_library->get_cart())[0];
+
+            $this->assertSame('Add-ons', $cart_line['category']);
+            $this->assertTrue(Till_layout::is_addon_category($cart_line['category'], [
+                'till_layout'         => 'restaurant',
+                'till_addon_category' => 'Add-ons',
+            ]));
         } finally {
             session()->remove('sales_cart');
         }

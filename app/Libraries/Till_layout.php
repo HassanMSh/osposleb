@@ -16,6 +16,23 @@ final class Till_layout
     }
 
     /**
+     * Checks whether an item belongs to the configured add-on category in restaurant mode.
+     */
+    public static function is_addon_category(?string $item_category, array $config): bool
+    {
+        if (self::get_layout($config) !== 'restaurant') {
+            return false;
+        }
+
+        $addon_category = trim((string) ($config['till_addon_category'] ?? ''));
+        if ($addon_category === '') {
+            return false;
+        }
+
+        return strcasecmp(trim($item_category ?? ''), $addon_category) === 0;
+    }
+
+    /**
      * Accepts only the supported till layouts and maps every other value to shop.
      */
     public static function normalize(mixed $layout): string

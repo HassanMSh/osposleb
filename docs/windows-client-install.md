@@ -98,6 +98,8 @@ In Settings > General, set Till layout to Restaurant and save.
 Create each menu choice as a standard item on the Items page and give it a category.
 Set each restaurant item's Tax mode to No TVA and choose Non-stock.
 Fixed line discounts are entered in Lebanese pounds (LL), while percentage discounts are entered as a percent.
+Create a category such as "Add-ons" and put extras and removals like "Extra cheese" or "No onion" in it with their own price or 0.
+In Settings > General, enter that category in Add-on category.
 Set Till layout back to Shop to restore the item search and barcode box.
 
 ## 4. Hardware

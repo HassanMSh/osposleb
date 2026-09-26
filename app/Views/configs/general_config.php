@@ -102,6 +102,19 @@ use App\Libraries\Till_layout;
             </div>
 
             <div class="form-group form-group-sm">
+                <?= form_label(lang('Config.till_addon_category'), 'till_addon_category', ['class' => 'control-label col-xs-2']) ?>
+                <div class="col-sm-10">
+                    <?= form_input([
+                        'name'  => 'till_addon_category',
+                        'id'    => 'till_addon_category',
+                        'class' => 'form-control input-sm',
+                        'value' => $config['till_addon_category'] ?? '',
+                    ]) ?>
+                    <p class="help-block"><?= lang('Config.till_addon_category_help') ?></p>
+                </div>
+            </div>
+
+            <div class="form-group form-group-sm">
                 <?= form_label(lang('Config.default_receivings_discount'), 'default_receivings_discount', ['class' => 'control-label col-xs-2 required']) ?>
                 <div class="col-xs-2">
                     <div class="input-group">

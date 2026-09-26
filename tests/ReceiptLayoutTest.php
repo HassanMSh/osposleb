@@ -247,10 +247,11 @@ final class ReceiptLayoutTest extends CIUnitTestCase
      */
     public function testReceiptKeepsPoundAmountAndMarkerOnOneLine(): void
     {
-        $data          = $this->receiptData('');
-        $data['total'] = 10.0;
-        $pound_amount  = esc(format_lbp(to_lbp($data['total'])));
-        $stylesheet    = file_get_contents(ROOTPATH . 'public/css/receipt.css');
+        $data              = $this->receiptData('');
+        $data['total']     = 10.0;
+        $data['lbp_total'] = 895_000;
+        $pound_amount      = esc(format_lbp($data['lbp_total']));
+        $stylesheet        = file_get_contents(ROOTPATH . 'public/css/receipt.css');
 
         $this->assertIsString($stylesheet);
         $this->assertMatchesRegularExpression('/\.total-value\s*\{[^}]*white-space:\s*nowrap;/s', $stylesheet);
@@ -262,6 +263,20 @@ final class ReceiptLayoutTest extends CIUnitTestCase
             $this->assertNotSame('', $row, $receipt_view);
             $this->assertStringContainsString('<td class="total-value"><span dir="ltr">' . $pound_amount . '</span></td>', $row, $receipt_view);
         }
+    }
+
+    /**
+     * Prints the helper's rounded LBP total in an emailed receipt.
+     */
+    public function testEmailReceiptUsesTheProvidedRoundedPoundTotal(): void
+    {
+        $data              = $this->receiptData('');
+        $data['total']     = 4.22;
+        $data['lbp_total'] = 380_000;
+        $output            = view('sales/receipt_email', $data);
+
+        $this->assertStringContainsString(esc(format_lbp(380_000)), $output);
+        $this->assertStringNotContainsString(esc(format_lbp(to_lbp($data['total']))), $output);
     }
 
     /**
@@ -533,6 +548,7 @@ final class ReceiptLayoutTest extends CIUnitTestCase
             'subtotal'             => 0.0,
             'taxes'                => [],
             'total'                => 0.0,
+            'lbp_total'            => 0,
             'payments'             => [],
             'amount_change'        => 0.0,
             'barcode'              => '',

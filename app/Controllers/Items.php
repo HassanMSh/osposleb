@@ -586,7 +586,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Validates and saves item data, including item entry limits, duplicate barcodes, and the selected legacy-path TVA mode.
+     * Validates LBP form prices and exchange rate, converts prices to stored dollars, and saves item data and TVA mode.
      *
      * @throws ReflectionException
      */
@@ -603,21 +603,36 @@ class Items extends Secure_Controller
 
         $default_pack_name = lang('Items.default_pack_name');
 
-        $cost_price = parse_decimals($this->request->getPost('cost_price'));
-        $unit_price = parse_decimals($this->request->getPost('unit_price'));
-        $name       = $this->request->getPost('name');
+        $raw_cost_price = $this->request->getPost('cost_price') ?? '';
+        $raw_unit_price = $this->request->getPost('unit_price') ?? '';
+        $cost_lbp       = parse_decimals((string) $raw_cost_price);
+        $unit_lbp       = parse_decimals((string) $raw_unit_price);
+        $name           = $this->request->getPost('name');
 
         if (! is_string($name)) {
             $name = '';
         }
 
-        $validation_error = self::getItemEntryValidationError($name, $cost_price, $unit_price);
+        $validation_error = self::getItemEntryValidationError($name, $cost_lbp, $unit_lbp);
 
         if ($validation_error !== null) {
             echo json_encode(['success' => false, 'message' => $validation_error, 'id' => $item_id]);
 
             return;
         }
+
+        $lbp_rate = $this->config['lbp_exchange_rate'] ?? null;
+
+        if (! is_numeric($lbp_rate) || (float) $lbp_rate <= 0) {
+            echo json_encode(['success' => false, 'message' => lang('Common.lbp_rate_missing'), 'id' => $item_id]);
+
+            return;
+        }
+
+        $stored_item       = $item_id === NEW_ENTRY ? null : $this->item->get_info($item_id);
+        $currency_decimals = (int) ($this->config['currency_decimals'] ?? 2);
+        $cost_price        = lbp_to_dollar_string((string) $cost_lbp, $lbp_rate, $stored_item->cost_price ?? null, false, $currency_decimals);
+        $unit_price        = lbp_to_dollar_string((string) $unit_lbp, $lbp_rate, $stored_item->unit_price ?? null, true, $currency_decimals);
 
         $upload_data    = $this->upload_image();
         $upload_success = empty($upload_data['error']);

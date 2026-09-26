@@ -35,6 +35,9 @@ $tax_mode_inherit_label = $default_tax_1_rate !== ''
         (string) $default_tax_1_rate,
     ])
     : lang('Items.tax_mode_inherit_none');
+$lbp_rate       = (float) ($config['lbp_exchange_rate'] ?? 0);
+$cost_price_lbp = round_lbp_to_whole_pound((float) $item_info->cost_price * $lbp_rate);
+$unit_price_lbp = round_lbp_to_thousand((float) $item_info->unit_price * $lbp_rate);
 ?>
 
 <div id="required_fields_message"><?= lang('Common.fields_required_message') ?></div>
@@ -192,17 +195,18 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
             <div class="col-xs-4">
                 <div class="input-group input-group-sm">
                     <?php if (! is_right_side_currency_symbol()): ?>
-                        <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
+                        <span class="input-group-addon input-sm"><b dir="ltr">LL</b></span>
                     <?php endif; ?>
                     <?= form_input([
                         'name'    => 'cost_price',
                         'id'      => 'cost_price',
                         'class'   => 'form-control input-sm',
+                        'dir'     => 'ltr',
                         'onClick' => 'this.select();',
-                        'value'   => to_currency_no_money($item_info->cost_price),
+                        'value'   => format_lbp_input($cost_price_lbp),
                     ]) ?>
                     <?php if (is_right_side_currency_symbol()): ?>
-                        <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
+                        <span class="input-group-addon input-sm"><b dir="ltr">LL</b></span>
                     <?php endif; ?>
                 </div>
             </div>
@@ -213,17 +217,18 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
             <div class="col-xs-4">
                 <div class="input-group input-group-sm">
                     <?php if (! is_right_side_currency_symbol()): ?>
-                        <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
+                        <span class="input-group-addon input-sm"><b dir="ltr">LL</b></span>
                     <?php endif; ?>
                     <?= form_input([
                         'name'    => 'unit_price',
                         'id'      => 'unit_price',
                         'class'   => 'form-control input-sm',
+                        'dir'     => 'ltr',
                         'onClick' => 'this.select();',
-                        'value'   => to_currency_no_money($item_info->unit_price),
+                        'value'   => format_lbp_input($unit_price_lbp),
                     ]) ?>
                     <?php if (is_right_side_currency_symbol()): ?>
-                        <span class="input-group-addon input-sm"><b><?= esc($config['currency_symbol']) ?></b></span>
+                        <span class="input-group-addon input-sm"><b dir="ltr">LL</b></span>
                     <?php endif; ?>
                 </div>
             </div>

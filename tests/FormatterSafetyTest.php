@@ -116,6 +116,7 @@ final class FormatterSafetyTest extends CIUnitTestCase
             'subtotal'             => 0.0,
             'taxes'                => [],
             'total'                => 0.0,
+            'lbp_total'            => 0,
             'payments'             => [],
             'amount_change'        => 0.0,
             'barcode'              => '',

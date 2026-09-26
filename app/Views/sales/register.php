@@ -14,6 +14,9 @@
  * @var float|int $total_units
  * @var float     $subtotal
  * @var array     $taxes
+ * @var array     $lbp_totals
+ * @var int       $lbp_total
+ * @var int       $lbp_amount_due
  * @var float     $total
  * @var float     $payments_total
  * @var float     $amount_due
@@ -149,6 +152,8 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             <?php
             } else {
                 foreach (array_reverse($cart, true) as $line => $item) {
+                    $lbp_line                   = $lbp_totals['lines'][$line];
+                    $customer_paid_unit_differs = abs((float) $lbp_line['customer_unit_usd'] - (float) $item['price']) > 0.00000001;
                     ?>
                     <?= form_open("{$controller_name}/editItem/{$line}", ['class' => 'form-horizontal', 'id' => "cart_{$line}"]) ?>
                         <tr>
@@ -176,11 +181,19 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                             <td>
                                 <?php
                                 if ($items_module_allowed && $change_price) {
-                                    echo form_input(['name' => 'price', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($item['price']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
+                                    echo form_input(['name' => 'price', 'class' => 'form-control input-sm', 'dir' => 'ltr', 'value' => format_lbp_input($lbp_line['price_unit_lbp']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
                                 } else {
-                                    echo to_currency($item['price']);
-                                    echo form_input(['type' => 'hidden', 'name' => 'price', 'value' => to_currency_no_money($item['price']), 'form' => "cart_{$line}"]);
+                                    echo '<div dir="ltr">' . esc(format_lbp($lbp_line['price_unit_lbp'])) . '</div>';
+                                    echo '<small class="text-muted" dir="ltr">' . to_currency($item['price']) . '</small>';
+                                    echo form_input(['type' => 'hidden', 'name' => 'price', 'value' => format_lbp_input($lbp_line['price_unit_lbp']), 'form' => "cart_{$line}"]);
                                 }
+                    if ($items_module_allowed && $change_price) {
+                        echo '<small class="text-muted" dir="ltr">' . to_currency($item['price']) . '</small>';
+                    }
+                    if ($customer_paid_unit_differs) {
+                        echo '<div class="small text-muted">' . esc(lang('Sales.customer_paid_unit')) . ': <span dir="ltr">' . esc(format_lbp($lbp_line['customer_unit_lbp'])) . '</span></div>';
+                        echo '<small class="text-muted" dir="ltr">' . to_currency($lbp_line['customer_unit_usd']) . '</small>';
+                    }
                     ?>
                             </td>
 
@@ -198,9 +211,11 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                             <td>
                                 <?php
                     if ((int) $item['item_type'] === ITEM_AMOUNT_ENTRY) {
-                        echo form_input(['name' => 'discounted_total', 'class' => 'form-control input-sm', 'value' => to_currency_no_money($item['discounted_total']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
+                        echo form_input(['name' => 'discounted_total', 'class' => 'form-control input-sm', 'dir' => 'ltr', 'value' => format_lbp_input($lbp_line['line_total_lbp']), 'tabindex' => ++$tabindex, 'onClick' => 'this.select();', 'form' => "cart_{$line}"]);
+                        echo '<small class="text-muted" dir="ltr">' . to_currency($lbp_line['line_total_usd']) . '</small>';
                     } else {
-                        echo to_currency($item['discounted_total']);
+                        echo '<div dir="ltr">' . esc(format_lbp($lbp_line['line_total_lbp'])) . '</div>';
+                        echo '<small class="text-muted" dir="ltr">' . to_currency($lbp_line['line_total_usd']) . '</small>';
                     }
                     ?>
                             </td>
@@ -269,7 +284,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
 
 <!-- Overall Sale -->
 
-<div id="overall_sale" class="panel panel-default" data-change-helper-total="<?= esc((string) (float) $total, 'attr') ?>">
+<div id="overall_sale" class="panel panel-default" data-change-helper-total="<?= esc((string) (float) $total, 'attr') ?>" data-change-helper-pounds-total="<?= esc((string) $lbp_total, 'attr') ?>">
     <div class="panel-body">
         <table class="sales_table_100" id="sale_totals">
             <tr>
@@ -292,7 +307,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             </tr>
             <tr>
                 <th style="width: 55%;"></th>
-                <th style="width: 45%; text-align: right;"><span dir="ltr" id="sale_total_lbp"><?= esc(format_lbp(to_lbp($total))) ?></span></th>
+                <th style="width: 45%; text-align: right;"><span dir="ltr" id="sale_total_lbp"><?= esc(format_lbp($lbp_total)) ?></span></th>
             </tr>
         </table>
 
@@ -305,6 +320,10 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
                 <tr>
                     <th style="width: 55%; font-size: 120%"><?= lang(ucfirst($controller_name) . '.amount_due') ?></th>
                     <th style="width: 45%; font-size: 120%; text-align: right;"><span id="sale_amount_due"><?= to_currency($amount_due) ?></span></th>
+                </tr>
+                <tr>
+                    <th style="width: 55%;"><?= lang('Sales.amount_due_lbp') ?></th>
+                    <th style="width: 45%; text-align: right;"><span dir="ltr" id="sale_amount_due_lbp"><?= esc(format_lbp($lbp_amount_due)) ?></span></th>
                 </tr>
             </table>
 
@@ -535,7 +554,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
         };
 
         /**
-         * Validates the response, keeps the entered tender, and refreshes the helper from the returned total.
+         * Validates the response, keeps the entered tender, and refreshes the helper from both sale totals.
          */
         const renderAddItemResponse = function(response) {
             if (typeof response !== 'string') {
@@ -552,14 +571,19 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             const $sale = $response.find('#overall_sale');
             const $message = $response.find('.alert-danger, .alert-warning, .alert-success').first();
             const totalValue = $sale.attr('data-change-helper-total');
+            const poundsTotalValue = $sale.attr('data-change-helper-pounds-total');
             const responseTotal = Number(totalValue);
+            const responsePoundsTotal = Number(poundsTotalValue);
 
             if (
                 $register.length !== 1 ||
                 $sale.length !== 1 ||
                 totalValue === undefined ||
                 totalValue.trim() === '' ||
-                !Number.isFinite(responseTotal)
+                !Number.isFinite(responseTotal) ||
+                poundsTotalValue === undefined ||
+                poundsTotalValue.trim() === '' ||
+                !Number.isFinite(responsePoundsTotal)
             ) {
                 recoverRegister(itemAddFailureMessage);
 
@@ -576,6 +600,7 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             $('#register_wrapper').replaceWith($register);
             $('#overall_sale').replaceWith($sale);
             changeHelperTotal = responseTotal;
+            changeHelperPoundsTotal = responsePoundsTotal;
             if (changeHelperAmount !== undefined) {
                 $('#change_helper_amount').val(changeHelperAmount);
                 $('#change_helper_currency').val(changeHelperCurrency);
@@ -969,11 +994,21 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
     });
 
     let changeHelperTotal = <?= json_encode((float) $total) ?>;
+    let changeHelperPoundsTotal = <?= json_encode((int) $lbp_total) ?>;
 
     /**
-     * Updates both change figures from one dollar change calculation.
+     * Updates both change figures from the tendered currency and rounded LBP sale total, or shows zero when the rate is invalid.
      */
     function updateChangeHelper() {
+        const rate = <?= json_encode((float) ($config['lbp_exchange_rate'] ?? 0)) ?>;
+
+        if (!Number.isFinite(rate) || rate <= 0) {
+            $('#change_helper_dollars').text(formatChangeDollars(0));
+            $('#change_helper_pounds').text(formatChangePounds(0));
+
+            return;
+        }
+
         const enteredAmount = $('#change_helper_amount').val();
 
         if (enteredAmount === '') {
@@ -992,10 +1027,10 @@ if ($employee->has_grant('reports_sales', session('person_id'))) {
             return;
         }
 
-        const rate = <?= json_encode((float) $config['lbp_exchange_rate']) ?>;
-        const tenderedDollars = $('#change_helper_currency').val() === 'lbp' ? amount / rate : amount;
-        const changeDollars = tenderedDollars - changeHelperTotal;
-        const changePounds = Math.round(changeDollars * rate);
+        const isPoundTender = $('#change_helper_currency').val() === 'lbp';
+        const tenderedPounds = isPoundTender ? amount : amount * rate;
+        const changePounds = tenderedPounds - changeHelperPoundsTotal;
+        const changeDollars = isPoundTender ? changePounds / rate : amount - changeHelperTotal;
 
         $('#change_helper_dollars').text(formatChangeDollars(changeDollars));
         $('#change_helper_pounds').text(formatChangePounds(changePounds));

@@ -1,6 +1,7 @@
 import { sql } from "../lib/sql.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { dollarsToLbpInput } from "../lib/money.mjs";
 
 const specs = {
     1: ["Milk", "Grocery", "7", "10", "5", "123456789012"],
@@ -9,7 +10,7 @@ const specs = {
     7: ["QA negative cost", "Grocery", "-1", "10", "5", ""],
     8: ["QA negative price", "Grocery", "7", "-1", "5", ""],
     9: ["QA huge price", "Grocery", "7", "100000000000001", "5", ""],
-    10: ["QA decimal", "Grocery", "7", "10.50", "5", ""],
+    10: ["QA decimal", "Grocery", "7", "940000.50", "5", ""],
     11: ["حليب طازج", "Grocery", "7", "10", "5", ""],
     12: ["حليب UHT 1L", "Grocery", "7", "10", "5", ""],
     13: ["N".repeat(255), "Grocery", "7", "10", "5", ""],
@@ -163,8 +164,8 @@ export async function itemScenario(ctx, number) {
     const [name, category, cost, price, quantity, barcode] = spec;
     await form.locator("#name").fill(name);
     await form.locator("#category").fill(category);
-    await form.locator("#cost_price").fill(cost);
-    await form.locator("#unit_price").fill(price);
+    await form.locator("#cost_price").fill(number === 7 ? cost : dollarsToLbpInput(cost));
+    await form.locator("#unit_price").fill([8, 9, 10].includes(number) ? price : dollarsToLbpInput(price));
     const qty = form.locator('input[id^="quantity_"]').first();
     await qty.fill(number === 22 ? "0" : quantity);
     if (await form.locator("#receiving_quantity").count())
@@ -221,7 +222,7 @@ export async function itemScenario(ctx, number) {
         await ctx.page.locator("#name").fill("Amount entry QA");
         await ctx.page.locator("#category").fill("Grocery");
         await ctx.page.locator("#cost_price").fill("0");
-        await ctx.page.locator("#unit_price").fill("10");
+        await ctx.page.locator("#unit_price").fill(dollarsToLbpInput("10"));
         await ctx.page.locator('input[id^="quantity_"]').first().fill("5");
         const amountSave = ctx.page.locator('.bootstrap-dialog-footer-buttons button[id="submit"]').last();
         await ui.click(amountSave);
@@ -468,8 +469,8 @@ async function uploadImage(ctx) {
         const form = ctx.page.locator("#item_form");
         await form.locator("#name").fill(name);
         await form.locator("#category").fill("Grocery");
-        await form.locator("#cost_price").fill("1");
-        await form.locator("#unit_price").fill("2");
+        await form.locator("#cost_price").fill(dollarsToLbpInput("1"));
+        await form.locator("#unit_price").fill(dollarsToLbpInput("2"));
         await form.locator('input[id^="quantity_"]').first().fill("1");
         await form.locator("input[name=items_image]").setInputFiles({
             name: `qa-image.${image === "jpeg" ? "jpg" : "png"}`,
@@ -559,8 +560,8 @@ async function attributeScenario(ctx) {
     const form = ctx.page.locator("#item_form");
     await form.locator("#name").fill("Attribute QA item");
     await form.locator("#category").fill("Grocery");
-    await form.locator("#cost_price").fill("1");
-    await form.locator("#unit_price").fill("2");
+    await form.locator("#cost_price").fill(dollarsToLbpInput("1"));
+    await form.locator("#unit_price").fill(dollarsToLbpInput("2"));
     await form.locator('input[id^="quantity_"]').first().fill("5");
     const selector = form.locator("#definition_name");
     const optionValues = await selector
@@ -721,8 +722,8 @@ async function validationScenario(ctx, number) {
     if (number === 33) {
         await form.locator("#name").fill("Invalid rate QA");
         await form.locator("#category").fill("Grocery");
-        await form.locator("#cost_price").fill("1");
-        await form.locator("#unit_price").fill("2");
+        await form.locator("#cost_price").fill(dollarsToLbpInput("1"));
+        await form.locator("#unit_price").fill(dollarsToLbpInput("2"));
         await form.locator('input[id^="quantity_"]').first().fill("5");
         await form.locator("#tax_mode_own").check();
         await form.locator("#tax_name_1").fill("TVA");
@@ -734,8 +735,8 @@ async function validationScenario(ctx, number) {
                 activeForm = ctx.page.locator("#item_form");
                 await activeForm.locator("#name").fill("Invalid rate QA");
                 await activeForm.locator("#category").fill("Grocery");
-                await activeForm.locator("#cost_price").fill("1");
-                await activeForm.locator("#unit_price").fill("2");
+                await activeForm.locator("#cost_price").fill(dollarsToLbpInput("1"));
+                await activeForm.locator("#unit_price").fill(dollarsToLbpInput("2"));
                 await activeForm.locator('input[id^="quantity_"]').first().fill("5");
                 await activeForm.locator("#tax_mode_own").check();
                 await activeForm.locator("#tax_name_1").fill("TVA");

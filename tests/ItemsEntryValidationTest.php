@@ -3,7 +3,15 @@
 namespace Tests;
 
 use App\Controllers\Items;
+use CodeIgniter\Config\Factories;
+use CodeIgniter\HTTP\IncomingRequest;
+use CodeIgniter\HTTP\URI;
+use CodeIgniter\HTTP\UserAgent;
 use CodeIgniter\Test\CIUnitTestCase;
+use Config\App;
+use Config\OSPOS;
+use PHPUnit\Framework\Attributes\DataProvider;
+use ReflectionClass;
 
 /**
  * Covers the item name and price limits used by item saves and CSV imports.
@@ -12,6 +20,25 @@ use CodeIgniter\Test\CIUnitTestCase;
  */
 final class ItemsEntryValidationTest extends CIUnitTestCase
 {
+    /**
+     * Loads parsing helpers and configures the plain LBP input format used by item saves.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        helper(['currency', 'locale']);
+
+        $ospos           = (new ReflectionClass(OSPOS::class))->newInstanceWithoutConstructor();
+        $ospos->settings = [
+            'currency_decimals'   => '2',
+            'number_locale'       => 'en_US',
+            'quantity_decimals'   => '0',
+            'thousands_separator' => '1',
+        ];
+        Factories::injectMock('config', OSPOS::class, $ospos);
+    }
+
     /**
      * Rejects a negative wholesale cost.
      */
@@ -169,5 +196,61 @@ final class ItemsEntryValidationTest extends CIUnitTestCase
     public function testNormalItemValuesAreAllowed(): void
     {
         $this->assertNull(Items::getItemEntryValidationError('Coffee', 1.25, 2.50));
+    }
+
+    /**
+     * Refuses an item save when its exchange rate is missing, invalid, or not positive.
+     */
+    #[DataProvider('invalidExchangeRateProvider')]
+    public function testItemSaveRefusesAnInvalidExchangeRate(?string $rate): void
+    {
+        $controller = (new ReflectionClass(Items::class))->newInstanceWithoutConstructor();
+        $request    = new IncomingRequest(new App(), new URI('/items/save'), null, new UserAgent());
+        $post       = [
+            'name'               => 'Coffee',
+            'cost_price'         => '100000',
+            'unit_price'         => '110000',
+            'receiving_quantity' => '1',
+        ];
+        $request->setGlobal('post', $post);
+        $request->setGlobal('request', $post);
+
+        $this->setControllerProperty($controller, 'request', $request);
+        $this->setControllerProperty($controller, 'config', $rate === null ? [] : ['lbp_exchange_rate' => $rate]);
+
+        ob_start();
+
+        try {
+            $controller->postSave(NEW_ENTRY);
+            $response = json_decode((string) ob_get_contents(), true);
+        } finally {
+            ob_end_clean();
+        }
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(lang('Common.lbp_rate_missing'), $response['message']);
+    }
+
+    /**
+     * Supplies rate values that must stop item saves before any item data is written.
+     */
+    public static function invalidExchangeRateProvider(): array
+    {
+        return [
+            'missing'      => [null],
+            'not a number' => ['bad-rate'],
+            'zero'         => ['0'],
+            'negative'     => ['-1'],
+        ];
+    }
+
+    /**
+     * Sets a private or inherited controller property for a focused request test.
+     */
+    private function setControllerProperty(object $controller, string $name, mixed $value): void
+    {
+        $property = (new ReflectionClass($controller))->getProperty($name);
+        $property->setAccessible(true);
+        $property->setValue($controller, $value);
     }
 }

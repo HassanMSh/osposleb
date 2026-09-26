@@ -217,7 +217,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Changes the register mode for sales receipts, quotes, or returns.
+     * Changes the register mode for sales receipts, quotes, or returns and resets the restaurant add-on target.
      *
      * @noinspection PhpUnused
      */
@@ -227,6 +227,10 @@ class Sales extends Secure_Controller
 
         if (! in_array($mode, ['sale', 'sale_quote', 'return'], true)) {
             throw PageNotFoundException::forPageNotFound();
+        }
+
+        if ($mode !== $this->sale_lib->get_mode()) {
+            $this->sale_lib->clear_restaurant_target_line();
         }
 
         $this->sale_lib->set_mode($mode);
@@ -262,6 +266,26 @@ class Sales extends Secure_Controller
         }
 
         $this->sale_lib->empty_payments();
+
+        $this->_reload();
+    }
+
+    /**
+     * Selects an existing main cart line for restaurant add-ons and reloads the register.
+     */
+    public function postSetTargetLine(string $line): void
+    {
+        $line_number = filter_var($line, FILTER_VALIDATE_INT);
+        $cart        = $this->sale_lib->get_cart();
+
+        if (
+            Till_layout::get_layout($this->config) === 'restaurant'
+            && $line_number !== false
+            && isset($cart[$line_number])
+            && ! Till_layout::is_addon_category($cart[$line_number]['category'] ?? null, $this->config)
+        ) {
+            $this->sale_lib->set_restaurant_target_line($line_number);
+        }
 
         $this->_reload();
     }
@@ -1249,8 +1273,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Prepares and renders the register with the current cart, taxes and LBP totals.
-     * Adds the category menu when the restaurant till is selected.
+     * Prepares the cart, target line, taxes, LBP totals, and menu data for the register.
      *
      * @param array $data Additional values passed from the current action.
      */
@@ -1270,6 +1293,20 @@ class Sales extends Secure_Controller
         $data['cart'] = $this->sale_lib->get_cart();
         if (Till_layout::get_layout($this->config) === 'restaurant') {
             $data['restaurant_menu_items'] = $this->item->get_restaurant_menu_items();
+            $restaurant_target_line        = Sale_lib::resolve_restaurant_target_line(
+                $data['cart'],
+                $this->sale_lib->get_restaurant_target_line(),
+                $this->config,
+            );
+            if ($restaurant_target_line === null) {
+                $this->sale_lib->clear_restaurant_target_line();
+            } else {
+                $this->sale_lib->set_restaurant_target_line($restaurant_target_line);
+            }
+            $data['restaurant_target_line'] = $restaurant_target_line;
+        } else {
+            $this->sale_lib->clear_restaurant_target_line();
+            $data['restaurant_target_line'] = null;
         }
         $customer_info = $this->_load_customer_data($this->sale_lib->get_customer(), $data, true);
 

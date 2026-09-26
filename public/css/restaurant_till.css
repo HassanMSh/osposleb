@@ -1,58 +1,186 @@
+:root {
+    --restaurant-item-width: 120px;
+    --restaurant-item-height: 90px;
+    --restaurant-section-width: 190px;
+    --restaurant-items-width: 384px;
+    --restaurant-layout-gap: 8px;
+    --restaurant-item-gap: 8px;
+    --restaurant-menu-padding: 4px;
+    --restaurant-font-item-name: 16px;
+    --restaurant-font-item-price: 14px;
+    --restaurant-font-small-price: 12px;
+    --restaurant-font-section-label: 17px;
+    --restaurant-font-control: 14px;
+    --restaurant-section-bg: #164e63;
+    --restaurant-section-text: #ffffff;
+    --restaurant-section-hover-bg: #0f3948;
+    --restaurant-selected-bg: #f4c95d;
+    --restaurant-selected-text: #172b33;
+    --restaurant-selected-border: #102c3a;
+    --restaurant-item-bg: #e8f1f4;
+    --restaurant-item-border: #8298a1;
+    --restaurant-item-text: #172b33;
+    --restaurant-item-hover-bg: #d4e5ea;
+    --restaurant-item-pressed-bg: #c5dce3;
+    --restaurant-addon-bg: #ffffff;
+    --restaurant-addon-hover-bg: #f3efdf;
+    --restaurant-addon-text: #172b33;
+    --restaurant-addon-border: #725000;
+    --restaurant-focus-ring: #111827;
+    --restaurant-sale-bg: #ffffff;
+    --restaurant-sale-border: #8298a1;
+}
+
 .till-restaurant .restaurant-menu {
-    margin-block-end: 1rem;
-    padding: 1rem;
+    display: contents;
 }
 
 .till-restaurant .restaurant-menu-tabs {
     display: flex;
-    gap: 0.5rem;
-    margin-block-end: 1rem;
-    overflow-x: auto;
-    padding-block: 0.25rem;
+    flex-direction: column;
+    gap: 6px;
+    grid-area: sections;
+    margin: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--restaurant-menu-padding);
 }
 
 .till-restaurant .restaurant-menu-tabs .restaurant-menu-tab {
+    background-color: var(--restaurant-section-bg);
+    border: 1px solid var(--restaurant-section-bg);
+    border-radius: 4px;
+    color: var(--restaurant-section-text);
     flex: 0 0 auto;
-    min-height: 48px;
-    padding-inline: 1rem;
-    touch-action: manipulation;
-}
-
-.till-restaurant .restaurant-menu-tabs .restaurant-menu-tab.active {
-    background-color: #2c3e50;
-    color: #fff;
-}
-
-.till-restaurant .restaurant-menu-grid {
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 145px), 1fr));
-}
-
-.till-restaurant .restaurant-menu-item {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    justify-content: center;
-    min-height: 80px;
-    padding: 0.65rem;
+    font-size: var(--restaurant-font-section-label);
+    font-weight: 600;
+    min-height: 56px;
+    padding-block: 8px;
+    padding-inline: 10px;
     text-align: start;
     touch-action: manipulation;
     white-space: normal;
 }
 
+.till-restaurant .restaurant-menu-tabs .restaurant-menu-tab:hover {
+    background-color: var(--restaurant-section-hover-bg);
+    border-color: var(--restaurant-section-hover-bg);
+    color: var(--restaurant-section-text);
+}
+
+.till-restaurant .restaurant-menu-tabs .restaurant-menu-tab[aria-selected="true"] {
+    background-color: var(--restaurant-selected-bg);
+    border-color: var(--restaurant-selected-border);
+    border-inline-start: 6px solid var(--restaurant-selected-border);
+    color: var(--restaurant-selected-text);
+    font-weight: 700;
+}
+
+.till-restaurant .restaurant-menu-category {
+    display: flex;
+    grid-area: items;
+    min-height: 0;
+    min-width: 0;
+    overflow: auto;
+    padding: var(--restaurant-menu-padding);
+}
+
+.till-restaurant .restaurant-menu-category[hidden] {
+    display: none !important;
+}
+
+.till-restaurant .restaurant-menu-grid {
+    align-content: start;
+    display: grid;
+    gap: var(--restaurant-item-gap);
+    grid-auto-rows: var(--restaurant-item-height);
+    grid-template-columns: repeat(3, var(--restaurant-item-width));
+    justify-content: start;
+    min-width: 0;
+    width: 100%;
+}
+
+.till-restaurant .restaurant-menu-item {
+    align-items: center;
+    background-color: var(--restaurant-item-bg);
+    border: 1px solid var(--restaurant-item-border);
+    border-radius: 4px;
+    box-sizing: border-box;
+    color: var(--restaurant-item-text);
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: 2px;
+    height: var(--restaurant-item-height);
+    justify-content: center;
+    min-height: var(--restaurant-item-height);
+    overflow: hidden;
+    padding: 4px;
+    text-align: center;
+    touch-action: manipulation;
+    white-space: normal;
+    width: var(--restaurant-item-width);
+}
+
+.till-restaurant .restaurant-menu-item:hover {
+    background-color: var(--restaurant-item-hover-bg);
+    color: var(--restaurant-item-text);
+}
+
+.till-restaurant .restaurant-menu-item:active {
+    background-color: var(--restaurant-item-pressed-bg);
+    color: var(--restaurant-item-text);
+}
+
+.till-restaurant .restaurant-menu-item.restaurant-menu-item-addon {
+    background-color: var(--restaurant-addon-bg);
+    border: 2px dashed var(--restaurant-addon-border);
+    color: var(--restaurant-addon-text);
+}
+
+.till-restaurant .restaurant-menu-item.restaurant-menu-item-addon:hover,
+.till-restaurant .restaurant-menu-item.restaurant-menu-item-addon:active {
+    background-color: var(--restaurant-addon-hover-bg);
+    color: var(--restaurant-addon-text);
+}
+
 .till-restaurant .restaurant-menu-item-name {
-    font-weight: 600;
+    display: -webkit-box;
+    font-size: var(--restaurant-font-item-name);
+    font-weight: 700;
+    line-height: 18px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .till-restaurant .restaurant-menu-item-price {
+    color: var(--restaurant-item-text);
+    display: flex;
+    flex-direction: column;
+    font-size: var(--restaurant-font-item-price);
+    font-weight: 600;
+    line-height: 16px;
     unicode-bidi: isolate;
 }
 
+.till-restaurant .restaurant-menu-item-price small {
+    color: var(--restaurant-item-text);
+    font-size: var(--restaurant-font-small-price);
+    line-height: 13px;
+}
+
+.till-restaurant .restaurant-menu-item.restaurant-menu-item-addon .restaurant-menu-item-price,
+.till-restaurant .restaurant-menu-item.restaurant-menu-item-addon .restaurant-menu-item-price small {
+    color: var(--restaurant-addon-text);
+}
+
 .till-restaurant .restaurant-menu-empty {
+    grid-area: items;
     margin: 0;
-    padding: 1rem;
+    padding: 12px;
 }
 
 .till-restaurant input:not([type="hidden"]),
@@ -68,8 +196,8 @@
     align-items: center;
     display: inline-flex;
     justify-content: center;
-    min-height: 48px;
-    min-width: 48px;
+    min-height: 44px;
+    min-width: 44px;
     touch-action: manipulation;
 }
 
@@ -79,7 +207,13 @@
 .till-restaurant #payment_details button,
 .till-restaurant #complete_sale_button,
 .till-restaurant #complete_sale_form button {
-    font-size: 1rem;
+    font-size: var(--restaurant-font-control);
+}
+
+.restaurant-till-layout #payment_details input:not([type="hidden"]),
+.restaurant-till-layout #payment_details button {
+    font-size: var(--restaurant-font-control);
+    min-height: 44px;
 }
 
 .till-restaurant #register td {
@@ -112,7 +246,10 @@
     outline-offset: 2px;
 }
 
-.till-restaurant #register tr.restaurant-addon-line td:nth-child(3),
+.till-restaurant #register tr.restaurant-addon-line td:nth-child(3) {
+    padding-inline-start: 12px;
+}
+
 #receipt_items tr.restaurant-addon-line td:first-child {
     padding-inline-start: 1.25rem;
 }
@@ -134,5 +271,269 @@
 }
 
 .till-restaurant #register .input-group .toggle {
-    min-width: 48px;
+    min-width: 44px;
+}
+
+.till-restaurant :focus-visible {
+    outline: 3px solid var(--restaurant-focus-ring);
+    outline-offset: 2px;
+    position: relative;
+    z-index: 2;
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+    :root {
+        --restaurant-section-width: 150px;
+        --restaurant-items-width: 256px;
+    }
+}
+
+@media (min-width: 992px) {
+    .wrapper > .container:has(.restaurant-till-layout) {
+        margin-block: 0;
+        max-width: none;
+        padding-inline: 12px;
+        width: 100%;
+    }
+
+    .wrapper > .container:has(.restaurant-till-layout) > .row {
+        margin-inline: 0;
+    }
+
+    .restaurant-till-layout {
+        display: grid;
+        gap: var(--restaurant-layout-gap);
+        grid-template-areas:
+            "top top top"
+            "sections items cart"
+            "sections items sale"
+            "sections items actions";
+        grid-template-columns: var(--restaurant-section-width) var(--restaurant-items-width) minmax(0, 1fr);
+        grid-template-rows: auto fit-content(58%) minmax(136px, 1fr) auto;
+        height: calc(100vh - 107px);
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    #register_wrapper.till-restaurant {
+        display: contents;
+        float: none;
+        width: auto;
+    }
+
+    .restaurant-till-layout #mode_form {
+        grid-area: top;
+        margin: 0;
+        min-width: 0;
+    }
+
+    .restaurant-cart {
+        grid-area: cart;
+        min-height: 0;
+        min-width: 0;
+        overflow: auto;
+    }
+
+    .till-restaurant #register {
+        margin: 0;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .restaurant-cart #register th,
+    .restaurant-cart #register td {
+        padding: 1px 3px !important;
+    }
+
+    .restaurant-cart #register input:not([type="hidden"]),
+    .restaurant-cart #register button,
+    .restaurant-cart #register .btn,
+    .restaurant-cart #register .bootstrap-select > .dropdown-toggle {
+        font-size: var(--restaurant-font-control);
+        min-height: 44px;
+        padding-block: 0;
+        padding-inline: 4px;
+    }
+
+    .restaurant-cart #register a[href*="/deleteItem/"],
+    .restaurant-cart #register a[href^="javascript:"] {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .restaurant-cart #register td {
+        line-height: 14px;
+    }
+
+    .restaurant-cart #register td small {
+        line-height: 12px;
+    }
+
+    .restaurant-cart #register tbody#cart_contents > tr.restaurant-description-empty {
+        display: none;
+    }
+
+    .till-restaurant #register thead th:nth-child(2),
+    .till-restaurant #register tbody#cart_contents tr:not(:has(> td[colspan])) > :nth-child(2) {
+        display: none;
+    }
+
+    .till-restaurant #register thead th:nth-child(1) { width: 8% !important; }
+    .till-restaurant #register thead th:nth-child(3) { width: 21% !important; }
+    .till-restaurant #register thead th:nth-child(4) { width: 16% !important; }
+    .till-restaurant #register thead th:nth-child(5) { width: 11% !important; }
+    .till-restaurant #register thead th:nth-child(6) { width: 19% !important; }
+    .till-restaurant #register thead th:nth-child(7) { width: 15% !important; }
+    .till-restaurant #register thead th:nth-child(8) { width: 10% !important; }
+
+    .restaurant-till-layout #overall_sale {
+        background-color: var(--restaurant-sale-bg);
+        grid-area: sale;
+        margin: 0;
+        min-height: 0;
+        overflow: auto;
+        padding: 4px;
+        text-align: start;
+        width: auto;
+    }
+
+    .restaurant-till-layout #overall_sale .panel-body {
+        background-color: var(--restaurant-sale-bg);
+        padding: 4px;
+    }
+
+    .restaurant-till-layout #overall_sale .panel-body > table {
+        margin-bottom: 4px;
+        width: 100%;
+    }
+
+    .restaurant-till-layout #overall_sale .panel-body > table th,
+    .restaurant-till-layout #overall_sale .panel-body > table td {
+        padding: 2px 3px;
+    }
+
+    .restaurant-till-layout #overall_sale .container-fluid {
+        padding-inline: 0;
+    }
+
+    .restaurant-till-layout #overall_sale .container-fluid > .row {
+        margin-inline: 0;
+    }
+
+    .restaurant-till-layout #overall_sale #comment {
+        height: 48px;
+        min-height: 44px;
+        resize: vertical;
+    }
+
+    .restaurant-till-layout > #payment_details {
+        background-color: var(--restaurant-sale-bg);
+        border-top: 1px solid var(--restaurant-sale-border);
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        grid-area: actions;
+        margin: 0;
+        padding: 4px;
+        width: 100%;
+    }
+
+    .restaurant-till-layout > #payment_details > form {
+        align-items: center;
+        display: flex;
+        flex: 1 1 auto;
+        gap: 8px;
+        margin-bottom: 0;
+        min-width: 0;
+    }
+
+    .restaurant-till-layout > #payment_details > form > table {
+        flex: 1 1 auto;
+        margin: 0;
+        width: auto;
+    }
+
+    .restaurant-till-layout > #payment_details button,
+    .restaurant-till-layout > #payment_details > form > button {
+        flex: 0 0 auto;
+    }
+
+    .restaurant-till-layout #buttons_sale {
+        margin-bottom: 4px;
+    }
+
+    body:has(.restaurant-till-layout) #footer {
+        display: none;
+    }
+}
+
+@media (max-width: 991px) {
+    .wrapper > .container:has(.restaurant-till-layout) {
+        max-width: none;
+        padding-inline: 12px;
+        width: 100%;
+    }
+
+    .wrapper > .container:has(.restaurant-till-layout) > .row {
+        margin-inline: 0;
+    }
+
+    .restaurant-till-layout {
+        display: flex;
+        flex-direction: column;
+        gap: var(--restaurant-layout-gap);
+        min-width: 0;
+    }
+
+    #register_wrapper.till-restaurant {
+        display: contents;
+        float: none;
+        width: auto;
+    }
+
+    .till-restaurant .restaurant-menu-tabs {
+        flex-direction: row;
+        flex-wrap: wrap;
+        overflow: visible;
+    }
+
+    .till-restaurant .restaurant-menu-tabs .restaurant-menu-tab {
+        flex: 1 1 140px;
+    }
+
+    .till-restaurant .restaurant-menu-category {
+        min-height: 90px;
+        overflow: visible;
+    }
+
+    .till-restaurant .restaurant-menu-grid {
+        grid-template-columns: repeat(auto-fill, var(--restaurant-item-width));
+    }
+
+    .restaurant-cart {
+        min-width: 0;
+        overflow-x: auto;
+    }
+
+    .restaurant-till-layout #overall_sale {
+        margin: 0;
+        text-align: start;
+        width: 100%;
+    }
+
+    .till-restaurant #register {
+        min-width: 480px;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .till-restaurant #register thead th:nth-child(2),
+    .till-restaurant #register tbody#cart_contents tr:not(:has(> td[colspan])) > :nth-child(2) {
+        display: none;
+    }
+
+    body:has(.restaurant-till-layout) #footer {
+        display: none;
+    }
 }

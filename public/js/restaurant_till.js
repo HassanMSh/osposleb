@@ -1,7 +1,24 @@
+/** Separates payment controls while keeping payment history in the bill's original order. */
 document.addEventListener("DOMContentLoaded", () => {
     const register = document.querySelector(".till-restaurant");
     if (!register) {
         return;
+    }
+
+    const sale = document.querySelector("#overall_sale");
+    const saleBody = sale?.querySelector(":scope > .panel-body");
+    const paymentDetails = sale?.querySelector("#payment_details");
+    const paymentHistory = paymentDetails?.querySelector("table#register");
+    if (sale && saleBody && paymentDetails) {
+        if (paymentHistory) {
+            const saleActions = saleBody.querySelector("#buttons_form");
+            if (saleActions) {
+                saleBody.insertBefore(paymentHistory, saleActions);
+            } else {
+                saleBody.append(paymentHistory);
+            }
+        }
+        sale.parentElement.append(paymentDetails);
     }
 
     document.addEventListener("click", (event) => {

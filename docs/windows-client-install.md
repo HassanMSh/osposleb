@@ -99,6 +99,13 @@ Changing an item's quantity, price, or discount does not change its add-ons.
 Fixed line discounts are entered in Lebanese pounds (LL), while percentage discounts are entered as a percent.
 Create a category such as "Add-ons" and put extras and removals like "Extra cheese" or "No onion" in it with their own price or 0.
 In Settings > General, enter that category in Add-on category.
+On screens at least 992 pixels wide, the restaurant register shows sections, items, and the bill in three columns.
+English places sections on the left and the bill on the right; Arabic mirrors them.
+On narrower screens, the sections, items, and bill are stacked and the page scrolls.
+Select a section, then tap an item.
+The Add-ons section appears last, and add-on items have dashed borders.
+On the three-column layout, the order lines and the bill details scroll on their own, and the Amount Tendered box and the Complete button stay at the bottom of the screen.
+Empty "No description" lines are not shown; items that allow or have a description still show it and it can be edited.
 After each restaurant sale, the printer prints the customer receipt and then the kitchen ticket.
 The print button on the receipt page and in the sales list reprints both.
 The cut between them depends on the printer driver cutting after each page.

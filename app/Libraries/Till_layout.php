@@ -33,6 +33,29 @@ final class Till_layout
     }
 
     /**
+     * Places the configured add-on category after regular restaurant menu categories.
+     */
+    public static function order_categories(array $categories, array $config): array
+    {
+        $ordered_categories = [];
+        $addon_categories   = [];
+
+        foreach ($categories as $category => $items) {
+            if (self::is_addon_category((string) $category, $config)) {
+                $addon_categories[$category] = $items;
+            } else {
+                $ordered_categories[$category] = $items;
+            }
+        }
+
+        foreach ($addon_categories as $category => $items) {
+            $ordered_categories[$category] = $items;
+        }
+
+        return $ordered_categories;
+    }
+
+    /**
      * Accepts only the supported till layouts and maps every other value to shop.
      */
     public static function normalize(mixed $layout): string

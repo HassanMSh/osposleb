@@ -9,6 +9,10 @@ on:
   # rather than on develop, and those pull requests still need checking.
   # No path filter either, so every pull request reports a result instead of
   # showing no checks at all. The jobs exit early when no PHP file changed.
+  # Every check job is skipped for docs/ branches: on their pull requests
+  # (head branch starts with docs/) and on the push that merges them into
+  # develop (the merge commit subject names the branch). Keep docs/ branches
+  # free of code changes, because nothing checks them.
   pull_request:
 
 concurrency:
@@ -22,6 +26,9 @@ jobs:
   # Warn-only by owner decision; this job never blocks a merge.
   dependency-audit:
     name: Composer Audit
+    if: >-
+      !startsWith(github.head_ref, 'docs/') &&
+      !(github.event_name == 'push' && contains(github.event.head_commit.message, format('from {0}/docs/', github.repository_owner)))
     runs-on: ubuntu-22.04
     continue-on-error: true
 
@@ -46,6 +53,9 @@ jobs:
 
   syntax:
     name: PHP ${{ matrix.php-version }} Syntax
+    if: >-
+      !startsWith(github.head_ref, 'docs/') &&
+      !(github.event_name == 'push' && contains(github.event.head_commit.message, format('from {0}/docs/', github.repository_owner)))
     runs-on: ubuntu-22.04
 
     strategy:
@@ -72,6 +82,9 @@ jobs:
 
   coding-standards:
     name: PHP 8.2 Coding Standards
+    if: >-
+      !startsWith(github.head_ref, 'docs/') &&
+      !(github.event_name == 'push' && contains(github.event.head_commit.message, format('from {0}/docs/', github.repository_owner)))
     runs-on: ubuntu-22.04
 
     steps:
@@ -124,6 +137,9 @@ jobs:
   # supports 8.1, which the syntax job above checks.
   tests:
     name: PHP 8.2 Tests
+    if: >-
+      !startsWith(github.head_ref, 'docs/') &&
+      !(github.event_name == 'push' && contains(github.event.head_commit.message, format('from {0}/docs/', github.repository_owner)))
     runs-on: ubuntu-22.04
 
     steps:

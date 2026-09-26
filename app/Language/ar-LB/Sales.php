@@ -174,6 +174,8 @@ return [
     'refund'                           => 'نوع/سبب الاسترجاع',
     'register'                         => 'سجل المبيعات',
     'register_reloaded_scan_again'     => 'تمت إعادة تحميل سجل المبيعات. امسح الصنف مرة أخرى إذا كان مفقودًا.',
+    'restaurant_menu_empty'            => 'لا توجد أصناف نشطة في القائمة.',
+    'uncategorized'                    => 'غير مصنف',
     'remove_customer'                  => 'حذف عميل',
     'remove_discount'                  => '',
     'return'                           => 'إسترجاع',

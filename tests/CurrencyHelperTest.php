@@ -125,13 +125,27 @@ final class CurrencyHelperTest extends CIUnitTestCase
     }
 
     /**
-     * Preserves a stored cent value when rounding at 89,500 LL would otherwise move it.
+     * Keeps a 10,000 LL fixed discount at $0.11 after thousand-pound display rounding.
      */
     public function testPostedPoundsPreserveAStoredPriceThatWouldDriftAtRate89500(): void
     {
         $this->assertSame(90_000, round_lbp_to_thousand(1.00 * 89_500));
         $this->assertSame('1.01', lbp_to_dollar_string('90000', 89_500));
         $this->assertSame('1.00', lbp_to_dollar_string('90000', 89_500, '1.00'));
+    }
+
+    /**
+     * Converts fixed discounts entered in Lebanese pounds and preserves an unchanged displayed value.
+     */
+    public function testFixedDiscountLbpConversionUsesCurrencyDecimalsAndPreservesStoredValue(): void
+    {
+        $stored_discount = lbp_to_dollar_string('10000', '89500', null, false, 2);
+        $shown_lbp       = round_lbp_to_thousand((float) $stored_discount * 89_500);
+
+        $this->assertSame('0.11', $stored_discount);
+        $this->assertSame(10_000, $shown_lbp);
+        $this->assertSame('10000', format_lbp_input($shown_lbp));
+        $this->assertSame('0.11', lbp_to_dollar_string((string) $shown_lbp, '89500', $stored_discount, false, 2, $shown_lbp));
     }
 
     /**

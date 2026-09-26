@@ -2,6 +2,7 @@
 
 namespace app\Libraries;
 
+use App\Libraries\Till_layout;
 use App\Models\Attribute;
 use App\Models\Customer;
 use App\Models\Dinner_table;
@@ -755,8 +756,11 @@ class Sale_lib
         $this->session->remove('sales_rewards_remainder');
     }
 
-    // TODO: this function needs to be reworked... way too many parameters.  Also, optional parameters must go after mandatory parameters.
-
+    /**
+     * Adds an item to the cart while keeping the shop merge path and restaurant tap order separate.
+     *
+     * @noinspection PhpUnused
+     */
     public function add_item(string &$item_id, int $item_location, string $quantity = '1', string &$discount = '0.0', int $discount_type = 0, int $price_mode = PRICE_MODE_STANDARD, ?int $kit_price_option = null, ?int $kit_print_option = null, ?string $price_override = null, ?string $description = null, ?string $serialnumber = null, ?int $sale_id = null, bool $include_deleted = false, ?bool $print_option = null, ?bool $line = null): bool
     {
         $item_info = $this->item->get_info_by_id_or_number($item_id, $include_deleted);
@@ -818,19 +822,41 @@ class Sale_lib
         $insertkey         = 0;                // Key to use for new entry.     // TODO: $insertkey is never used
         $updatekey         = 0;                // Key to use to update(quantity)
 
-        foreach ($items as $item) {
-            // We primed the loop so maxkey is 0 the first time.
-            // Also, we have stored the key in the element itself so we can compare.
-
-            if ($maxkey <= $item['line']) {    // TODO: variable naming here does not match the convention
-                $maxkey = $item['line'];
+        if (Till_layout::get_layout($this->config) === 'restaurant') {
+            foreach ($items as $item) {
+                if ($maxkey <= $item['line']) {
+                    $maxkey = $item['line'];
+                }
             }
 
-            if ($item['item_id'] == $item_id && $item['item_location'] == $item_location) {    // TODO: === ?
+            $updatekey = self::get_restaurant_item_merge_line(
+                $items,
+                (int) $item_id,
+                $item_location,
+                (bool) $item_info->is_serialized,
+                (string) $price,
+                (string) $applied_discount,
+                $discount_type,
+            );
+            if ($updatekey !== null) {
                 $itemalreadyinsale = true;
-                $updatekey         = $item['line'];
-                if (! $item_info->is_serialized) {
-                    $quantity = bcadd($quantity, $items[$updatekey]['quantity']);
+                $quantity          = bcadd($quantity, $items[$updatekey]['quantity']);
+            }
+        } else {
+            foreach ($items as $item) {
+                // We primed the loop so maxkey is 0 the first time.
+                // Also, we have stored the key in the element itself so we can compare.
+
+                if ($maxkey <= $item['line']) {    // TODO: variable naming here does not match the convention
+                    $maxkey = $item['line'];
+                }
+
+                if ($item['item_id'] == $item_id && $item['item_location'] == $item_location) {    // TODO: === ?
+                    $itemalreadyinsale = true;
+                    $updatekey         = $item['line'];
+                    if (! $item_info->is_serialized) {
+                        $quantity = bcadd($quantity, $items[$updatekey]['quantity']);
+                    }
                 }
             }
         }
@@ -909,6 +935,48 @@ class Sale_lib
         $this->set_cart($items);
 
         return true;
+    }
+
+    /**
+     * Returns the last restaurant line when item, location, price, and discount terms match the new tap.
+     * Price and discount are compared at the full stored precision, not the display precision,
+     * so a line whose price was edited by less than one displayed unit is never merged.
+     *
+     * @param array  $items         Current cart lines.
+     * @param int    $item_id       Item id on the new tap.
+     * @param int    $item_location Stock location on the new tap.
+     * @param bool   $is_serialized Whether the item needs a separate line per unit.
+     * @param string $price         Unit price on the new tap.
+     * @param string $discount      Discount value on the new tap.
+     * @param int    $discount_type Discount mode on the new tap.
+     *
+     * @return int|null Last matching line id, or null when a new line is needed.
+     */
+    public static function get_restaurant_item_merge_line(array $items, int $item_id, int $item_location, bool $is_serialized, string $price, string $discount, int $discount_type): ?int
+    {
+        if ($is_serialized || $items === []) {
+            return null;
+        }
+
+        $last_item = null;
+
+        foreach ($items as $item) {
+            if ($last_item === null || $item['line'] > $last_item['line']) {
+                $last_item = $item;
+            }
+        }
+
+        if (
+            $last_item['item_id'] != $item_id    // TODO: === ?
+            || $last_item['item_location'] != $item_location    // TODO: === ?
+            || $last_item['discount_type'] != $discount_type    // TODO: === ?
+            || bccomp((string) $last_item['price'], $price, 8) !== 0
+            || bccomp((string) $last_item['discount'], $discount, 8) !== 0
+        ) {
+            return null;
+        }
+
+        return (int) $last_item['line'];
     }
 
     public function out_of_stock(int $item_id, int $item_location): string

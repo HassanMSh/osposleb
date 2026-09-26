@@ -7,6 +7,7 @@ use App\Libraries\Mailchimp_lib;
 use App\Libraries\Receiving_lib;
 use App\Libraries\Sale_lib;
 use App\Libraries\Tax_lib;
+use App\Libraries\Till_layout;
 use App\Models\Appconfig;
 use App\Models\Attribute;
 use App\Models\Customer_rewards;
@@ -379,6 +380,7 @@ class Config extends Secure_Controller
             'multi_pack_enabled'                => $this->request->getPost('multi_pack_enabled') !== null,
             'include_hsn'                       => $this->request->getPost('include_hsn') !== null,
             'category_dropdown'                 => $this->request->getPost('category_dropdown') !== null,
+            'till_layout'                       => Till_layout::normalize($this->request->getPost('till_layout')),
         ];
 
         $this->module->set_show_office_group($this->request->getPost('show_office_group') !== null);

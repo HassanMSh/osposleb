@@ -304,6 +304,21 @@ class Item extends Model
     }
 
     /**
+     * Returns active menu items, excluding kits and temporary items, sorted by category and name.
+     */
+    public function get_restaurant_menu_items(): array
+    {
+        $builder = $this->db->table('items');
+        $builder->select('item_id, name, category, unit_price');
+        $builder->where('deleted', 0);
+        $builder->whereNotIn('item_type', [ITEM_KIT, ITEM_TEMP]);
+        $builder->orderBy('category', 'ASC');
+        $builder->orderBy('name', 'ASC');
+
+        return $builder->get()->getResultArray();
+    }
+
+    /**
      * Gets information about a particular item
      */
     public function get_info(int $item_id): object

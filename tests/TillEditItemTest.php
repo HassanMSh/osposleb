@@ -532,7 +532,7 @@ final class TillEditItemTest extends CIUnitTestCase
 
         $this->assertIsString($source);
 
-        $cartStart = strpos($source, 'foreach (array_reverse($cart, true) as $line => $item)');
+        $cartStart = strpos($source, 'foreach ($cart_display as $line => $item)');
         $cartEnd   = strpos($source, '<?= form_close() ?>', $cartStart);
 
         $this->assertNotFalse($cartStart);

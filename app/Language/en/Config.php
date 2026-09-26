@@ -320,6 +320,8 @@ return [
     'till_layout'                               => 'Till layout',
     'till_layout_restaurant'                    => 'Restaurant',
     'till_layout_shop'                          => 'Shop',
+    'till_addon_category'                       => 'Add-on category',
+    'till_addon_category_help'                  => 'Items in this category print indented under the item before them',
     'thousands_separator'                       => 'Thousands Separator',
     'timezone'                                  => 'Timezone',
     'timezone_error'                            => 'OSPOS Timezone is Different from your Local Timezone.',

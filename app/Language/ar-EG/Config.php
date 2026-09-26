@@ -320,6 +320,8 @@ return [
     'till_layout'                               => 'نمط نقطة البيع',
     'till_layout_restaurant'                    => 'مطعم',
     'till_layout_shop'                          => 'متجر',
+    'till_addon_category'                       => 'فئة الإضافات',
+    'till_addon_category_help'                  => 'تُطبع الأصناف في هذه الفئة بمسافة بادئة تحت الصنف الذي يسبقها',
     'thousands_separator'                       => 'فاصل الاف',
     'timezone'                                  => 'المنطقة الزمنية',
     'timezone_error'                            => 'تختلف منطقة OSPOS الزمنية عن منطقتك الزمنية المحلية.',

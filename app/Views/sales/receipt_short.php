@@ -16,6 +16,9 @@
  * @var string $barcode
  * @var array  $config
  */
+
+use App\Libraries\Till_layout;
+
 ?>
 
 <div id="receipt_wrapper" style="font-size: <?= esc($config['receipt_font_size']) ?>px;">
@@ -57,9 +60,10 @@
             <th style="width:25%;" class="total-value"><?= lang('Sales.total') ?></th>
         </tr>
         <?php foreach ($cart as $line => $item) { ?>
+            <?php $is_addon   = Till_layout::is_addon_category($item['category'] ?? null, $config); ?>
             <?php $tax_marker = format_receipt_tax_marker($item['taxed_flag'] ?? null); ?>
-            <tr>
-                <td><?= esc(ucfirst($item['name'] . ' ' . $item['attribute_values'])) ?></td>
+            <tr<?= $is_addon ? ' class="restaurant-addon-line"' : '' ?>>
+                <td><?= $is_addon ? '<bdi dir="auto">+ ' . esc(ucfirst($item['name'] . ' ' . $item['attribute_values'])) . '</bdi>' : esc(ucfirst($item['name'] . ' ' . $item['attribute_values'])) ?></td>
                 <td><span dir="ltr"><?= to_quantity_decimals($item['quantity']) ?> x <?= to_currency($item['price']) ?></span></td>
                 <td class="total-value"><span dir="ltr"><?= to_currency($item[($config['receipt_show_total_discount'] ? 'total' : 'discounted_total')]) ?></span><?= $tax_marker ?></td>
             </tr>

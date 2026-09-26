@@ -168,9 +168,10 @@ if ($restaurant_till) {
                 foreach ($cart_display as $line => $item) {
                     $lbp_line                   = $lbp_totals['lines'][$line];
                     $customer_paid_unit_differs = abs((float) $lbp_line['customer_unit_usd'] - (float) $item['price']) > 0.00000001;
+                    $is_addon                   = Till_layout::is_addon_category($item['category'] ?? null, $config);
                     ?>
                     <?= form_open("{$controller_name}/editItem/{$line}", ['class' => 'form-horizontal', 'id' => "cart_{$line}"]) ?>
-                        <tr>
+                        <tr<?= $is_addon ? ' class="restaurant-addon-line"' : '' ?>>
                             <td>
                                 <?= anchor("{$controller_name}/deleteItem/{$line}", '<span class="glyphicon glyphicon-trash"></span>');
                     echo form_input(['type' => 'hidden', 'name' => 'location', 'value' => (string) $item['item_location'], 'form' => "cart_{$line}"]);
@@ -185,7 +186,7 @@ if ($restaurant_till) {
                             <?php } else { ?>
                                 <td><?= esc($item['item_number']) ?></td>
                                 <td style="align: center;">
-                                    <?= esc($item['name']) . ' ' . implode(' ', [$item['attribute_values'], $item['attribute_dtvalues']]) ?>
+                                    <?= $is_addon ? '<bdi dir="auto">+ ' . esc($item['name']) . '</bdi>' : esc($item['name']) ?> <?= implode(' ', [$item['attribute_values'], $item['attribute_dtvalues']]) ?>
                                     <br>
                                     <?php if ((string) $item['stock_type'] === '0'): echo '[' . to_quantity_decimals($item['in_stock']) . ' in ' . $item['stock_name'] . ']';
                                     endif; ?>

@@ -11,10 +11,8 @@ $restaurant_categories = [];
 $lbp_rate              = $config['lbp_exchange_rate'] ?? 0;
 
 foreach ($restaurant_menu_items as $restaurant_menu_item) {
+    // Items without a category are grouped under an empty key, so a saved "Uncategorized" line cannot move them.
     $category_name = trim((string) $restaurant_menu_item['category']);
-    if ($category_name === '') {
-        $category_name = lang('Sales.uncategorized');
-    }
 
     $restaurant_categories[$category_name][] = $restaurant_menu_item;
 }
@@ -37,7 +35,7 @@ $restaurant_categories = Till_layout::order_categories($restaurant_categories, $
                     aria-controls="restaurant-menu-category-<?= $category_index ?>"
                     aria-selected="<?= $category_index === 0 ? 'true' : 'false' ?>"
                     data-restaurant-category="<?= $category_index ?>"
-                ><?= esc($category_name) ?></button>
+                ><?= $category_name === '' ? lang('Sales.uncategorized') : esc($category_name) ?></button>
                 <?php $category_index++; ?>
             <?php } ?>
         </nav>

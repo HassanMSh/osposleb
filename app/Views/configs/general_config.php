@@ -115,6 +115,20 @@ use App\Libraries\Till_layout;
             </div>
 
             <div class="form-group form-group-sm">
+                <?= form_label(lang('Config.till_category_order'), 'till_category_order', ['class' => 'control-label col-xs-2']) ?>
+                <div class="col-sm-10">
+                    <?= form_textarea([
+                        'name'  => 'till_category_order',
+                        'id'    => 'till_category_order',
+                        'class' => 'form-control input-sm',
+                        'rows'  => 6,
+                        'value' => $config['till_category_order'] ?? '',
+                    ]) ?>
+                    <p class="help-block"><?= lang('Config.till_category_order_help') ?></p>
+                </div>
+            </div>
+
+            <div class="form-group form-group-sm">
                 <?= form_label(lang('Config.default_receivings_discount'), 'default_receivings_discount', ['class' => 'control-label col-xs-2 required']) ?>
                 <div class="col-xs-2">
                     <div class="input-group">

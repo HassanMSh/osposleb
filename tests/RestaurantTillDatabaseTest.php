@@ -89,6 +89,30 @@ final class RestaurantTillDatabaseTest extends CIUnitTestCase
     }
 
     /**
+     * Returns distinct, non-empty categories from active items and leaves out deleted items.
+     */
+    public function testCategoryNamesAreDistinctAndOnlyComeFromActiveItems(): void
+    {
+        $fixture_name = 'Section ' . bin2hex(random_bytes(5));
+        $alpha        = $fixture_name . ' Alpha';
+        $zebra        = $fixture_name . ' Zebra';
+
+        $this->createItem($fixture_name . ' first', $alpha);
+        $this->createItem($fixture_name . ' second', $alpha);
+        $this->createItem($fixture_name . ' zebra', $zebra);
+        $this->createItem($fixture_name . ' deleted', $fixture_name . ' Deleted', ITEM, true);
+        $this->createItem($fixture_name . ' empty', '');
+        $this->createItem($fixture_name . ' blank', '   ');
+
+        $fixture_categories = array_values(array_filter(
+            model(Item::class)->get_category_names(),
+            static fn (string $category): bool => str_starts_with($category, $fixture_name),
+        ));
+
+        $this->assertSame([$alpha, $zebra], $fixture_categories);
+    }
+
+    /**
      * Keeps restaurant taps in order while merging only a repeated last line.
      */
     public function testRestaurantTapsMergeOnlyIntoTheLastCartLine(): void

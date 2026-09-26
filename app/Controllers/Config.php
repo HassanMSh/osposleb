@@ -13,6 +13,7 @@ use App\Models\Attribute;
 use App\Models\Customer_rewards;
 use App\Models\Dinner_table;
 use App\Models\Enums\Rounding_mode;
+use App\Models\Item;
 use App\Models\Module;
 use App\Models\Stock_location;
 use App\Models\Tax;
@@ -213,6 +214,23 @@ class Config extends Secure_Controller
         return $themes;
     }
 
+    /**
+     * Builds the Section order box: saved sections that still exist, then other active categories A to Z, without add-ons.
+     */
+    private function category_order_prefill(): string
+    {
+        $saved_categories = preg_split('/\R/u', (string) ($this->config['till_category_order'] ?? '')) ?: [];
+
+        return implode("\n", Till_layout::merge_category_order(
+            $saved_categories,
+            model(Item::class)->get_category_names(),
+            $this->config['till_addon_category'] ?? null,
+        ));
+    }
+
+    /**
+     * Loads configuration screens and pre-fills the restaurant section order from active items.
+     */
     public function getIndex(): void
     {
         $data['stock_locations']          = $this->stock_location->get_all()->getResultArray();
@@ -242,6 +260,9 @@ class Config extends Secure_Controller
         $image_allowed_types                  = ['jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'png', 'tif', 'tiff'];
         $data['image_allowed_types']          = array_combine($image_allowed_types, $image_allowed_types);
         $data['selected_image_allowed_types'] = explode(',', $this->config['image_allowed_types']);
+
+        $data['config']                        = $this->config;
+        $data['config']['till_category_order'] = $this->category_order_prefill();
 
         // Integrations Related fields
         $data['mailchimp'] = [];
@@ -346,7 +367,7 @@ class Config extends Secure_Controller
     }
 
     /**
-     * Saves general configuration, including till layout and add-on category. Used in app/Views/configs/general_config.php
+     * Saves general configuration, including till layout, add-on category, and restaurant section order.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -382,7 +403,18 @@ class Config extends Secure_Controller
             'category_dropdown'                 => $this->request->getPost('category_dropdown') !== null,
             'till_layout'                       => Till_layout::normalize($this->request->getPost('till_layout')),
             'till_addon_category'               => trim((string) $this->request->getPost('till_addon_category')),
+            'till_category_order'               => Till_layout::category_order_to_save(
+                (string) $this->request->getPost('till_category_order'),
+                $this->category_order_prefill(),
+                (string) ($this->config['till_category_order'] ?? ''),
+            ),
         ];
+
+        if ($batch_save_data['till_category_order'] === null) {
+            echo json_encode(['success' => false, 'message' => lang('Config.till_category_order_too_long')]);
+
+            return;
+        }
 
         $this->module->set_show_office_group($this->request->getPost('show_office_group') !== null);
 

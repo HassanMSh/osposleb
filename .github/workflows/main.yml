@@ -184,6 +184,25 @@ jobs:
       - name: Run PHPUnit
         run: vendor/bin/phpunit --no-coverage --colors=always
 
+  # The one check the develop ruleset requires before a pull request can merge.
+  # It always runs and passes when every needed job passed or was skipped
+  # (docs/ branches), so skipped checks never block a merge. Requiring the
+  # matrix jobs directly would not work: a skipped matrix job reports its raw
+  # name ("PHP ${{ matrix.php-version }} Syntax") and the required name never
+  # appears. Composer Audit is warn-only, so it is not listed here.
+  checks-passed:
+    name: Checks passed
+    if: always()
+    needs: [syntax, coding-standards, tests]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Fail when a needed check failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "Results: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+
   # Only publish on pushes to develop after every check has passed.
   # Merges of docs/ and chore/ branches are skipped: they do not change the shop.
   # The merge commit subject names the branch, e.g.

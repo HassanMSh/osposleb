@@ -115,9 +115,9 @@ final class TillLayoutTest extends CIUnitTestCase
     }
 
     /**
-     * Keeps the add-on section last even when it appears in the saved section order.
+     * Places the add-on section where the saved section order lists it.
      */
-    public function testAddonSectionRemainsLastWhenListed(): void
+    public function testAddonSectionFollowsSavedOrderWhenListed(): void
     {
         $categories = [
             'Add-ons' => ['extra'],
@@ -128,6 +128,25 @@ final class TillLayoutTest extends CIUnitTestCase
             'till_layout'         => 'restaurant',
             'till_addon_category' => 'Add-ons',
             'till_category_order' => "Add-ons\nFood",
+        ];
+
+        $this->assertSame(['Add-ons', 'Food', 'Drinks'], array_keys(Till_layout::order_categories($categories, $config)));
+    }
+
+    /**
+     * Keeps an unlisted add-on section after unlisted regular sections.
+     */
+    public function testUnlistedAddonSectionStaysLast(): void
+    {
+        $categories = [
+            'Add-ons' => ['extra'],
+            'Drinks'  => ['cola'],
+            'Food'    => ['burger'],
+        ];
+        $config = [
+            'till_layout'         => 'restaurant',
+            'till_addon_category' => 'Add-ons',
+            'till_category_order' => 'Food',
         ];
 
         $this->assertSame(['Food', 'Drinks', 'Add-ons'], array_keys(Till_layout::order_categories($categories, $config)));
@@ -200,17 +219,99 @@ final class TillLayoutTest extends CIUnitTestCase
     }
 
     /**
-     * Prefills existing sections in saved order, adds remaining names, and excludes add-ons.
+     * Prefills existing sections in saved order, keeps a saved add-on position, and adds remaining names.
      */
     public function testCategoryOrderPrefillMerge(): void
     {
-        $saved_categories    = [' Drinks ', 'Removed', 'food', 'Add-ons'];
+        $saved_categories    = [' Drinks ', 'Removed', 'Add-ons', 'food'];
         $existing_categories = ['Food', 'Snacks', 'Drinks', 'Add-ons', '', '   '];
 
         $this->assertSame(
-            ['Drinks', 'Food', 'Snacks'],
+            ['Drinks', 'Add-ons', 'Food', 'Snacks'],
             Till_layout::merge_category_order($saved_categories, $existing_categories, ' Add-ons '),
         );
+    }
+
+    /**
+     * Prefills an unsaved add-on section on the last line, after new sections.
+     */
+    public function testCategoryOrderPrefillPutsUnsavedAddonLast(): void
+    {
+        $this->assertSame(
+            ['Drinks', 'Food', 'Snacks', 'Add-ons'],
+            Till_layout::merge_category_order(['Drinks'], ['Add-ons', 'Food', 'Snacks', 'Drinks'], 'add-ons'),
+        );
+        $this->assertSame(['Add-ons', 'Food'], Till_layout::merge_category_order([], ['Add-ons', 'Food']));
+    }
+
+    /**
+     * Keeps new and uncategorized sections before an add-on section saved on the last line.
+     */
+    public function testAddonOnLastLineStaysAfterUnlistedSections(): void
+    {
+        $categories = [
+            ''        => ['none'],
+            'Add-ons' => ['extra'],
+            'Dessert' => ['cake'],
+            'Food'    => ['burger'],
+        ];
+        $config = [
+            'till_layout'         => 'restaurant',
+            'till_addon_category' => 'Add-ons',
+            'till_category_order' => "Food\nAdd-ons",
+        ];
+
+        $this->assertSame(['Food', '', 'Dessert', 'Add-ons'], array_keys(Till_layout::order_categories($categories, $config)));
+        $this->assertSame(
+            ['Food', 'Dessert', 'Add-ons'],
+            Till_layout::merge_category_order(['Food', 'Add-ons'], ['Add-ons', 'Dessert', 'Food'], 'Add-ons'),
+        );
+    }
+
+    /**
+     * Saving the pre-filled box unchanged keeps the add-on section last on the till.
+     */
+    public function testSavingPrefillUnchangedKeepsAddonLast(): void
+    {
+        $categories = [
+            ''        => ['none'],
+            'Add-ons' => ['extra'],
+            'Food'    => ['burger'],
+        ];
+        $prefill = implode("\n", Till_layout::merge_category_order([], ['Add-ons', 'Food'], 'Add-ons'));
+        $config  = [
+            'till_layout'         => 'restaurant',
+            'till_addon_category' => 'Add-ons',
+            'till_category_order' => Till_layout::category_order_to_save($prefill, $prefill, ''),
+        ];
+
+        $this->assertSame("Food\nAdd-ons", $config['till_category_order']);
+        $this->assertSame('Add-ons', array_key_last(Till_layout::order_categories($categories, $config)));
+    }
+
+    /**
+     * Treats an add-on category with accented capitals as the add-on section.
+     */
+    public function testAddonCategoryMatchesAccentedCapitals(): void
+    {
+        $config = ['till_layout' => 'restaurant', 'till_addon_category' => 'Café'];
+
+        $this->assertTrue(Till_layout::is_addon_category('CAFÉ', $config));
+        $this->assertSame(['Food', 'CAFÉ'], array_keys(Till_layout::order_categories(['CAFÉ' => ['c'], 'Food' => ['f']], $config)));
+    }
+
+    /**
+     * Keeps items without a category in input order when no section order is saved.
+     */
+    public function testEmptySavedOrderKeepsUncategorizedInPlace(): void
+    {
+        $categories = [
+            'Drinks' => ['d'],
+            ''       => ['none'],
+            'Food'   => ['f'],
+        ];
+
+        $this->assertSame(['Drinks', '', 'Food'], array_keys(Till_layout::order_categories($categories, ['till_layout' => 'restaurant'])));
     }
 
     /**

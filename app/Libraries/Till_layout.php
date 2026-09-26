@@ -34,44 +34,51 @@ final class Till_layout
             return false;
         }
 
-        return strcasecmp(trim($item_category ?? ''), $addon_category) === 0;
+        return self::category_names_match((string) $item_category, $addon_category);
     }
 
     /**
-     * Orders saved restaurant sections first, keeps other sections in input order, and places add-ons last.
+     * Orders saved restaurant sections first, including the add-on section when it is listed.
+     * Other sections keep their input order after the listed ones, but stay before the add-on section
+     * when it is the last listed line. An unlisted add-on section goes last.
      */
     public static function order_categories(array $categories, array $config): array
     {
         $ordered_categories = [];
         $addon_categories   = [];
+        $saved_order        = self::clean_category_order((string) ($config['till_category_order'] ?? ''));
+
+        if (self::get_layout($config) === 'restaurant' && $saved_order !== '') {
+            foreach (explode("\n", $saved_order) as $saved_category) {
+                foreach ($categories as $category => $items) {
+                    if (self::category_names_match((string) $category, $saved_category) && ! array_key_exists($category, $ordered_categories)) {
+                        $ordered_categories[$category] = $items;
+                    }
+                }
+            }
+        }
+
+        // A listed add-on section on the last line keeps its place at the end, after unlisted sections.
+        $last_listed = array_key_last($ordered_categories);
+        if ($last_listed !== null && self::is_addon_category((string) $last_listed, $config)) {
+            $addon_categories[$last_listed] = $ordered_categories[$last_listed];
+            unset($ordered_categories[$last_listed]);
+        }
 
         foreach ($categories as $category => $items) {
+            if (array_key_exists($category, $addon_categories)) {
+                continue;
+            }
+
+            if (array_key_exists($category, $ordered_categories)) {
+                continue;
+            }
+
             if (self::is_addon_category((string) $category, $config)) {
                 $addon_categories[$category] = $items;
             } else {
                 $ordered_categories[$category] = $items;
             }
-        }
-
-        if (self::get_layout($config) === 'restaurant') {
-            $saved_categories  = self::clean_category_order((string) ($config['till_category_order'] ?? ''));
-            $sorted_categories = [];
-
-            foreach (explode("\n", $saved_categories) as $saved_category) {
-                foreach ($ordered_categories as $category => $items) {
-                    if (self::category_names_match((string) $category, $saved_category) && ! array_key_exists($category, $sorted_categories)) {
-                        $sorted_categories[$category] = $items;
-                    }
-                }
-            }
-
-            foreach ($ordered_categories as $category => $items) {
-                if (! array_key_exists($category, $sorted_categories)) {
-                    $sorted_categories[$category] = $items;
-                }
-            }
-
-            $ordered_categories = $sorted_categories;
         }
 
         foreach ($addon_categories as $category => $items) {
@@ -109,18 +116,22 @@ final class Till_layout
     }
 
     /**
-     * Merges saved section names with existing categories, drops stale names, and excludes add-ons.
+     * Merges saved section names with existing categories and drops stale names.
+     * Saved names come first, then other categories in input order, then the add-on section if it is not saved.
+     * An add-on section saved on the last line stays last, after the other categories, like on the till.
      */
     public static function merge_category_order(array $saved_categories, array $existing_categories, ?string $addon_category = null): array
     {
         $saved_order      = self::clean_category_order(implode("\n", $saved_categories));
         $saved_categories = $saved_order === '' ? [] : explode("\n", $saved_order);
+        $addon_category   = trim((string) $addon_category);
         $ordered          = [];
+        $last_addons      = [];
 
         foreach ($saved_categories as $saved_category) {
             foreach ($existing_categories as $existing_category) {
                 $existing_category = trim((string) $existing_category);
-                if ($existing_category === '' || self::category_names_match($existing_category, trim((string) $addon_category))) {
+                if ($existing_category === '') {
                     continue;
                 }
 
@@ -130,18 +141,25 @@ final class Till_layout
             }
         }
 
+        $last_saved = end($ordered);
+        if ($last_saved !== false && $addon_category !== '' && self::category_names_match($last_saved, $addon_category)) {
+            $last_addons[] = array_pop($ordered);
+        }
+
         foreach ($existing_categories as $existing_category) {
             $existing_category = trim((string) $existing_category);
-            if ($existing_category === '' || self::category_names_match($existing_category, trim((string) $addon_category))) {
+            if ($existing_category === '' || self::contains_category_name($ordered, $existing_category) || self::contains_category_name($last_addons, $existing_category)) {
                 continue;
             }
 
-            if (! self::contains_category_name($ordered, $existing_category)) {
+            if ($addon_category !== '' && self::category_names_match($existing_category, $addon_category)) {
+                $last_addons[] = $existing_category;
+            } else {
                 $ordered[] = $existing_category;
             }
         }
 
-        return $ordered;
+        return array_merge($ordered, $last_addons);
     }
 
     /**

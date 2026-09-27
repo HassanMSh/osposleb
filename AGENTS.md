@@ -78,6 +78,49 @@ All repositories, documentation, ADRs, scripts, and project artifacts must remai
 
 Do not modify files outside this directory.
 
+## Shell commands and RTK
+
+- Shell commands on the developer machine run through RTK (Rust Token Killer), which shortens command output to save tokens. A hook rewrites commands to `rtk <cmd>` automatically, so do not add the prefix by hand.
+- RTK can hide output that is needed in full. `gh issue view` printed nothing through it on 2026-09-28. When output is empty or cut short, run the command again as `rtk proxy <cmd>` to get the raw output.
+- `rtk gain` shows how much RTK saved. `rtk --version` checks that the right tool is installed.
+- The implementer and the reviewer started by `codex exec` do not need RTK.
+
+Commands used in almost every session, from `/home/dev-hassanshd/hassan/pos/osposleb`:
+
+```bash
+# Priority labels, then every open issue with its labels
+gh label list --repo HassanMSh/osposleb --limit 100 | grep -i -E "prio|urgent|critical|high"; echo ---; gh issue list --repo HassanMSh/osposleb --state open --limit 200 --json number,title,labels --jq '.[] | "\(.number)\t\(.title)\t\([.labels[].name]|join(","))"'
+
+# Read one issue in full (use rtk proxy, plain output can come back empty)
+rtk proxy gh issue view <number> --json title,body,labels,state,comments
+
+# Search before opening an issue
+gh issue list --repo HassanMSh/osposleb --state all --search "<words>"
+
+# New worktree and branch for a task, from the latest develop
+git fetch origin && git worktree add -b feat/<topic> ../wt-<topic> origin/develop
+
+# Implementer and reviewer runs (see "Agent roles"); stdin must be closed
+codex exec -m gpt-6-luna -c model_reasoning_effort="xhigh" -s workspace-write -c sandbox_workspace_write.network_access=true --add-dir /home/dev-hassanshd/hassan/pos/plans -C <worktree> "<prompt>" < /dev/null
+codex exec -m gpt-6-sol -c model_reasoning_effort="high" -s read-only -C <worktree> "<prompt>" < /dev/null
+
+# PHPUnit and the style gate from a worktree (no PHP on the host).
+# The public and header_assets mounts must come from a checkout whose assets were built,
+# or AssetIntegrityTest fails for setup reasons only.
+docker run --rm -v "$PWD":/app \
+  -v /home/dev-hassanshd/hassan/pos/osposleb/vendor:/app/vendor:ro \
+  -v /home/dev-hassanshd/hassan/pos/osposleb/public:/app/public:ro \
+  -v /home/dev-hassanshd/hassan/pos/osposleb/app/Views/partial/header_assets.php:/app/app/Views/partial/header_assets.php:ro \
+  -w /app --user "$(id -u):$(id -g)" --entrypoint sh osposleb-ospos \
+  -c 'vendor/bin/phpunit --no-coverage --colors=never'
+# Style gate: same docker run with -e PHP_CS_FIXER_IGNORE_ENV=1 and
+#   vendor/bin/php-cs-fixer fix <files> --dry-run --config=.php-cs-fixer.no-header.php --using-cache=no
+
+# Pull request against develop, after merging develop into the branch
+git merge origin/develop && git push -u origin <branch>
+gh pr create --base develop --head <branch> --title "<title>" --body-file <file>
+```
+
 ## Implementation principles
 
 - Inspect existing OSPOS behavior before implementing anything.

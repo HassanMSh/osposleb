@@ -169,6 +169,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-13 | Continues REST-12: changes the Burger quantity to 2, then gives Burger a discount. | Extra cheese keeps its own quantity and price; only the Burger line changes. |
 | REST-14 | Continues REST-13: deletes the Burger line. | Extra cheese is deleted with it; Cola stays and becomes the chosen line. |
 | REST-15 | Admin lists restaurant section names in Settings > General, saves, and opens the restaurant till. | Listed sections appear in that order, unlisted sections follow in A to Z order, and the add-on section stays last unless it is listed higher up, in which case it takes its listed place. When the add-on section is on the last line, a new section appears just before it. |
+| REST-16 | With a third section and item set up, opens an empty till, taps section 3, and adds an item; repeats for separate complete, cancel, and suspend cases, then starts a sale and resumes the suspended one. | After each item reload, section 3 stays open with its tab marked `aria-selected="true"` and `active`, and other panels hidden; empty and resumed sales open on the first section. |
 
 ## Speed and repetitive work
 

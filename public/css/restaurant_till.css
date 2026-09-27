@@ -264,6 +264,20 @@
     width: auto;
 }
 
+.till-restaurant #register .restaurant-line-stepper .form-control {
+    flex: 0 1 3.5em;
+    min-width: 2.3em;
+    padding-inline: 2px;
+    text-align: center;
+}
+
+.till-restaurant #register .restaurant-discount-control .form-control {
+    flex: 0 1 3.6em;
+    min-width: 3.4em;
+    padding-inline: 2px;
+    text-align: center;
+}
+
 .till-restaurant #register .input-group-btn {
     display: flex;
     flex: 0 0 auto;
@@ -274,6 +288,16 @@
     min-width: 44px;
 }
 
+.till-restaurant #register .restaurant-line-step {
+    box-sizing: border-box;
+    flex: 0 0 40px;
+    min-height: 44px;
+    min-width: 40px;
+    padding-inline: 0;
+    touch-action: manipulation;
+    width: 40px;
+}
+
 .till-restaurant :focus-visible {
     outline: 3px solid var(--restaurant-focus-ring);
     outline-offset: 2px;
@@ -282,9 +306,9 @@
 }
 
 @media (min-width: 992px) and (max-width: 1199px) {
-    :root {
-        --restaurant-section-width: 150px;
-        --restaurant-items-width: 256px;
+    .restaurant-till-layout {
+        --restaurant-section-width: 140px;
+        --restaurant-items-width: 240px;
     }
 }
 
@@ -380,12 +404,12 @@
     }
 
     .till-restaurant #register thead th:nth-child(1) { width: 8% !important; }
-    .till-restaurant #register thead th:nth-child(3) { width: 21% !important; }
-    .till-restaurant #register thead th:nth-child(4) { width: 13.5% !important; }
-    .till-restaurant #register thead th:nth-child(5) { width: 13.5% !important; }
-    .till-restaurant #register thead th:nth-child(6) { width: 19% !important; }
-    .till-restaurant #register thead th:nth-child(7) { width: 15% !important; }
-    .till-restaurant #register thead th:nth-child(8) { width: 10% !important; }
+    .till-restaurant #register thead th:nth-child(3) { width: 13% !important; }
+    .till-restaurant #register thead th:nth-child(4) { width: 12% !important; }
+    .till-restaurant #register thead th:nth-child(5) { width: 20% !important; }
+    .till-restaurant #register thead th:nth-child(6) { width: 31% !important; }
+    .till-restaurant #register thead th:nth-child(7) { width: 8% !important; }
+    .till-restaurant #register thead th:nth-child(8) { width: 8% !important; }
 
     .restaurant-till-layout #overall_sale {
         background-color: var(--restaurant-sale-bg);

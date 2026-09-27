@@ -320,6 +320,17 @@
     z-index: 2;
 }
 
+/*
+ * Trial (issue #201): the restaurant bill area shows only "Total to pay" and its Lebanese pound line.
+ * The restaurant has no tax and is paid in one go, so the other lines repeat the total or show zero.
+ * The Comments box is hidden too. Delete this block to bring everything back.
+ */
+.restaurant-till-layout #sale_totals tr:nth-last-child(n+3),
+.restaurant-till-layout #payment_totals,
+.restaurant-till-layout #overall_sale .row:has(#comment) {
+    display: none;
+}
+
 @media (min-width: 992px) and (max-width: 1199px) {
     .restaurant-till-layout {
         --restaurant-section-width: 124px;

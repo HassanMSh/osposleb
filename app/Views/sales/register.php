@@ -233,7 +233,9 @@ if ($restaurant_till) {
 
                             <td>
                                 <?php
-                    if ($item['is_serialized']) {
+                    if ($restaurant_till && ! $item['is_serialized']) {
+                        echo view('sales/restaurant_quantity_cell', ['item' => $item, 'line' => $line, 'tabindex' => ++$tabindex]);
+                    } elseif ($item['is_serialized']) {
                         echo to_quantity_decimals($item['quantity']);
                         echo form_input(['type' => 'hidden', 'name' => 'quantity', 'value' => $item['quantity'], 'form' => "cart_{$line}"]);
                     } else {

@@ -154,7 +154,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 
 | ID | What the cashier does | Expected result |
 |---|---|---|
-| REST-01 | Opens the register. | There is no item or barcode box; items are picked by tapping. |
+| REST-01 | Opens the register, taps two items and types 50 in the change helper. | There is no item or barcode box; items are picked by tapping. The change helper shows under the totals and gives the change in dollars and in pounds, and the pay buttons stay on screen. |
 | REST-02 | Taps Burger, Cola, Burger. | Three lines in that order; the second Burger is not merged into the first. |
 | REST-03 | Taps Burger, No onion, Extra cheese, Burger, Cola. | The two add-ons show under the first Burger with a `+`; the total is $23.00 and 2,059,000 LL. |
 | REST-04 | Taps Burger twice in a row. | One line with quantity 2. |

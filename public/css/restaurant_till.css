@@ -331,6 +331,11 @@
     display: none;
 }
 
+/* The full-width Comments row used to push Print after Sale below the floated Suspend and Cancel buttons. */
+.restaurant-till-layout #overall_sale .container-fluid {
+    clear: both;
+}
+
 @media (min-width: 992px) and (max-width: 1199px) {
     .restaurant-till-layout {
         --restaurant-section-width: 124px;

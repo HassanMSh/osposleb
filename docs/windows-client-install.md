@@ -96,6 +96,7 @@ Tap a main item in the cart to choose where new add-ons go.
 New add-ons go under the chosen item, even when other cart lines follow it.
 Deleting a main item also deletes its add-ons.
 Changing an item's quantity, price, or discount does not change its add-ons.
+On the Restaurant till, tap − or + beside quantity to change it by one (minimum 1), or beside a percentage discount to change it by five percentage points.
 Fixed line discounts are entered in Lebanese pounds (LL), while percentage discounts are entered as a percent.
 Create a category such as "Add-ons" and put extras and removals like "Extra cheese" or "No onion" in it with their own price or 0.
 In Settings > General, enter that category in Add-on category.
@@ -107,6 +108,7 @@ Select a section, then tap an item.
 The chosen section stays open while the sale has items, and the menu goes back to the first section when the bill is empty, for example after a sale is completed, cancelled, or suspended.
 The Add-ons section appears last unless it is moved under Section order, and add-on items have dashed borders.
 On the three-column layout, the order lines and the bill details scroll on their own, and the Amount Tendered box and the Complete button stay at the bottom of the screen.
+The items column scrolls up and down only, never sideways; it shows two items per row on screens 992 to 1199 pixels wide and three on wider screens.
 On both the shop and restaurant tills, empty "No description" lines are not shown in the cart; items that allow or have a description still show it and it can be edited.
 After each restaurant sale, the printer prints the customer receipt and then the kitchen ticket.
 The print button on the receipt page and in the sales list reprints both.

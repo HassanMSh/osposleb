@@ -21,6 +21,7 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 - Give each issue one type label (`bug`, `enhancement`, or `documentation`) and its phase label (`phase-arabic`, `phase-hardware`, and so on). Create a new phase label only when a new phase starts.
 - Write the body in plain words: what happens now, what should change, and how it was found or reproduced, with dates. Link any local plan or ADR by path and say when it is untracked.
 - If a fix is faster to do by hand on the shop computer than through a pull request (for example one setting in Settings), do not keep an issue for it. Add it as a checklist item under "Manual install steps" in the client install issue (#70), then close the issue with a comment pointing there.
+- Before starting work on an issue, comment on it that it is being implemented now, with the date and the branch name (`gh issue comment <number> --body "..."`). First check its comments, so two sessions do not work on the same issue.
 - When work finds a problem outside the current change, open an issue for it and name the issue number in the completion report instead of fixing it on the side.
 - Link every pull request to its issue with `Closes #<number>` in the pull request body, so the merge closes it. Use `Refs #<number>` when the pull request only covers part of the issue.
 - Do not close an issue by hand unless the project owner asks, or the work is proven done and no pull request carries it. Say why in a closing comment.
@@ -77,6 +78,52 @@ All repositories, documentation, ADRs, scripts, and project artifacts must remai
 `/home/dev-hassanshd/hassan/pos`
 
 Do not modify files outside this directory.
+
+## Shell commands and RTK
+
+- Shell commands on the developer machine run through RTK (Rust Token Killer), which shortens command output to save tokens. A hook rewrites commands to `rtk <cmd>` automatically, so do not add the prefix by hand.
+- RTK can hide output that is needed in full. `gh issue view` printed nothing through it on 2026-09-28. When output is empty or cut short, run the command again as `rtk proxy <cmd>` to get the raw output.
+- `rtk gain` shows how much RTK saved. `rtk --version` checks that the right tool is installed.
+- The implementer and the reviewer started by `codex exec` do not need RTK.
+
+Commands used in almost every session, from `/home/dev-hassanshd/hassan/pos/osposleb`:
+
+```bash
+# Priority labels, then every open issue with its labels
+gh label list --repo HassanMSh/osposleb --limit 100 | grep -i -E "prio|urgent|critical|high"; echo ---; gh issue list --repo HassanMSh/osposleb --state open --limit 200 --json number,title,labels --jq '.[] | "\(.number)\t\(.title)\t\([.labels[].name]|join(","))"'
+
+# Read one issue in full (use rtk proxy, plain output can come back empty)
+rtk proxy gh issue view <number> --json title,body,labels,state,comments
+
+# Say that an issue is being implemented, before starting on it
+gh issue comment <number> --repo HassanMSh/osposleb --body "Being implemented now (<date>) on branch <branch>."
+
+# Search before opening an issue
+gh issue list --repo HassanMSh/osposleb --state all --search "<words>"
+
+# New worktree and branch for a task, from the latest develop
+git fetch origin && git worktree add -b feat/<topic> ../wt-<topic> origin/develop
+
+# Implementer and reviewer runs (see "Agent roles"); stdin must be closed
+codex exec -m gpt-6-luna -c model_reasoning_effort="xhigh" -s workspace-write -c sandbox_workspace_write.network_access=true --add-dir /home/dev-hassanshd/hassan/pos/plans -C <worktree> "<prompt>" < /dev/null
+codex exec -m gpt-6-sol -c model_reasoning_effort="high" -s read-only -C <worktree> "<prompt>" < /dev/null
+
+# PHPUnit and the style gate from a worktree (no PHP on the host).
+# The public and header_assets mounts must come from a checkout whose assets were built,
+# or AssetIntegrityTest fails for setup reasons only.
+docker run --rm -v "$PWD":/app \
+  -v /home/dev-hassanshd/hassan/pos/osposleb/vendor:/app/vendor:ro \
+  -v /home/dev-hassanshd/hassan/pos/osposleb/public:/app/public:ro \
+  -v /home/dev-hassanshd/hassan/pos/osposleb/app/Views/partial/header_assets.php:/app/app/Views/partial/header_assets.php:ro \
+  -w /app --user "$(id -u):$(id -g)" --entrypoint sh osposleb-ospos \
+  -c 'vendor/bin/phpunit --no-coverage --colors=never'
+# Style gate: same docker run with -e PHP_CS_FIXER_IGNORE_ENV=1 and
+#   vendor/bin/php-cs-fixer fix <files> --dry-run --config=.php-cs-fixer.no-header.php --using-cache=no
+
+# Pull request against develop, after merging develop into the branch
+git merge origin/develop && git push -u origin <branch>
+gh pr create --base develop --head <branch> --title "<title>" --body-file <file>
+```
 
 ## Implementation principles
 
@@ -226,7 +273,7 @@ Suggested branch prefixes:
 - The shop image is published to Docker Hub as `hassanshamseddine/osposlb`. The local Docker client is already logged in to that account.
 - Publishing is live: the `publish` job in `.github/workflows/main.yml` runs only on pushes to `develop` after all checks pass. It skips merges from `docs/` and `chore/` branches, so name a branch that way only when it does not change the shop image.
 - Every check job also skips `docs/` branches, both on the pull request and on the merge into `develop`. A `docs/` branch is never checked, so use it only for documentation changes.
-- The `develop-checks` ruleset blocks every merge into `develop` until the `Checks passed` job succeeds. That job passes when the syntax, coding-standards and test jobs passed or were skipped, so `docs/` pull requests still merge. Nobody can bypass it, including admins. If a check job is added or renamed, add it to that job's `needs` list.
+- The `develop-checks` ruleset blocks every merge into `develop` until the `Checks passed` job succeeds. That job passes when the syntax, coding-standards, tests, image, and workflow-lint jobs passed or were skipped, so `docs/` pull requests still merge. Nobody can bypass it, including admins. If a check job is added or renamed, add it to that job's `needs` list.
 - The job pushes `hassanshamseddine/osposlb:develop`, which follows the newest published `develop` commit, and `hassanshamseddine/osposlb:develop-<short sha>`, which stays fixed for pinning and rollback.
 - Client machines pull the published image and never build it.
 - Development still builds the image locally with `docker-compose.dev.yml`.
@@ -262,3 +309,5 @@ At the end of each phase, report:
 7. The recommended next phase.
 
 Keep reports concise and factual.
+
+When a pull request is ready for the owner to review, put its full URL in the brief (for example `https://github.com/HassanMSh/osposleb/pull/123`) so the owner can click it and go straight to it.

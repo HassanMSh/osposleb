@@ -18,7 +18,7 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 
 - Track bugs, gaps, planned work, deferred items, and accepted risks as issues in `HassanMSh/osposleb`. Do not start new lists of open work in local files, ADRs, or this file.
 - Search existing issues before opening one (`gh issue list --state all --search "<words>"`). Comment on a matching issue instead of opening a duplicate.
-- Give each issue one type label (`bug`, `enhancement`, or `documentation`) and its phase label (`phase-arabic`, `phase-hardware`, and so on). Create a new phase label only when a new phase starts.
+- Give each issue one type label (`bug`, `enhancement`, or `documentation`), one area label (`shop`, `fast-food`, `language`, `hardware`, or `operations`), and one priority label (`priority-high`, `priority-mid`, or `priority-low`). Create a new area label only when a new area of work starts.
 - Write the body in plain words: what happens now, what should change, and how it was found or reproduced, with dates. Link any local plan or ADR by path and say when it is untracked.
 - If a fix is faster to do by hand on the shop computer than through a pull request (for example one setting in Settings), do not keep an issue for it. Add it as a checklist item under "Manual install steps" in the client install issue (#70), then close the issue with a comment pointing there.
 - Before starting work on an issue, comment on it that it is being implemented now, with the date and the branch name (`gh issue comment <number> --body "..."`). First check its comments, so two sessions do not work on the same issue.

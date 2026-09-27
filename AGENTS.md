@@ -21,6 +21,7 @@ The priority is a working, maintainable solution delivered quickly. This is not 
 - Give each issue one type label (`bug`, `enhancement`, or `documentation`) and its phase label (`phase-arabic`, `phase-hardware`, and so on). Create a new phase label only when a new phase starts.
 - Write the body in plain words: what happens now, what should change, and how it was found or reproduced, with dates. Link any local plan or ADR by path and say when it is untracked.
 - If a fix is faster to do by hand on the shop computer than through a pull request (for example one setting in Settings), do not keep an issue for it. Add it as a checklist item under "Manual install steps" in the client install issue (#70), then close the issue with a comment pointing there.
+- Before starting work on an issue, comment on it that it is being implemented now, with the date and the branch name (`gh issue comment <number> --body "..."`). First check its comments, so two sessions do not work on the same issue.
 - When work finds a problem outside the current change, open an issue for it and name the issue number in the completion report instead of fixing it on the side.
 - Link every pull request to its issue with `Closes #<number>` in the pull request body, so the merge closes it. Use `Refs #<number>` when the pull request only covers part of the issue.
 - Do not close an issue by hand unless the project owner asks, or the work is proven done and no pull request carries it. Say why in a closing comment.
@@ -93,6 +94,9 @@ gh label list --repo HassanMSh/osposleb --limit 100 | grep -i -E "prio|urgent|cr
 
 # Read one issue in full (use rtk proxy, plain output can come back empty)
 rtk proxy gh issue view <number> --json title,body,labels,state,comments
+
+# Say that an issue is being implemented, before starting on it
+gh issue comment <number> --repo HassanMSh/osposleb --body "Being implemented now (<date>) on branch <branch>."
 
 # Search before opening an issue
 gh issue list --repo HassanMSh/osposleb --state all --search "<words>"

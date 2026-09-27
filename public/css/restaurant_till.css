@@ -274,6 +274,24 @@
     min-width: 44px;
 }
 
+.till-restaurant #register .restaurant-line-step {
+    flex: 0 0 24px;
+    min-height: 44px;
+    min-width: 24px;
+    padding-inline: 0;
+    touch-action: manipulation;
+}
+
+.till-restaurant #register .restaurant-discount-control .restaurant-line-step {
+    flex-basis: 20px;
+    min-width: 20px;
+}
+
+.till-restaurant #register .restaurant-discount-control .form-control {
+    font-size: 12px;
+    padding-inline: 2px;
+}
+
 .till-restaurant :focus-visible {
     outline: 3px solid var(--restaurant-focus-ring);
     outline-offset: 2px;
@@ -380,12 +398,12 @@
     }
 
     .till-restaurant #register thead th:nth-child(1) { width: 8% !important; }
-    .till-restaurant #register thead th:nth-child(3) { width: 21% !important; }
-    .till-restaurant #register thead th:nth-child(4) { width: 13.5% !important; }
-    .till-restaurant #register thead th:nth-child(5) { width: 13.5% !important; }
-    .till-restaurant #register thead th:nth-child(6) { width: 19% !important; }
-    .till-restaurant #register thead th:nth-child(7) { width: 15% !important; }
-    .till-restaurant #register thead th:nth-child(8) { width: 10% !important; }
+    .till-restaurant #register thead th:nth-child(3) { width: 18% !important; }
+    .till-restaurant #register thead th:nth-child(4) { width: 12% !important; }
+    .till-restaurant #register thead th:nth-child(5) { width: 16% !important; }
+    .till-restaurant #register thead th:nth-child(6) { width: 23% !important; }
+    .till-restaurant #register thead th:nth-child(7) { width: 14% !important; }
+    .till-restaurant #register thead th:nth-child(8) { width: 9% !important; }
 
     .restaurant-till-layout #overall_sale {
         background-color: var(--restaurant-sale-bg);

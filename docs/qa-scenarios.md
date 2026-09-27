@@ -158,7 +158,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-02 | Taps Burger, Cola, Burger. | Three lines in that order; the second Burger is not merged into the first. |
 | REST-03 | Taps Burger, No onion, Extra cheese, Burger, Cola. | The two add-ons show under the first Burger with a `+`; the total is $23.00 and 2,059,000 LL. |
 | REST-04 | Taps Burger twice in a row. | One line with quantity 2. |
-| REST-05 | Gives one line a percent discount, then another line a fixed discount in LL. | Each line total drops by its discount and the sale total matches the sum of the lines. |
+| REST-05 | Gives one line a 10% discount, then another line 5% with the + button. | There is no % or LL switch. Each line total drops by its discount and the sale total matches the sum of the lines. |
 | REST-06 | Adds a comment and completes REST-03 with cash. | The receipt prints, then the kitchen ticket on a new page: sale number, date and time, lines in order with add-ons indented, the comment, and no prices. |
 | REST-07 | Reprints the sale from the receipt page, then from the sales list. | Both the receipt and the kitchen ticket print again, in that order. |
 | REST-08 | Checks the receipt. | No zero TVA line shows. |

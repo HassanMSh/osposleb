@@ -224,7 +224,8 @@ if ($restaurant_till) {
                     if ($items_module_allowed && $change_price) {
                         echo '<small class="text-muted" dir="ltr">' . to_currency($item['price']) . '</small>';
                     }
-                    if ($customer_paid_unit_differs) {
+                    // The restaurant till leaves out the per-unit hint to keep its small bill lines readable.
+                    if ($customer_paid_unit_differs && ! $restaurant_till) {
                         echo '<div class="small text-muted">' . esc(lang('Sales.customer_paid_unit')) . ': <span dir="ltr">' . esc(format_lbp($lbp_line['customer_unit_lbp'])) . '</span></div>';
                         echo '<small class="text-muted" dir="ltr">' . to_currency($lbp_line['customer_unit_usd']) . '</small>';
                     }

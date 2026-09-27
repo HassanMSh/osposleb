@@ -275,6 +275,16 @@
     text-align: center;
 }
 
+/* Keep each step group together in the middle of its cell. The shared register.css rule centres the quantity box with auto margins, which inside this flex row push the step buttons to the cell edges. */
+.till-restaurant #register .restaurant-line-stepper,
+.till-restaurant #register .restaurant-discount-control {
+    justify-content: center;
+}
+
+.till-restaurant #register #cart_contents tr:has(input[name="price"]) > td .restaurant-line-stepper .form-control {
+    margin-inline: 0;
+}
+
 .till-restaurant #register .restaurant-discount-control .form-control {
     flex: 0 1 3.6em;
     min-width: 3.4em;
@@ -282,14 +292,15 @@
     text-align: center;
 }
 
+/* A line that already has a fixed LL discount (for example from customer settings) has no step buttons, so its box takes their two 40px slots and lines up with percent lines. */
+.till-restaurant #register .restaurant-discount-control:not(:has(.restaurant-line-step)) .form-control {
+    flex-basis: calc(3.6em + 80px);
+}
+
 .till-restaurant #register .input-group-btn {
     display: flex;
     flex: 0 0 auto;
     width: auto;
-}
-
-.till-restaurant #register .input-group .toggle {
-    min-width: 44px;
 }
 
 .till-restaurant #register .restaurant-line-step {

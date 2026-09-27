@@ -57,14 +57,28 @@ final class RestaurantLineStepperTest extends CIUnitTestCase
     }
 
     /**
-     * Renders fixed discounts without percentage step buttons.
+     * Renders a percent-only discount cell with no switch to an LL amount.
+     */
+    public function testDiscountHasNoLbpSwitch(): void
+    {
+        $html = $this->renderCell('sales/restaurant_discount_cell', ['discount' => '10', 'discount_type' => PERCENT]);
+
+        $this->assertStringNotContainsString('discount_toggle', $html);
+        $this->assertStringNotContainsString('data-toggle', $html);
+        $this->assertMatchesRegularExpression('/name="discount_type"[^>]*value="0"|value="0"[^>]*name="discount_type"/', $html);
+    }
+
+    /**
+     * Keeps an existing fixed discount in LL, without percentage steps or a switch.
      */
     public function testFixedDiscountHasNoStepButtons(): void
     {
         $html = $this->renderCell('sales/restaurant_discount_cell', ['discount' => '10', 'discount_type' => FIXED]);
 
         $this->assertStringNotContainsString('restaurant-line-step', $html);
-        $this->assertStringContainsString('name="discount_type"', $html);
+        $this->assertStringNotContainsString('discount_toggle', $html);
+        $this->assertStringContainsString('value="895000"', $html);
+        $this->assertMatchesRegularExpression('/name="discount_type"[^>]*value="1"|value="1"[^>]*name="discount_type"/', $html);
     }
 
     /**

@@ -292,7 +292,7 @@
     text-align: center;
 }
 
-/* An LL discount has no step buttons, so its box takes their two 40px slots and lines up with percent lines. */
+/* A line that already has a fixed LL discount (for example from customer settings) has no step buttons, so its box takes their two 40px slots and lines up with percent lines. */
 .till-restaurant #register .restaurant-discount-control:not(:has(.restaurant-line-step)) .form-control {
     flex-basis: calc(3.6em + 80px);
 }
@@ -301,18 +301,6 @@
     display: flex;
     flex: 0 0 auto;
     width: auto;
-}
-
-.till-restaurant #register .input-group .toggle {
-    min-width: 44px;
-}
-
-/* The switch labels are as tall as the 44px boxes, so centre the % and LL text inside them. */
-.till-restaurant #register .input-group .toggle .toggle-on,
-.till-restaurant #register .input-group .toggle .toggle-off {
-    align-items: center;
-    display: flex;
-    justify-content: center;
 }
 
 .till-restaurant #register .restaurant-line-step {

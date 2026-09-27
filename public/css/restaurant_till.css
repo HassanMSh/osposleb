@@ -1,8 +1,10 @@
 :root {
     --restaurant-item-width: 120px;
     --restaurant-item-height: 90px;
-    --restaurant-section-width: 190px;
-    --restaurant-items-width: 384px;
+    --restaurant-section-width: 172px;
+    /* The items column is three buttons wide plus room for its vertical scroll bar, so it never scrolls sideways. */
+    --restaurant-items-width: calc(384px + var(--restaurant-scrollbar-width));
+    --restaurant-scrollbar-width: 18px;
     --restaurant-layout-gap: 8px;
     --restaurant-item-gap: 8px;
     --restaurant-menu-padding: 4px;
@@ -81,8 +83,10 @@
     grid-area: items;
     min-height: 0;
     min-width: 0;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding: var(--restaurant-menu-padding);
+    scrollbar-gutter: stable;
 }
 
 .till-restaurant .restaurant-menu-category[hidden] {
@@ -94,7 +98,7 @@
     display: grid;
     gap: var(--restaurant-item-gap);
     grid-auto-rows: var(--restaurant-item-height);
-    grid-template-columns: repeat(3, var(--restaurant-item-width));
+    grid-template-columns: repeat(auto-fill, var(--restaurant-item-width));
     justify-content: start;
     min-width: 0;
     width: 100%;
@@ -283,8 +287,8 @@
 
 @media (min-width: 992px) and (max-width: 1199px) {
     :root {
-        --restaurant-section-width: 150px;
-        --restaurant-items-width: 256px;
+        --restaurant-section-width: 124px;
+        --restaurant-items-width: calc(256px + var(--restaurant-scrollbar-width));
     }
 }
 

@@ -96,6 +96,7 @@ Tap a main item in the cart to choose where new add-ons go.
 New add-ons go under the chosen item, even when other cart lines follow it.
 Deleting a main item also deletes its add-ons.
 Changing an item's quantity, price, or discount does not change its add-ons.
+On the Restaurant till, tap − or + beside quantity to change it by one (minimum 1), or beside a percentage discount to change it by five percentage points.
 Fixed line discounts are entered in Lebanese pounds (LL), while percentage discounts are entered as a percent.
 Create a category such as "Add-ons" and put extras and removals like "Extra cheese" or "No onion" in it with their own price or 0.
 In Settings > General, enter that category in Add-on category.

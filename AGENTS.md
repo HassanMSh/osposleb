@@ -262,3 +262,5 @@ At the end of each phase, report:
 7. The recommended next phase.
 
 Keep reports concise and factual.
+
+When a pull request is ready for the owner to review, put its full URL in the brief (for example `https://github.com/HassanMSh/osposleb/pull/123`) so the owner can click it and go straight to it.

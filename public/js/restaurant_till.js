@@ -42,16 +42,15 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    /** Schedules one line save with the selected discount mode and optional value reset. */
+    /** Schedules one save with the selected discount mode and keeps any pending value reset. */
     const submitDiscountType = (discountToggle, resetDiscount = false) => {
-        if (discountToggle.dataset.discountSubmitPending) {
+        if (discountToggle.dataset.discountSubmitTimer !== undefined) {
             if (resetDiscount) {
                 discountToggle.dataset.discountSubmitReset = "1";
             }
             return;
         }
 
-        discountToggle.dataset.discountSubmitPending = "1";
         discountToggle.dataset.discountSubmitReset = resetDiscount ? "1" : "0";
         const submitTimer = window.setTimeout(() => {
             delete discountToggle.dataset.discountSubmitTimer;
@@ -59,7 +58,6 @@ document.addEventListener("DOMContentLoaded", () => {
             delete discountToggle.dataset.discountSubmitReset;
             const cartForm = document.getElementById("cart_" + discountToggle.dataset.line);
             if (!cartForm) {
-                delete discountToggle.dataset.discountSubmitPending;
                 return;
             }
 
@@ -88,9 +86,22 @@ document.addEventListener("DOMContentLoaded", () => {
         discountToggle.dataset.discountSubmitTimer = String(submitTimer);
     };
 
+    let lineStepSaveStarted = false;
+
+    register.addEventListener("pointerdown", (event) => {
+        const stepButton = event.target.closest(".restaurant-line-step");
+        if (stepButton && register.contains(stepButton)) {
+            event.preventDefault();
+        }
+    });
+
     register.addEventListener("click", (event) => {
         const stepButton = event.target.closest(".restaurant-line-step");
         if (stepButton && register.contains(stepButton)) {
+            if (lineStepSaveStarted) {
+                return;
+            }
+
             const stepTarget = stepButton.dataset.stepTarget;
             if (stepTarget !== "quantity" && stepTarget !== "discount") {
                 return;
@@ -102,38 +113,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
+            lineStepSaveStarted = true;
             stepInput.value = stepButton.dataset.stepValue;
             document.querySelectorAll(".restaurant-line-step").forEach((button) => {
                 button.disabled = true;
             });
 
-            if (stepTarget === "discount") {
-                const discountToggle = stepButton.closest("tr")?.querySelector('input[name="discount_toggle"]');
-                if (discountToggle) {
-                    const pendingTimer = discountToggle.dataset.discountSubmitTimer;
-                    if (pendingTimer) {
-                        window.clearTimeout(Number(pendingTimer));
-                        delete discountToggle.dataset.discountSubmitTimer;
-                        delete discountToggle.dataset.discountSubmitPending;
-                        delete discountToggle.dataset.discountSubmitReset;
-                    }
-                    submitDiscountType(discountToggle);
-                } else {
-                    cartForm.requestSubmit();
-                }
+            const discountToggle = stepButton.closest("tr")?.querySelector('input[name="discount_toggle"]');
+            const discountSavePending = discountToggle?.dataset.discountSubmitTimer !== undefined;
+            if (discountToggle && (stepTarget === "discount" || discountSavePending)) {
+                submitDiscountType(discountToggle);
             } else {
-                const discountToggle = stepButton.closest("tr")?.querySelector('input[name="discount_toggle"]');
-                const pendingTimer = discountToggle?.dataset.discountSubmitTimer;
-                if (discountToggle && pendingTimer) {
-                    const resetDiscount = discountToggle.dataset.discountSubmitReset === "1";
-                    window.clearTimeout(Number(pendingTimer));
-                    delete discountToggle.dataset.discountSubmitTimer;
-                    delete discountToggle.dataset.discountSubmitPending;
-                    delete discountToggle.dataset.discountSubmitReset;
-                    submitDiscountType(discountToggle, resetDiscount);
-                } else {
-                    cartForm.requestSubmit();
-                }
+                cartForm.requestSubmit();
             }
             return;
         }

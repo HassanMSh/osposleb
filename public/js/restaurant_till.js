@@ -5,6 +5,46 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
 
+    const restaurantMenuCategoryKey = "restaurantMenuCategory";
+
+    /** Selects a restaurant menu tab and shows its matching category. */
+    function selectRestaurantCategory(selectedCategory) {
+        const categoryTabs = Array.from(register.querySelectorAll("[data-restaurant-category]"));
+        const selectedTab = categoryTabs.find((categoryTab) => categoryTab.dataset.restaurantCategory === selectedCategory);
+        if (!selectedTab) {
+            return false;
+        }
+
+        categoryTabs.forEach((categoryTab) => {
+            const selected = categoryTab === selectedTab;
+            categoryTab.setAttribute("aria-selected", selected ? "true" : "false");
+            categoryTab.classList.toggle("active", selected);
+        });
+        register.querySelectorAll(".restaurant-menu-category").forEach((categoryPanel) => {
+            categoryPanel.hidden = categoryPanel.id !== "restaurant-menu-category-" + selectedCategory;
+        });
+
+        return true;
+    }
+
+    const saleHasLines = register.querySelector('#cart_contents form[id^="cart_"]');
+    if (!saleHasLines) {
+        try {
+            window.sessionStorage.removeItem(restaurantMenuCategoryKey);
+        } catch {}
+    } else {
+        let savedCategory = null;
+        try {
+            savedCategory = window.sessionStorage.getItem(restaurantMenuCategoryKey);
+        } catch {}
+
+        if (savedCategory !== null && !selectRestaurantCategory(savedCategory)) {
+            try {
+                window.sessionStorage.removeItem(restaurantMenuCategoryKey);
+            } catch {}
+        }
+    }
+
     const sale = document.querySelector("#overall_sale");
     const saleBody = sale?.querySelector(":scope > .panel-body");
     const paymentDetails = sale?.querySelector("#payment_details");
@@ -32,14 +72,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const selectedCategory = tab.dataset.restaurantCategory;
-        register.querySelectorAll("[data-restaurant-category]").forEach((categoryTab) => {
-            const selected = categoryTab === tab;
-            categoryTab.setAttribute("aria-selected", selected ? "true" : "false");
-            categoryTab.classList.toggle("active", selected);
-        });
-        register.querySelectorAll(".restaurant-menu-category").forEach((categoryPanel) => {
-            categoryPanel.hidden = categoryPanel.id !== "restaurant-menu-category-" + selectedCategory;
-        });
+        selectRestaurantCategory(selectedCategory);
+        try {
+            window.sessionStorage.setItem(restaurantMenuCategoryKey, selectedCategory);
+        } catch {}
     });
 
     /** Schedules one save with the selected discount mode and keeps any pending value reset. */

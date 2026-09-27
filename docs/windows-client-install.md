@@ -105,6 +105,7 @@ On screens at least 992 pixels wide, the restaurant register shows sections, ite
 English places sections on the left and the bill on the right; Arabic mirrors them.
 On narrower screens, the sections, items, and bill are stacked and the page scrolls.
 Select a section, then tap an item.
+The chosen section stays open while the sale has items, and the menu goes back to the first section when the bill is empty, for example after a sale is completed, cancelled, or suspended.
 The Add-ons section appears last unless it is moved under Section order, and add-on items have dashed borders.
 On the three-column layout, the order lines and the bill details scroll on their own, and the Amount Tendered box and the Complete button stay at the bottom of the screen.
 The items column scrolls up and down only, never sideways; it shows two items per row on screens 992 to 1199 pixels wide and three on wider screens.

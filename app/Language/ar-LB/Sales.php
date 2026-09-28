@@ -24,6 +24,7 @@ return [
     'change_helper_pounds'             => 'الباقي بالليرة',
     'change_helper_tendered'           => 'المبلغ المدفوع',
     'change_helper_currency'           => 'عملة الدفع',
+    'change_helper_close'              => 'إغلاق حساب الباقي',
     'customer_paid_unit'               => 'السعر النهائي للوحدة',
     'dollars'                          => 'دولار أميركي',
     'pounds'                           => 'ليرة لبنانية',

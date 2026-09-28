@@ -154,7 +154,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 
 | ID | What the cashier does | Expected result |
 |---|---|---|
-| REST-01 | Opens the register, taps two items and types 50 in the change helper. | There is no item or barcode box; items are picked by tapping. The change helper shows under the totals and gives the change in dollars and in pounds, and the pay buttons stay on screen. |
+| REST-01 | Opens the register, taps two items, opens the change helper with the calculator button and types 50 in dollars. | There is no item or barcode box; items are picked by tapping. The change helper opens in a pop-up and gives the change in dollars and in pounds, and the pay buttons stay on screen. |
 | REST-02 | Taps Burger, Cola, Burger. | Three lines in that order; the second Burger is not merged into the first. |
 | REST-03 | Taps Burger, No onion, Extra cheese, Burger, Cola. | The two add-ons show under the first Burger with a `+`; the total is $23.00 and 2,059,000 LL. |
 | REST-04 | Taps Burger twice in a row. | One line with quantity 2. |
@@ -172,6 +172,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-16 | With a third section and item set up, opens an empty till, taps section 3, and adds an item; repeats for separate complete, cancel, and suspend cases, then starts a sale and resumes the suspended one. | After each item reload, section 3 stays open with its tab marked `aria-selected="true"` and `active`, and other panels hidden; empty and resumed sales open on the first section. |
 | REST-17 | Opens the till and taps Burger and Cola. | The bill area shows only Total to pay ($12.00) and its pound amount. The item count, Subtotal, TVA, Payments Total, Amount Due, Amount Due in pounds, and the Comments box are hidden. On the shop till all of these still show. |
 | REST-18 | Opens the restaurant till in English and Arabic, uses section tabs, item buttons, bill controls, and payment buttons, then clears Click sound on the restaurant till and saves. | Each normal section and its items share a colour; colours repeat after eight sections, add-on items stay white and dashed, and the selected tab keeps a clear outline. Buttons make a short click while the setting is on and stay silent after it is cleared. The shop till has no section colours or click sound. |
+| REST-19 | At 1366x768 and 1920x1080, tap two items, open the helper, compare 50 dollars and a pound amount with the shop till, close it by Escape, its close button and an outside click, then repeat after adding an item and completing with F12 and Enter while open and closed. | The restaurant has no helper under Total to pay; its calculator button stays beside Complete without wrapping, opens above the page with the amount field focused and updated change for the current total, and every close leaves the sale unchanged. After an item reload the helper uses the new total, and F12 and Enter still complete the sale. |
 
 ## Speed and repetitive work
 

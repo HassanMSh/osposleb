@@ -24,6 +24,7 @@ return [
     'change_helper_pounds'             => 'Change in pounds',
     'change_helper_tendered'           => 'Tendered amount',
     'change_helper_currency'           => 'Tender currency',
+    'change_helper_close'              => 'Close change helper',
     'customer_paid_unit'               => 'Customer pays per unit',
     'dollars'                          => 'US dollars',
     'pounds'                           => 'Lebanese pounds',

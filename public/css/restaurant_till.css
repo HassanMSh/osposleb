@@ -78,6 +78,82 @@
     font-weight: 700;
 }
 
+.till-restaurant .restaurant-menu-tabs .restaurant-menu-tab[class*="restaurant-colour-"][aria-selected="true"] {
+    box-shadow: inset 0 0 0 3px #ffffff;
+    outline: 2px solid #102c3a;
+    outline-offset: 1px;
+}
+
+.till-restaurant [class*="restaurant-colour-"] {
+    --restaurant-selected-bg: var(--restaurant-section-bg);
+    --restaurant-selected-text: #ffffff;
+    --restaurant-selected-border: #ffffff;
+}
+
+.till-restaurant .restaurant-colour-1 {
+    --restaurant-section-bg: #991b1b;
+    --restaurant-section-hover-bg: #7f1d1d;
+    --restaurant-item-bg: #fee2e2;
+    --restaurant-item-hover-bg: #fecaca;
+    --restaurant-item-pressed-bg: #fca5a5;
+}
+
+.till-restaurant .restaurant-colour-2 {
+    --restaurant-section-bg: #9a3412;
+    --restaurant-section-hover-bg: #7c2d12;
+    --restaurant-item-bg: #ffedd5;
+    --restaurant-item-hover-bg: #fed7aa;
+    --restaurant-item-pressed-bg: #fdba74;
+}
+
+.till-restaurant .restaurant-colour-3 {
+    --restaurant-section-bg: #854d0e;
+    --restaurant-section-hover-bg: #713f12;
+    --restaurant-item-bg: #fef3c7;
+    --restaurant-item-hover-bg: #fde68a;
+    --restaurant-item-pressed-bg: #fcd34d;
+}
+
+.till-restaurant .restaurant-colour-4 {
+    --restaurant-section-bg: #166534;
+    --restaurant-section-hover-bg: #14532d;
+    --restaurant-item-bg: #dcfce7;
+    --restaurant-item-hover-bg: #bbf7d0;
+    --restaurant-item-pressed-bg: #86efac;
+}
+
+.till-restaurant .restaurant-colour-5 {
+    --restaurant-section-bg: #115e59;
+    --restaurant-section-hover-bg: #134e4a;
+    --restaurant-item-bg: #ccfbf1;
+    --restaurant-item-hover-bg: #99f6e4;
+    --restaurant-item-pressed-bg: #5eead4;
+}
+
+.till-restaurant .restaurant-colour-6 {
+    --restaurant-section-bg: #1e40af;
+    --restaurant-section-hover-bg: #1e3a8a;
+    --restaurant-item-bg: #dbeafe;
+    --restaurant-item-hover-bg: #bfdbfe;
+    --restaurant-item-pressed-bg: #93c5fd;
+}
+
+.till-restaurant .restaurant-colour-7 {
+    --restaurant-section-bg: #6b21a8;
+    --restaurant-section-hover-bg: #581c87;
+    --restaurant-item-bg: #f3e8ff;
+    --restaurant-item-hover-bg: #e9d5ff;
+    --restaurant-item-pressed-bg: #d8b4fe;
+}
+
+.till-restaurant .restaurant-colour-8 {
+    --restaurant-section-bg: #9d174d;
+    --restaurant-section-hover-bg: #831843;
+    --restaurant-item-bg: #fce7f3;
+    --restaurant-item-hover-bg: #fbcfe8;
+    --restaurant-item-pressed-bg: #f9a8d4;
+}
+
 .till-restaurant .restaurant-menu-category {
     display: flex;
     grid-area: items;

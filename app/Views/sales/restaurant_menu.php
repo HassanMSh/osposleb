@@ -18,6 +18,7 @@ foreach ($restaurant_menu_items as $restaurant_menu_item) {
 }
 
 $restaurant_categories = Till_layout::order_categories($restaurant_categories, $config);
+$section_colours       = Till_layout::section_colour_numbers(array_keys($restaurant_categories), $config);
 ?>
 
 <?= form_open("{$controller_name}/add", ['id' => 'restaurant_add_item_form', 'class' => 'restaurant-menu panel panel-default']) ?>
@@ -27,9 +28,10 @@ $restaurant_categories = Till_layout::order_categories($restaurant_categories, $
         <nav class="restaurant-menu-tabs" role="tablist" aria-label="<?= lang('Sales.register') ?>">
             <?php $category_index = 0; ?>
             <?php foreach ($restaurant_categories as $category_name => $category_items) { ?>
+                <?php $is_addon_category = Till_layout::is_addon_category($category_name, $config); ?>
                 <button
                     type="button"
-                    class="btn btn-default restaurant-menu-tab<?= Till_layout::is_addon_category($category_name, $config) ? ' restaurant-menu-tab-addon' : '' ?>"
+                    class="btn btn-default restaurant-menu-tab<?= $is_addon_category ? ' restaurant-menu-tab-addon' : '' ?><?= isset($section_colours[$category_name]) ? ' restaurant-colour-' . $section_colours[$category_name] : '' ?>"
                     role="tab"
                     id="restaurant-menu-tab-<?= $category_index ?>"
                     aria-controls="restaurant-menu-category-<?= $category_index ?>"
@@ -42,8 +44,9 @@ $restaurant_categories = Till_layout::order_categories($restaurant_categories, $
 
         <?php $category_index = 0; ?>
             <?php foreach ($restaurant_categories as $category_name => $category_items) { ?>
+                <?php $is_addon_category = Till_layout::is_addon_category($category_name, $config); ?>
                 <section
-                    class="restaurant-menu-category<?= Till_layout::is_addon_category($category_name, $config) ? ' restaurant-menu-category-addon' : '' ?>"
+                    class="restaurant-menu-category<?= $is_addon_category ? ' restaurant-menu-category-addon' : '' ?><?= isset($section_colours[$category_name]) ? ' restaurant-colour-' . $section_colours[$category_name] : '' ?>"
                 role="tabpanel"
                 id="restaurant-menu-category-<?= $category_index ?>"
                 aria-labelledby="restaurant-menu-tab-<?= $category_index ?>"

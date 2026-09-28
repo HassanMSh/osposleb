@@ -89,7 +89,7 @@ git pull --ff-only origin develop
 
 ### Restaurant till setup
 
-In Settings > General, set Till layout to Restaurant and save.
+In Settings > General, set Till layout to Restaurant and save. The restaurant till click sound is on by default; clear Click sound on the restaurant till to turn it off.
 Create each menu choice as a standard item on the Items page and give it a category.
 Set each restaurant item's Tax mode to No TVA and choose Non-stock.
 Tap a main item in the cart to choose where new add-ons go.
@@ -109,6 +109,7 @@ Select a section, then tap an item.
 The chosen section stays open while the sale has items, and the menu goes back to the first section when the bill is empty, for example after a sale is completed, cancelled, or suspended.
 The Add-ons section appears last unless it is moved under Section order, and add-on items have dashed borders.
 On the three-column layout, the order lines and the bill details scroll on their own, and the Amount Tendered box and the Complete button stay at the bottom of the screen.
+Restaurant section tabs and their items use matching colours; add-on items keep their white dashed style.
 The items column scrolls up and down only, never sideways; it shows two items per row on screens 992 to 1199 pixels wide and three on wider screens.
 On both the shop and restaurant tills, empty "No description" lines are not shown in the cart; items that allow or have a description still show it and it can be edited.
 After each restaurant sale, the printer prints the customer receipt and then the kitchen ticket.

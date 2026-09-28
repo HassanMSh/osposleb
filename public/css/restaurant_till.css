@@ -271,6 +271,13 @@
     min-height: 48px;
 }
 
+/* Links styled as buttons, such as Daily Sales, do not centre their text in the taller height like real buttons do. */
+.till-restaurant a.btn {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+}
+
 .till-restaurant #register a[href*="/deleteItem/"],
 .till-restaurant #register a[href^="javascript:"] {
     align-items: center;

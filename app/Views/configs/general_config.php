@@ -102,6 +102,18 @@ use App\Libraries\Till_layout;
             </div>
 
             <div class="form-group form-group-sm">
+                <?= form_label(lang('Config.till_click_sound'), 'till_click_sound', ['class' => 'control-label col-xs-2']) ?>
+                <div class="col-xs-1">
+                    <?= form_checkbox([
+                        'name'    => 'till_click_sound',
+                        'id'      => 'till_click_sound',
+                        'value'   => 1,
+                        'checked' => Till_layout::click_sound_enabled($config),
+                    ]) ?>
+                </div>
+            </div>
+
+            <div class="form-group form-group-sm">
                 <?= form_label(lang('Config.till_addon_category'), 'till_addon_category', ['class' => 'control-label col-xs-2']) ?>
                 <div class="col-sm-10">
                     <?= form_input([

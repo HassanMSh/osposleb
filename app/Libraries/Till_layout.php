@@ -21,6 +21,18 @@ final class Till_layout
     }
 
     /**
+     * Returns whether restaurant till click sound is enabled, defaulting missing settings to enabled.
+     */
+    public static function click_sound_enabled(array $config): bool
+    {
+        if (! array_key_exists('till_click_sound', $config)) {
+            return true;
+        }
+
+        return in_array($config['till_click_sound'], [true, 1, '1'], true);
+    }
+
+    /**
      * Checks whether an item belongs to the configured add-on category in restaurant mode.
      */
     public static function is_addon_category(?string $item_category, array $config): bool
@@ -52,6 +64,26 @@ final class Till_layout
         }
 
         return self::category_names_match((string) $item_category, $kitchen_stock_category);
+    }
+
+    /**
+     * Assigns palette numbers in display order, skipping add-on sections and wrapping after eight colours.
+     */
+    public static function section_colour_numbers(array $category_names, array $config): array
+    {
+        $section_colours = [];
+        $colour_position = 0;
+
+        foreach ($category_names as $category_name) {
+            if (self::is_addon_category((string) $category_name, $config)) {
+                continue;
+            }
+
+            $section_colours[$category_name] = ($colour_position % 8) + 1;
+            $colour_position++;
+        }
+
+        return $section_colours;
     }
 
     /**

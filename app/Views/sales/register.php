@@ -37,7 +37,8 @@
 use App\Libraries\Till_layout;
 use App\Models\Employee;
 
-$restaurant_till = Till_layout::get_layout($config) === 'restaurant';
+$restaurant_till     = Till_layout::get_layout($config) === 'restaurant';
+$click_sound_enabled = $restaurant_till && Till_layout::click_sound_enabled($config);
 ?>
 
 <?= view('partial/header') ?>
@@ -56,7 +57,7 @@ if (isset($success)) {
 }
 ?>
 
-<?= $restaurant_till ? '<div class="restaurant-till-layout">' : '' ?><div id="register_wrapper"<?= $restaurant_till ? ' class="till-restaurant"' : '' ?>>
+<?= $restaurant_till ? '<div class="restaurant-till-layout">' : '' ?><div id="register_wrapper"<?= $restaurant_till ? ' class="till-restaurant"' . ($click_sound_enabled ? ' data-click-sound="1"' : '') : '' ?>>
 
     <!-- Top register controls -->
     <?= form_open("{$controller_name}/changeMode", ['id' => 'mode_form', 'class' => 'form-horizontal panel panel-default']) ?>
@@ -366,7 +367,7 @@ if ($restaurant_till) {
                 </tr>
             </table>
 
-            <table class="sales_table_100" id="change_helper">
+            <table class="sales_table_100" id="change_helper"<?= $restaurant_till ? ' data-close-label="' . esc(lang('Sales.change_helper_close'), 'attr') . '"' : '' ?>>
                 <tr>
                     <th colspan="2"><?= lang('Sales.change_helper') ?></th>
                 </tr>
@@ -713,7 +714,7 @@ if ($restaurant_till) {
         /**
          * F12 stops Chrome DevTools opening and, in sale or return mode, clicks the Complete button that is shown (the one-step Complete while cash is still due).
          * It does nothing when the cart is empty (neither button is rendered), while a scan is still being added or typed,
-         * or while a dialog is open. If a cart field holds an unsaved edit, it saves that edit instead and the next F12 continues.
+         * or while a Bootstrap modal is open. The restaurant change-helper panel stays open while F12 completes the sale. If a cart field holds an unsaved edit, it saves that edit instead and the next F12 continues.
          * It clicks at most once per page load so a double press cannot send two requests.
          */
         const handleF12Shortcut = function(event) {

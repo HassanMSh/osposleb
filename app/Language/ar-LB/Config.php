@@ -320,6 +320,7 @@ return [
     'till_layout'                               => 'نمط نقطة البيع',
     'till_layout_restaurant'                    => 'مطعم',
     'till_layout_shop'                          => 'متجر',
+    'till_click_sound'                          => 'صوت النقر على شاشة المطعم',
     'till_addon_category'                       => 'فئة الإضافات',
     'till_addon_category_help'                  => 'تُطبع الأصناف في هذه الفئة بمسافة بادئة تحت الصنف الذي يسبقها',
     'till_kitchen_stock_category'               => 'فئة مخزون المطبخ',

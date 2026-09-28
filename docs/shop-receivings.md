@@ -80,7 +80,7 @@ Tested on 2026-09-29 at 90,000 LL per dollar with a Pepsi 330ml item that starte
 - Receivings report: 900,000 + 1,350,000 = 2,250,000 LL ($25) paid for Pepsi.
 - Items summary: 15 sold, subtotal $35.00, wholesale $18.30, profit $16.70.
 - Inventory summary: 5 left at $1.33, which is $6.65.
-- The average price is cut to 2 decimals, so $18.30 + $6.65 is $24.95 instead of $25.
+- The average price is rounded to 2 decimals ($1.3333 is saved as $1.33), so $18.30 + $6.65 is $24.95 instead of $25.
 
 ## Limits
 

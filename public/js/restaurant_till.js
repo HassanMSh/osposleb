@@ -78,50 +78,6 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch {}
     });
 
-    /** Schedules one save with the selected discount mode and keeps any pending value reset. */
-    const submitDiscountType = (discountToggle, resetDiscount = false) => {
-        if (discountToggle.dataset.discountSubmitTimer !== undefined) {
-            if (resetDiscount) {
-                discountToggle.dataset.discountSubmitReset = "1";
-            }
-            return;
-        }
-
-        discountToggle.dataset.discountSubmitReset = resetDiscount ? "1" : "0";
-        const submitTimer = window.setTimeout(() => {
-            delete discountToggle.dataset.discountSubmitTimer;
-            const resetValue = discountToggle.dataset.discountSubmitReset === "1";
-            delete discountToggle.dataset.discountSubmitReset;
-            const cartForm = document.getElementById("cart_" + discountToggle.dataset.line);
-            if (!cartForm) {
-                return;
-            }
-
-            let discountType = cartForm.querySelector('input[name="discount_type"]');
-            if (!discountType) {
-                discountType = register.querySelector(`input[name="discount_type"][form="${cartForm.id}"]`);
-            }
-            if (!discountType) {
-                discountType = document.createElement("input");
-                discountType.type = "hidden";
-                discountType.name = "discount_type";
-                cartForm.append(discountType);
-            }
-            discountType.value = discountToggle.checked ? "1" : "0";
-            if (resetValue) {
-                let discountInput = cartForm.querySelector('input[name="discount"]');
-                if (!discountInput) {
-                    discountInput = register.querySelector(`input[name="discount"][form="${cartForm.id}"]`);
-                }
-                if (discountInput) {
-                    discountInput.value = "0";
-                }
-            }
-            cartForm.requestSubmit();
-        }, 0);
-        discountToggle.dataset.discountSubmitTimer = String(submitTimer);
-    };
-
     let lineStepSaveStarted = false;
 
     register.addEventListener("pointerdown", (event) => {
@@ -155,44 +111,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 button.disabled = true;
             });
 
-            const discountToggle = stepButton.closest("tr")?.querySelector('input[name="discount_toggle"]');
-            const discountSavePending = discountToggle?.dataset.discountSubmitTimer !== undefined;
-            if (discountToggle && (stepTarget === "discount" || discountSavePending)) {
-                submitDiscountType(discountToggle);
-            } else {
-                cartForm.requestSubmit();
-            }
-            return;
-        }
-
-        const toggle = event.target.closest(".toggle");
-        if (!toggle || !register.contains(toggle)) {
-            return;
-        }
-
-        const discountToggle = toggle.querySelector('input[name="discount_toggle"]');
-        if (discountToggle) {
-            submitDiscountType(discountToggle, true);
+            cartForm.requestSubmit();
         }
     });
 
     register.addEventListener("change", (event) => {
         const discountInput = event.target.closest('input[name="discount"]');
         if (discountInput) {
-            const cartForm = document.getElementById(discountInput.getAttribute("form"));
-            const discountToggle = cartForm?.querySelector('input[name="discount_toggle"]')
-                || (cartForm ? register.querySelector(`input[name="discount_toggle"][form="${cartForm.id}"]`) : null);
-            if (discountToggle) {
-                submitDiscountType(discountToggle);
-            } else if (cartForm) {
-                cartForm.requestSubmit();
-            }
-            return;
-        }
-
-        const discountToggle = event.target.closest('input[name="discount_toggle"]');
-        if (discountToggle) {
-            submitDiscountType(discountToggle, true);
+            document.getElementById(discountInput.getAttribute("form"))?.requestSubmit();
         }
     });
 });

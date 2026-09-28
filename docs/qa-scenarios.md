@@ -158,8 +158,8 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-02 | Taps Burger, Cola, Burger. | Three lines in that order; the second Burger is not merged into the first. |
 | REST-03 | Taps Burger, No onion, Extra cheese, Burger, Cola. | The two add-ons show under the first Burger with a `+`; the total is $23.00 and 2,059,000 LL. |
 | REST-04 | Taps Burger twice in a row. | One line with quantity 2. |
-| REST-05 | Gives one line a percent discount, then another line a fixed discount in LL. | Each line total drops by its discount and the sale total matches the sum of the lines. |
-| REST-06 | Adds a comment and completes REST-03 with cash. | The receipt prints, then the kitchen ticket on a new page: sale number, date and time, lines in order with add-ons indented, the comment, and no prices. |
+| REST-05 | Gives one line a 10% discount, then another line 5% with the + button. | There is no % or LL switch. Each line total drops by its discount and the sale total matches the sum of the lines. |
+| REST-06 | Completes REST-03 with cash. | The receipt prints, then the kitchen ticket on a new page: sale number, date and time, lines in order with add-ons indented, and no prices. The Comments box is hidden on the restaurant till (#201), so the ticket has no comment. |
 | REST-07 | Reprints the sale from the receipt page, then from the sales list. | Both the receipt and the kitchen ticket print again, in that order. |
 | REST-08 | Checks the receipt. | No zero TVA line shows. |
 | REST-09 | Returns the sale in Return mode, and separately suspends a sale. | Neither prints a kitchen ticket. |
@@ -170,7 +170,8 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-14 | Continues REST-13: deletes the Burger line. | Extra cheese is deleted with it; Cola stays and becomes the chosen line. |
 | REST-15 | Admin lists restaurant section names in Settings > General, saves, and opens the restaurant till. | Listed sections appear in that order, unlisted sections follow in A to Z order, and the add-on section stays last unless it is listed higher up, in which case it takes its listed place. When the add-on section is on the last line, a new section appears just before it. |
 | REST-16 | With a third section and item set up, opens an empty till, taps section 3, and adds an item; repeats for separate complete, cancel, and suspend cases, then starts a sale and resumes the suspended one. | After each item reload, section 3 stays open with its tab marked `aria-selected="true"` and `active`, and other panels hidden; empty and resumed sales open on the first section. |
-| REST-17 | Admin sets Kitchen stock category to `Kitchen stock`; cashier opens the restaurant till, searches, types, and scans an ingredient, then repeats with Shop layout and with the setting empty. | Restaurant menu and search hide the ingredient, typed and scanned adds fail, and the Shop layout and empty-setting restaurant layout still show it. |
+| REST-17 | Opens the till and taps Burger and Cola. | The bill area shows only Total to pay ($12.00) and its pound amount. The item count, Subtotal, TVA, Payments Total, Amount Due, Amount Due in pounds, and the Comments box are hidden. On the shop till all of these still show. |
+| REST-18 | Admin sets Kitchen stock category to `Kitchen stock`; cashier opens the restaurant till, searches, types, and scans an ingredient, then repeats with Shop layout and with the setting empty. | Restaurant menu and search hide the ingredient, typed and scanned adds fail, and the Shop layout and empty-setting restaurant layout still show it. |
 
 ## Receivings and kitchen stock
 

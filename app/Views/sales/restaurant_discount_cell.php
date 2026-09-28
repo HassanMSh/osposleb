@@ -1,5 +1,8 @@
 <?php
 /**
+ * Restaurant discount cell. Cashiers enter a percent discount with − and + steps of 5%; there is no switch to an LL amount.
+ * A line that already carries a fixed discount (for example from a customer's discount settings) keeps it and shows it in LL without steps.
+ *
  * @var array      $config
  * @var array      $item
  * @var int|string $line
@@ -45,20 +48,5 @@ $discount_plus  = min(100, $discount + 5);
                 aria-label="<?= esc(lang('Sales.discount_increase_step')) ?>"
                 title="<?= esc(lang('Sales.discount_increase_step')) ?>"<?= $discount >= 100 ? ' disabled' : '' ?>>+</button>
         <?php } ?>
-        <span class="input-group-btn">
-            <?= form_checkbox([
-                'id'           => "discount_toggle_{$line}",
-                'name'         => 'discount_toggle',
-                'value'        => 1,
-                'data-toggle'  => 'toggle',
-                'data-size'    => 'small',
-                'data-onstyle' => 'success',
-                'data-on'      => '<b>LL</b>',
-                'data-off'     => '<b>%</b>',
-                'data-line'    => $line,
-                'form'         => "cart_{$line}",
-                'checked'      => (int) $item['discount_type'] === 1,
-            ]) ?>
-        </span>
     </div>
 </td>

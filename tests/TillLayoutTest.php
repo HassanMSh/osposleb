@@ -32,6 +32,48 @@ final class TillLayoutTest extends CIUnitTestCase
     }
 
     /**
+     * Enables restaurant till click sound when no saved setting exists.
+     */
+    public function testClickSoundDefaultsToEnabled(): void
+    {
+        $this->assertTrue(Till_layout::click_sound_enabled([]));
+        $this->assertTrue(Till_layout::click_sound_enabled(['till_click_sound' => true]));
+        $this->assertTrue(Till_layout::click_sound_enabled(['till_click_sound' => 1]));
+        $this->assertTrue(Till_layout::click_sound_enabled(['till_click_sound' => '1']));
+    }
+
+    /**
+     * Disables click sound for false or empty saved setting values.
+     */
+    public function testClickSoundFollowsSavedOffValues(): void
+    {
+        foreach ([false, 0, '0', ''] as $value) {
+            $this->assertFalse(Till_layout::click_sound_enabled(['till_click_sound' => $value]));
+        }
+    }
+
+    /**
+     * Assigns colours in display order, skips the add-on section, and wraps after the eighth colour.
+     */
+    public function testSectionColoursSkipAddonsAndWrapInDisplayOrder(): void
+    {
+        $categories = ['Add-ons', 'Drinks', 'Food', 'Dessert', 'Sides', 'Sauces', 'Coffee', 'Tea', 'Bakery', 'Other'];
+        $config     = ['till_layout' => 'restaurant', 'till_addon_category' => 'Add-ons'];
+
+        $this->assertSame([
+            'Drinks'  => 1,
+            'Food'    => 2,
+            'Dessert' => 3,
+            'Sides'   => 4,
+            'Sauces'  => 5,
+            'Coffee'  => 6,
+            'Tea'     => 7,
+            'Bakery'  => 8,
+            'Other'   => 1,
+        ], Till_layout::section_colour_numbers($categories, $config));
+    }
+
+    /**
      * Normalizes an unsupported value before the settings model saves it.
      */
     public function testSavingNormalizesUnsupportedValuesToShop(): void

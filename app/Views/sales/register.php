@@ -37,7 +37,8 @@
 use App\Libraries\Till_layout;
 use App\Models\Employee;
 
-$restaurant_till = Till_layout::get_layout($config) === 'restaurant';
+$restaurant_till     = Till_layout::get_layout($config) === 'restaurant';
+$click_sound_enabled = $restaurant_till && Till_layout::click_sound_enabled($config);
 ?>
 
 <?= view('partial/header') ?>
@@ -56,7 +57,7 @@ if (isset($success)) {
 }
 ?>
 
-<?= $restaurant_till ? '<div class="restaurant-till-layout">' : '' ?><div id="register_wrapper"<?= $restaurant_till ? ' class="till-restaurant"' : '' ?>>
+<?= $restaurant_till ? '<div class="restaurant-till-layout">' : '' ?><div id="register_wrapper"<?= $restaurant_till ? ' class="till-restaurant"' . ($click_sound_enabled ? ' data-click-sound="1"' : '') : '' ?>>
 
     <!-- Top register controls -->
     <?= form_open("{$controller_name}/changeMode", ['id' => 'mode_form', 'class' => 'form-horizontal panel panel-default']) ?>

@@ -1,4 +1,4 @@
-/** Separates payment controls while keeping payment history in the bill's original order. */
+/** Handles restaurant menu tabs, click feedback, and payment controls. */
 document.addEventListener("DOMContentLoaded", () => {
     const register = document.querySelector(".till-restaurant");
     if (!register) {
@@ -6,6 +6,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const restaurantMenuCategoryKey = "restaurantMenuCategory";
+    const clickSoundArea = register.closest(".restaurant-till-layout") || register;
+    let clickAudioContext = null;
+
+    /** Plays the short restaurant till click, and stays silent when the browser cannot play sound. */
+    function playClickSound() {
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) {
+                return;
+            }
+
+            clickAudioContext ??= new AudioContextClass();
+            if (clickAudioContext.state === "suspended") {
+                clickAudioContext.resume().catch(() => {});
+            }
+
+            const startTime = clickAudioContext.currentTime;
+            const oscillator = clickAudioContext.createOscillator();
+            const gain = clickAudioContext.createGain();
+            oscillator.type = "square";
+            oscillator.frequency.setValueAtTime(2000, startTime);
+            gain.gain.setValueAtTime(0.25, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.015);
+            oscillator.connect(gain);
+            gain.connect(clickAudioContext.destination);
+            oscillator.start(startTime);
+            oscillator.stop(startTime + 0.015);
+        } catch {}
+    }
 
     /** Selects a restaurant menu tab and shows its matching category. */
     function selectRestaurantCategory(selectedCategory) {
@@ -80,7 +109,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let lineStepSaveStarted = false;
 
-    register.addEventListener("pointerdown", (event) => {
+    clickSoundArea.addEventListener("pointerdown", (event) => {
+        if (register.dataset.clickSound === "1") {
+            const clickTarget = event.target.closest("button, a, [role='button'], input[type='button'], input[type='submit'], input[type='reset'], .btn");
+            if (clickTarget && clickSoundArea.contains(clickTarget)) {
+                playClickSound();
+            }
+        }
+
         const stepButton = event.target.closest(".restaurant-line-step");
         if (stepButton && register.contains(stepButton)) {
             event.preventDefault();

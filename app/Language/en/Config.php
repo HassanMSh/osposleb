@@ -320,6 +320,7 @@ return [
     'till_layout'                               => 'Till layout',
     'till_layout_restaurant'                    => 'Restaurant',
     'till_layout_shop'                          => 'Shop',
+    'till_click_sound'                          => 'Click sound on the restaurant till',
     'till_addon_category'                       => 'Add-on category',
     'till_addon_category_help'                  => 'Items in this category print indented under the item before them',
     'till_category_order'                       => 'Section order',

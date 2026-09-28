@@ -1743,7 +1743,7 @@ class Reports extends Secure_Controller
     }
 
     /**
-     * Returns detailed receivings row for given receiving_id. Used in app/Views/reports/tabular_details.php
+     * Returns a detailed receiving row, including its saved pound total, for the report table.
      *
      * @noinspection PhpUnused
      */
@@ -1762,6 +1762,7 @@ class Reports extends Secure_Controller
             'employee_name'  => $report_data['employee_name'],
             'supplier_name'  => $report_data['supplier_name'],
             'total'          => to_currency($report_data['total']),
+            'lbp_total'      => $report_data['lbp_total'] === null ? '' : format_lbp($report_data['lbp_total']),
             'payment_type'   => $report_data['payment_type'],
             'reference'      => $report_data['reference'],
             'comment'        => $report_data['comment'],
@@ -1780,6 +1781,9 @@ class Reports extends Secure_Controller
         echo json_encode([$receiving_id => $summary_data]);
     }
 
+    /**
+     * Shows receiving totals in dollars and, for new rows, saved Lebanese pounds.
+     */
     public function detailed_receivings(string $start_date, string $end_date, string $receiving_type, string $location_id = 'all'): void
     {
         $this->clearCache();
@@ -1809,6 +1813,7 @@ class Reports extends Secure_Controller
                 'employee_name'  => $row['employee_name'],
                 'supplier_name'  => $row['supplier_name'],
                 'total'          => to_currency($row['total']),
+                'lbp_total'      => $row['lbp_total'] === null ? '' : format_lbp($row['lbp_total']),
                 'profit'         => to_currency($row['profit']),
                 'payment_type'   => $row['payment_type'],
                 'reference'      => $row['reference'],

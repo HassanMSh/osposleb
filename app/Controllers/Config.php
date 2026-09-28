@@ -367,7 +367,7 @@ class Config extends Secure_Controller
     }
 
     /**
-     * Saves general configuration, including till layout, add-on category, and restaurant section order.
+     * Saves general configuration, including till layout, add-on and kitchen stock categories, and restaurant section order.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -403,6 +403,7 @@ class Config extends Secure_Controller
             'category_dropdown'                 => $this->request->getPost('category_dropdown') !== null,
             'till_layout'                       => Till_layout::normalize($this->request->getPost('till_layout')),
             'till_addon_category'               => trim((string) $this->request->getPost('till_addon_category')),
+            'till_kitchen_stock_category'       => trim((string) $this->request->getPost('till_kitchen_stock_category')),
             'till_category_order'               => Till_layout::category_order_to_save(
                 (string) $this->request->getPost('till_category_order'),
                 $this->category_order_prefill(),

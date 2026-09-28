@@ -38,6 +38,23 @@ final class Till_layout
     }
 
     /**
+     * Checks whether an item belongs to the restaurant-only kitchen stock category.
+     */
+    public static function is_kitchen_stock_category(?string $item_category, array $config): bool
+    {
+        if (self::get_layout($config) !== 'restaurant') {
+            return false;
+        }
+
+        $kitchen_stock_category = trim((string) ($config['till_kitchen_stock_category'] ?? ''));
+        if ($kitchen_stock_category === '') {
+            return false;
+        }
+
+        return self::category_names_match((string) $item_category, $kitchen_stock_category);
+    }
+
+    /**
      * Orders saved restaurant sections first, including the add-on section when it is listed.
      * Other sections keep their input order after the listed ones, but stay before the add-on section
      * when it is the last listed line. An unlisted add-on section goes last.

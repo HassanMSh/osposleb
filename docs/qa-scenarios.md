@@ -170,6 +170,16 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-14 | Continues REST-13: deletes the Burger line. | Extra cheese is deleted with it; Cola stays and becomes the chosen line. |
 | REST-15 | Admin lists restaurant section names in Settings > General, saves, and opens the restaurant till. | Listed sections appear in that order, unlisted sections follow in A to Z order, and the add-on section stays last unless it is listed higher up, in which case it takes its listed place. When the add-on section is on the last line, a new section appears just before it. |
 | REST-16 | With a third section and item set up, opens an empty till, taps section 3, and adds an item; repeats for separate complete, cancel, and suspend cases, then starts a sale and resumes the suspended one. | After each item reload, section 3 stays open with its tab marked `aria-selected="true"` and `active`, and other panels hidden; empty and resumed sales open on the first section. |
+| REST-17 | Admin sets Kitchen stock category to `Kitchen stock`; cashier opens the restaurant till, searches, types, and scans an ingredient, then repeats with Shop layout and with the setting empty. | Restaurant menu and search hide the ingredient, typed and scanned adds fail, and the Shop layout and empty-setting restaurant layout still show it. |
+
+## Receivings and kitchen stock
+
+| Scenario | Actor | Action | Expected |
+| --- | --- | --- | --- |
+| RECV-01 | Admin | Adds 5 kg of `Chicken (kg)` at 85,000 LL per kg and completes the purchase at rate 89,500. | Stock rises by 5; the receiving stores a $4.75 total, a 425,000 LL total, and the 89,500 rate; the receipt and Reports > Receivings show both totals. |
+| RECV-02 | Admin and cashier | Unticks Receivings or a location for the cashier, then ticks both and checks the cashier menu and access; creates a new cashier. | Unticked access is refused; ticked access shows the Receivings button and allows a purchase; a new cashier has no Receivings grant. |
+| RECV-03 | Admin | Enters a negative LL unit price and tries to edit and complete the receiving. | The edit and completion are refused, and no receiving, stock, or average-cost change is saved. |
+| RECV-04 | Admin | Enters a zero quantity or a quantity below 0.0005, then tries to complete the receiving. | The edit and completion are refused; valid negative return quantities remain allowed. |
 
 ## Speed and repetitive work
 

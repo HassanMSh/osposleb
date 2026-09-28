@@ -207,5 +207,6 @@ class Autoload extends AutoloadConfig
         'tabular',
         'locale',
         'security',
+        'cart_validation',
     ];
 }

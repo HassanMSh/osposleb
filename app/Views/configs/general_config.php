@@ -115,6 +115,19 @@ use App\Libraries\Till_layout;
             </div>
 
             <div class="form-group form-group-sm">
+                <?= form_label(lang('Config.till_kitchen_stock_category'), 'till_kitchen_stock_category', ['class' => 'control-label col-xs-2']) ?>
+                <div class="col-sm-10">
+                    <?= form_input([
+                        'name'  => 'till_kitchen_stock_category',
+                        'id'    => 'till_kitchen_stock_category',
+                        'class' => 'form-control input-sm',
+                        'value' => $config['till_kitchen_stock_category'] ?? '',
+                    ]) ?>
+                    <p class="help-block"><?= lang('Config.till_kitchen_stock_category_help') ?></p>
+                </div>
+            </div>
+
+            <div class="form-group form-group-sm">
                 <?= form_label(lang('Config.till_category_order'), 'till_category_order', ['class' => 'control-label col-xs-2']) ?>
                 <div class="col-sm-10">
                     <?= form_textarea([

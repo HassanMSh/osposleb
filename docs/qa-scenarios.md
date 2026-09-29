@@ -173,6 +173,16 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | REST-17 | Opens the till and taps Burger and Cola. | The bill area shows only Total to pay ($12.00) and its pound amount. The item count, Subtotal, TVA, Payments Total, Amount Due, Amount Due in pounds, and the Comments box are hidden. On the shop till all of these still show. |
 | REST-18 | Opens the restaurant till in English and Arabic, uses section tabs, item buttons, bill controls, and payment buttons, then clears Click sound on the restaurant till and saves. | Each normal section and its items share a colour; colours repeat after eight sections, add-on items stay white and dashed, and the selected tab keeps a clear outline. Buttons make a short click while the setting is on and stay silent after it is cleared. The shop till has no section colours or click sound. |
 | REST-19 | At 1366x768 and 1920x1080, tap two items, open the helper, compare 50 dollars and a pound amount with the shop till, close it by Escape, its close button and an outside click, then repeat after adding an item and completing with F12 and Enter while open and closed. | The restaurant has no helper under Total to pay; its calculator button stays beside Complete without wrapping, opens above the page with the amount field focused and updated change for the current total, and every close leaves the sale unchanged. After an item reload the helper uses the new total, and F12 and Enter still complete the sale. |
+| REST-20 | Admin sets Kitchen stock category to `Kitchen stock`; cashier opens the restaurant till, searches, types, and scans an ingredient, then repeats with Shop layout and with the setting empty. | Restaurant menu and search hide the ingredient, typed and scanned adds fail, and the Shop layout and empty-setting restaurant layout still show it. |
+
+## Receivings and kitchen stock
+
+| Scenario | Actor | Action | Expected |
+| --- | --- | --- | --- |
+| RECV-01 | Admin | Adds 5 kg of `Chicken (kg)` at 85,000 LL per kg and completes the purchase at rate 89,500. | Stock rises by 5; the receiving stores a $4.75 total, a 425,000 LL total, and the 89,500 rate; the receipt and Reports > Receivings show both totals. |
+| RECV-02 | Admin and cashier | Unticks Receivings or a location for the cashier, then ticks both and checks the cashier menu and access; creates a new cashier. | Unticked access is refused; ticked access shows the Receivings button and allows a purchase; a new cashier has no Receivings grant. |
+| RECV-03 | Admin | Enters a negative LL unit price and tries to edit and complete the receiving. | The edit and completion are refused, and no receiving, stock, or average-cost change is saved. |
+| RECV-04 | Admin | Enters a zero quantity or a quantity below 0.0005, then tries to complete the receiving. | The edit and completion are refused; valid negative return quantities remain allowed. |
 
 ## Speed and repetitive work
 

@@ -43,7 +43,6 @@ final class ShopLockdownTest extends CIUnitTestCase
             'customers',
             'item_kits',
             'suppliers',
-            'receivings',
             'giftcards',
             'messages',
             'expenses',
@@ -64,7 +63,6 @@ final class ShopLockdownTest extends CIUnitTestCase
             'customers',
             'item_kits',
             'suppliers',
-            'receivings',
             'giftcards',
             'messages',
             'expenses',
@@ -97,6 +95,10 @@ final class ShopLockdownTest extends CIUnitTestCase
         $request = new IncomingRequest(new App(), new URI('/sales/index'), null, new UserAgent());
 
         $this->assertNull((new ShopLockdownFilter())->before($request));
+
+        $receivings_request = new IncomingRequest(new App(), new URI('/receivings/index'), null, new UserAgent());
+
+        $this->assertNull((new ShopLockdownFilter())->before($receivings_request));
     }
 
     /**

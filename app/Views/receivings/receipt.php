@@ -1,18 +1,21 @@
 <?php
 /**
- * @var bool $print_after_sale
- * @var string $transaction_time
- * @var int $receiving_id
- * @var string $employee
- * @var array $cart
- * @var bool $show_stock_locations
- * @var float $total
- * @var string $mode
- * @var string $payment_type
- * @var float $amount_tendered
- * @var float $amount_change
- * @var string $barcode
- * @var array $config
+ * @var bool       $print_after_sale
+ * @var string     $transaction_time
+ * @var int        $receiving_id
+ * @var string     $employee
+ * @var array      $cart
+ * @var bool       $show_stock_locations
+ * @var float      $total
+ * @var string     $mode
+ * @var string     $payment_type
+ * @var float      $amount_tendered
+ * @var float      $amount_change
+ * @var string     $barcode
+ * @var array      $config
+ * @var array      $lbp_totals
+ * @var int|null   $lbp_total
+ * @var float|null $lbp_rate
  */
 ?>
 
@@ -21,6 +24,7 @@
 <?php
 if (isset($error_message)) {
     echo '<div class="alert alert-dismissible alert-danger">' . esc($error_message) . '</div>';
+
     exit;
 }
 
@@ -30,7 +34,7 @@ echo view('partial/print_receipt', ['print_after_sale', $print_after_sale, 'sele
     <a href="javascript:printdoc();">
         <div class="btn btn-info btn-sm" id="show_print_button"><?= '<span class="glyphicon glyphicon-print">&nbsp;</span>' . lang('Common.print') ?></div>
     </a>
-    <?= anchor("receivings", '<span class="glyphicon glyphicon-save">&nbsp;</span>' . lang('Receivings.register'), ['class' => 'btn btn-info btn-sm', 'id' => 'show_sales_button']) ?>
+    <?= anchor('receivings', '<span class="glyphicon glyphicon-save">&nbsp;</span>' . lang('Receivings.register'), ['class' => 'btn btn-info btn-sm', 'id' => 'show_sales_button']) ?>
 </div>
 
 <div id="receipt_wrapper">
@@ -52,14 +56,11 @@ echo view('partial/print_receipt', ['print_after_sale', $print_after_sale, 'sele
     </div>
 
     <div id="receipt_general_info">
-        <?php if (isset($supplier)) { ?>
-            <div id="customer"><?= lang('Suppliers.supplier') . esc(": $supplier") ?></div>
+        <div id="sale_id"><?= lang('Receivings.id') . ": {$receiving_id}" ?></div>
+        <?php if (! empty($reference)) { ?>
+            <div id="reference"><?= lang('Receivings.reference') . esc(": {$reference}") ?></div>
         <?php } ?>
-        <div id="sale_id"><?= lang('Receivings.id') . ": $receiving_id" ?></div>
-        <?php if (!empty($reference)) { ?>
-            <div id="reference"><?= lang('Receivings.reference') . esc(": $reference") ?></div>
-        <?php } ?>
-        <div id="employee"><?= lang('Employees.employee') . esc(": $employee") ?></div>
+        <div id="employee"><?= lang('Employees.employee') . esc(": {$employee}") ?></div>
     </div>
 
     <table id="receipt_items">
@@ -73,9 +74,15 @@ echo view('partial/print_receipt', ['print_after_sale', $print_after_sale, 'sele
         <?php foreach (array_reverse($cart, true) as $line => $item) { ?>
             <tr>
                 <td><?= esc($item['name'] . ' ' . $item['attribute_values']) ?></td>
-                <td><?= to_currency($item['price']) ?></td>
+                <td>
+                    <?php if ($lbp_rate !== null) { ?><div dir="ltr"><?= esc(format_lbp($lbp_totals['lines'][$line]['price_lbp'] ?? 0)) ?></div><?php } ?>
+                    <small class="text-muted" dir="ltr"><?= to_currency($item['price']) ?></small>
+                </td>
                 <td><?= to_quantity_decimals($item['quantity']) . ' ' . ($show_stock_locations ? ' [' . esc($item['stock_name']) . ']' : '') ?>&nbsp;&nbsp;&nbsp;x <?= $item['receiving_quantity'] != 0 ? to_quantity_decimals($item['receiving_quantity']) : 1 ?></td>
-                <td><div class="total-value"><?= to_currency($item['total']) ?></div></td>
+                <td>
+                    <?php if ($lbp_rate !== null) { ?><div dir="ltr"><?= esc(format_lbp($lbp_totals['lines'][$line]['total_lbp'] ?? 0)) ?></div><?php } ?>
+                    <small class="text-muted" dir="ltr"><?= to_currency($item['total']) ?></small>
+                </td>
             </tr>
             <tr>
                 <td><?= esc($item['serialnumber']) ?></td>
@@ -83,7 +90,11 @@ echo view('partial/print_receipt', ['print_after_sale', $print_after_sale, 'sele
             <?php if ($item['discount'] > 0) { ?>
                 <tr>
                     <?php if ($item['discount_type'] == FIXED) { ?>
-                        <td colspan="3" class="discount"><?= to_currency($item['discount']) . ' ' . lang('Sales.discount') ?></td>
+                        <td colspan="3" class="discount">
+                            <?php if ($lbp_rate !== null) { ?><?= esc(format_lbp(round_lbp_to_thousand((float) $item['discount'] * (float) $lbp_rate))) . ' ' ?><?php } ?>
+                            <?= lang('Sales.discount') ?>
+                            <?php if ($lbp_rate !== null) { ?><small class="text-muted" dir="ltr"><?= to_currency($item['discount']) ?></small><?php } ?>
+                        </td>
                     <?php } elseif ($item['discount_type'] == PERCENT) { ?>
                         <td colspan="3" class="discount"><?= to_decimals($item['discount']) . ' ' . lang('Sales.discount_included') ?></td>
                     <?php } ?>
@@ -93,7 +104,8 @@ echo view('partial/print_receipt', ['print_after_sale', $print_after_sale, 'sele
         <tr>
             <td colspan="3" style="text-align: right; border-top: 2px solid #000000;"><?= lang('Sales.total') ?></td>
             <td style="border-top: 2px solid #000000;">
-                <div class="total-value"><?= to_currency($total) ?></div>
+                <?php if ($lbp_total !== null) { ?><div dir="ltr"><?= esc(format_lbp($lbp_total)) ?></div><?php } ?>
+                <small class="text-muted" dir="ltr"><?= to_currency($total) ?></small>
             </td>
         </tr>
         <?php if ($mode != 'requisition') { ?>

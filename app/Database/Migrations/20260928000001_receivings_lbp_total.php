@@ -4,27 +4,26 @@ namespace App\Database\Migrations;
 
 use CodeIgniter\Database\Migration;
 
-class Migration_sale_lbp_total extends Migration
+class Migration_receivings_lbp_total extends Migration
 {
     /**
-     * Add the rounded Lebanese pound total and the exchange rate saved with each completed sale.
-     * Existing sales keep NULL in both columns because their collected pound total is unknown.
+     * Add the Lebanese pound total and exchange rate saved with each new receiving.
      */
     public function up(): void
     {
         $this->db->resetDataCache();
         $columns = [];
 
-        if (! $this->db->fieldExists('lbp_total', 'sales')) {
+        if (! $this->db->fieldExists('lbp_total', 'receivings')) {
             $columns['lbp_total'] = [
                 'type'    => 'BIGINT',
                 'null'    => true,
                 'default' => null,
-                'after'   => 'sale_type',
+                'after'   => 'reference',
             ];
         }
 
-        if (! $this->db->fieldExists('lbp_exchange_rate', 'sales')) {
+        if (! $this->db->fieldExists('lbp_exchange_rate', 'receivings')) {
             $columns['lbp_exchange_rate'] = [
                 'type'       => 'DECIMAL',
                 'constraint' => '15,4',
@@ -35,21 +34,21 @@ class Migration_sale_lbp_total extends Migration
         }
 
         if ($columns !== []) {
-            $this->forge->addColumn('sales', $columns);
+            $this->forge->addColumn('receivings', $columns);
             $this->db->resetDataCache();
         }
     }
 
     /**
-     * Remove the saved Lebanese pound total and exchange rate from sales.
+     * Remove the saved Lebanese pound total and exchange rate from receivings.
      */
     public function down(): void
     {
         $this->db->resetDataCache();
 
         foreach (['lbp_exchange_rate', 'lbp_total'] as $column) {
-            if ($this->db->fieldExists($column, 'sales')) {
-                $this->forge->dropColumn('sales', $column);
+            if ($this->db->fieldExists($column, 'receivings')) {
+                $this->forge->dropColumn('receivings', $column);
                 $this->db->resetDataCache();
             }
         }

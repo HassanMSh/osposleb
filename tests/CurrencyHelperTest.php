@@ -125,6 +125,30 @@ final class CurrencyHelperTest extends CIUnitTestCase
     }
 
     /**
+     * Converts receiving LL prices with the sales helper and rounds line values like the till.
+     */
+    public function testReceivingLbpPriceConvertsToDollarUnitPriceAndRoundedLineTotal(): void
+    {
+        $price  = lbp_to_dollar_string('425000', 89_500);
+        $totals = get_receiving_lbp_totals([
+            1 => ['price' => $price, 'quantity' => 5, 'receiving_quantity' => 1, 'total' => '23.75'],
+        ], 89_500);
+
+        $this->assertSame('4.75', $price);
+        $this->assertSame(425_000, $totals['lines'][1]['price_lbp']);
+        $this->assertSame(2_125_000, $totals['lines'][1]['total_lbp']);
+        $this->assertSame(2_125_000, $totals['total']);
+
+        $screen_unit_price = lbp_to_dollar_string('85000', 89_500);
+        $screen_totals     = get_receiving_lbp_totals([
+            1 => ['price' => $screen_unit_price, 'quantity' => 5, 'receiving_quantity' => 1, 'total' => '4.75'],
+        ], 89_500);
+
+        $this->assertSame('0.95', $screen_unit_price);
+        $this->assertSame(425_000, $screen_totals['total']);
+    }
+
+    /**
      * Keeps a 10,000 LL fixed discount at $0.11 after thousand-pound display rounding.
      */
     public function testPostedPoundsPreserveAStoredPriceThatWouldDriftAtRate89500(): void

@@ -160,6 +160,42 @@ function complete_lbp_total(?array $lbp_row): ?int
 }
 
 /**
+ * Builds rounded Lebanese pound unit prices, line totals, and a receiving total.
+ *
+ * @param array            $cart Cart lines keyed by line id.
+ * @param float|int|string $rate Lebanese pounds per dollar.
+ *
+ * @return array{lines: array, total: int} Rounded pound values for the receiving.
+ */
+function get_receiving_lbp_totals(array $cart, float|int|string $rate): array
+{
+    $exchange_rate = is_numeric($rate) ? (float) $rate : 0.0;
+    $lines         = [];
+    $total         = 0;
+
+    foreach ($cart as $line => $item) {
+        $price              = is_numeric($item['price'] ?? null) ? (float) $item['price'] : 0.0;
+        $line_total         = is_numeric($item['total'] ?? null) ? (float) $item['total'] : 0.0;
+        $receiving_quantity = is_numeric($item['receiving_quantity'] ?? null) ? (float) $item['receiving_quantity'] : 0.0;
+        $quantity           = (float) ($item['quantity'] ?? 0) * ($receiving_quantity != 0 ? $receiving_quantity : 1.0);
+        $customer_unit_usd  = $quantity == 0.0 ? $price : $line_total / $quantity;
+        $price_lbp          = round_lbp_to_thousand($price * $exchange_rate);
+        $customer_unit_lbp  = round_lbp_to_thousand($customer_unit_usd * $exchange_rate);
+        $total_lbp          = $quantity == 0.0
+            ? 0
+            : (int) round($customer_unit_lbp * $quantity, 0, PHP_ROUND_HALF_UP);
+
+        $lines[$line] = [
+            'price_lbp' => $price_lbp,
+            'total_lbp' => $total_lbp,
+        ];
+        $total += $total_lbp;
+    }
+
+    return ['lines' => $lines, 'total' => $total];
+}
+
+/**
  * Builds the pound figures for a stored sale, such as a reprinted or emailed receipt.
  *
  * A sale saved with its pound total and exchange rate shows that total, and its line figures use the saved rate.

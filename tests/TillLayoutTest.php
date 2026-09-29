@@ -97,6 +97,29 @@ final class TillLayoutTest extends CIUnitTestCase
     }
 
     /**
+     * Hides kitchen stock categories only in restaurant mode and ignores blank settings.
+     */
+    public function testKitchenStockCategoryIsRestaurantOnlyAndCaseInsensitive(): void
+    {
+        $config = [
+            'till_layout'                 => 'restaurant',
+            'till_kitchen_stock_category' => ' Kitchen Stock ',
+        ];
+
+        $this->assertTrue(Till_layout::is_kitchen_stock_category('kitchen stock', $config));
+        $this->assertTrue(Till_layout::is_kitchen_stock_category(' KITCHEN STOCK ', $config));
+        $this->assertFalse(Till_layout::is_kitchen_stock_category('Ingredients', $config));
+        $this->assertFalse(Till_layout::is_kitchen_stock_category('Kitchen Stock', [
+            'till_layout'                 => 'shop',
+            'till_kitchen_stock_category' => 'Kitchen Stock',
+        ]));
+        $this->assertFalse(Till_layout::is_kitchen_stock_category('Kitchen Stock', [
+            'till_layout' => 'restaurant',
+        ]));
+        $this->assertFalse(Till_layout::is_kitchen_stock_category(null, $config));
+    }
+
+    /**
      * Does not mark lines as add-ons when the category setting is empty or the till uses Shop.
      */
     public function testAddonCategoryRequiresRestaurantLayoutAndASetting(): void

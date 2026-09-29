@@ -45,7 +45,7 @@ LL means Lebanese pounds. Screen names are given in English, with the Arabic lab
 4. For each line, enter the quantity and the LL price paid for one unit, not the price of the whole box.
 5. Example: a pack of 24 cans for 1,440,000 LL is quantity 24 at 60,000 LL each.
 6. Optional: type the supplier's invoice number in `Reference` (`رقم المرجع`) so the delivery can be found later.
-7. Check every line against the supplier's invoice. Very fast barcode scans can lose a line while the page reloads (issue #203).
+7. Check every line against the supplier's invoice. Scans are added in order. If you press Finish or change a receiving control while scans are still being added, that action runs after the scans finish and the cart updates. If an add fails or shows a warning while an action waits, check the cart and press that action again. If the cart line changes while an edit or delete waits, choose the line again from the current cart. If a reload notice appears, scan again any item it says may be missing.
 8. Press `Finish` (`إنهاء`).
 9. Stock goes up by the received quantities, and the wholesale price follows the cost price rule above.
 10. A negative price or a quantity of 0 is refused.

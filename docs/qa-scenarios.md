@@ -183,6 +183,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | RECV-02 | Admin and cashier | Unticks Receivings or a location for the cashier, then ticks both and checks the cashier menu and access; creates a new cashier. | Unticked access is refused; ticked access shows the Receivings button and allows a purchase; a new cashier has no Receivings grant. |
 | RECV-03 | Admin | Enters a negative LL unit price and tries to edit and complete the receiving. | The edit and completion are refused, and no receiving, stock, or average-cost change is saved. |
 | RECV-04 | Admin | Enters a zero quantity or a quantity below 0.0005, then tries to complete the receiving. | The edit and completion are refused; valid negative return quantities remain allowed. |
+| RECV-05 | Admin | With average cost on and the rate at 90,000, complete case 1, case 10, and case 12 through Receivings in both till layouts, then sell one item in each layout. | Case 1 saves $1.02 after rounding its exact 91,500 LL average up to 92,000 LL, case 10 uses its $1.20 paid price, case 12 completes and keeps its $1.67 cost, and both tills still charge the item's retail price. |
 
 ## Speed and repetitive work
 

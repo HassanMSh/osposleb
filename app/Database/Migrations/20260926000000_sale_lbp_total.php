@@ -12,7 +12,6 @@ class Migration_sale_lbp_total extends Migration
      */
     public function up(): void
     {
-        $this->db->resetDataCache();
         $columns = [];
 
         if (! $this->db->fieldExists('lbp_total', 'sales')) {
@@ -36,7 +35,6 @@ class Migration_sale_lbp_total extends Migration
 
         if ($columns !== []) {
             $this->forge->addColumn('sales', $columns);
-            $this->db->resetDataCache();
         }
     }
 
@@ -45,12 +43,9 @@ class Migration_sale_lbp_total extends Migration
      */
     public function down(): void
     {
-        $this->db->resetDataCache();
-
         foreach (['lbp_exchange_rate', 'lbp_total'] as $column) {
             if ($this->db->fieldExists($column, 'sales')) {
                 $this->forge->dropColumn('sales', $column);
-                $this->db->resetDataCache();
             }
         }
     }

@@ -298,7 +298,7 @@ final class ShopLockdownDatabaseTest extends CIUnitTestCase
     }
 
     /**
-     * Applies standard cashier grants only when none were posted and leaves Receivings unticked.
+     * Applies the standard cashier grants only when a new employee has no posted grants.
      */
     public function testNewEmployeeWithoutPostedGrantsUsesStandardCashierSet(): void
     {
@@ -322,10 +322,6 @@ final class ShopLockdownDatabaseTest extends CIUnitTestCase
             $this->assertContains('items', $saved_permission_ids);
             $this->assertContains('reports', $saved_permission_ids);
             $this->assertContains('sales', $saved_permission_ids);
-            $this->assertSame(0, $this->database->table('grants')
-                ->where('person_id', $employee_data['person_id'])
-                ->like('permission_id', 'receivings', 'after')
-                ->countAllResults());
             $cashier_home = array_column(
                 (new Module())->get_allowed_home_modules((int) $employee_data['person_id'])->getResultArray(),
                 'module_id',
@@ -336,7 +332,7 @@ final class ShopLockdownDatabaseTest extends CIUnitTestCase
             $this->assertSame(0, $this->database->table('grants')
                 ->join('permissions', 'permissions.permission_id = grants.permission_id')
                 ->where('grants.person_id', $employee_data['person_id'])
-                ->whereIn('permissions.module_id', ['customers', 'item_kits', 'suppliers', 'giftcards', 'messages', 'expenses', 'expenses_categories', 'cashups'])
+                ->whereIn('permissions.module_id', ['customers', 'item_kits', 'suppliers', 'receivings', 'giftcards', 'messages', 'expenses', 'expenses_categories', 'cashups'])
                 ->countAllResults());
             $this->assertSame(0, $this->database->table('grants')
                 ->where('person_id', $employee_data['person_id'])

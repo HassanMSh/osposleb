@@ -180,9 +180,6 @@ class Stock_location extends Model
         return $builder->update($location_data_to_save);
     }
 
-    /**
-     * Creates a stock-location permission and gives Receivings access only to active administrators.
-     */
     private function _insert_new_permission(string $module, int $location_id, string $location_name): void    // TODO: refactor out hungarian notation
     {
         // Insert new permission for stock location
@@ -193,23 +190,15 @@ class Stock_location extends Model
         $builder->insert($permission_data);
 
         // Insert grants for new permission
-        $employee = model(Employee::class);
-        if ($module === 'receivings') {
-            $employees = $this->db->table('grants')
-                ->select('employees.person_id')
-                ->join('employees', 'employees.person_id = grants.person_id')
-                ->where('grants.permission_id', 'config')
-                ->where('employees.deleted', 0)
-                ->get();
-        } else {
-            $employees = $employee->get_all();
-        }
+        $employee  = model(Employee::class);
+        $employees = $employee->get_all();
 
         $builder = $this->db->table('grants');
 
         foreach ($employees->getResultArray() as $employee) {
             $this->employee = model(Employee::class);
 
+            // Use the fixed module policy group for the new stock locations.
             $menu_group = $this->employee->get_menu_group($module, $employee['person_id']);
 
             $grants_data = ['permission_id' => $permission_id, 'person_id' => $employee['person_id'], 'menu_group' => $menu_group];

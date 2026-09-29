@@ -95,18 +95,7 @@ class Migration_shop_lockdown extends Migration
         $this->db->transStart();
 
         try {
-            // Keep this historical list fixed so later policy changes do not alter fresh installs or rollback history.
-            $removed_modules = [
-                'customers',
-                'item_kits',
-                'suppliers',
-                'receivings',
-                'giftcards',
-                'messages',
-                'expenses',
-                'expenses_categories',
-                'cashups',
-            ];
+            $removed_modules = ShopLockdown::REMOVED_MODULES;
 
             $removed_permission_ids = array_column(
                 $this->db->table($permissions_table)

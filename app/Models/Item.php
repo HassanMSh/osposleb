@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Libraries\Till_layout;
 use CodeIgniter\Database\ResultInterface;
 use CodeIgniter\Model;
 use Config\OSPOS;
@@ -305,7 +304,7 @@ class Item extends Model
     }
 
     /**
-     * Returns active restaurant menu items, excluding kits, temporary items, and the configured kitchen stock category.
+     * Returns active menu items, excluding kits and temporary items, sorted by category and name.
      */
     public function get_restaurant_menu_items(): array
     {
@@ -316,12 +315,7 @@ class Item extends Model
         $builder->orderBy('category', 'ASC');
         $builder->orderBy('name', 'ASC');
 
-        $config = config(OSPOS::class)->settings;
-
-        return array_values(array_filter(
-            $builder->get()->getResultArray(),
-            static fn (array $item): bool => ! Till_layout::is_kitchen_stock_category($item['category'] ?? null, $config),
-        ));
+        return $builder->get()->getResultArray();
     }
 
     /**
@@ -763,10 +757,7 @@ class Item extends Model
         }
     }
 
-    /**
-     * Returns item suggestions, optionally excluding a category for the restaurant till.
-     */
-    public function get_search_suggestions(string $search, array $filters = ['is_deleted' => false, 'search_custom' => false], bool $unique = false, int $limit = 25, ?string $excluded_category = null): array
+    public function get_search_suggestions(string $search, array $filters = ['is_deleted' => false, 'search_custom' => false], bool $unique = false, int $limit = 25): array
     {
         $suggestions = [];
         $non_kit     = [ITEM, ITEM_AMOUNT_ENTRY];
@@ -775,9 +766,6 @@ class Item extends Model
         $builder->select($this->get_search_suggestion_format('item_id, name, pack_name'));
         $builder->where('deleted', $filters['is_deleted']);
         $builder->whereIn('item_type', $non_kit); // Standard, exclude kit items since kits will be picked up later
-        if ($excluded_category !== null && trim($excluded_category) !== '') {
-            $builder->where('LOWER(TRIM(category)) <> ' . $this->db->escape(mb_strtolower(trim($excluded_category))), null, false);
-        }
         $builder->like('name', $search);    // TODO: this and the next 11 lines are duplicated directly below.  We should extract a method here.
         $builder->orderBy('name', 'asc');
 
@@ -789,9 +777,6 @@ class Item extends Model
         $builder->select($this->get_search_suggestion_format('item_id, item_number, pack_name'));
         $builder->where('deleted', $filters['is_deleted']);
         $builder->whereIn('item_type', $non_kit); // Standard, exclude kit items since kits will be picked up later
-        if ($excluded_category !== null && trim($excluded_category) !== '') {
-            $builder->where('LOWER(TRIM(category)) <> ' . $this->db->escape(mb_strtolower(trim($excluded_category))), null, false);
-        }
         $builder->like('item_number', $search);
         $builder->orderBy('item_number', 'asc');
 

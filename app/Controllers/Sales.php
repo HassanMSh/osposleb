@@ -162,7 +162,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Gets search suggestions for items and item kits, hiding kitchen stock items in restaurant mode.
+     * Gets search suggestions for an item or item kit. Used in app/Views/sales/register.php.
      *
      * @noinspection PhpUnused
      */
@@ -177,10 +177,7 @@ class Sales extends Secure_Controller
             // If a valid receipt or invoice was found the search term will be replaced with a receipt number (POS #)
             $suggestions[] = $receipt;
         }
-        $kitchen_stock_category = Till_layout::get_layout($this->config) === 'restaurant'
-            ? (string) ($this->config['till_kitchen_stock_category'] ?? '')
-            : null;
-        $suggestions = array_merge($suggestions, $this->item->get_search_suggestions($search, ['search_custom' => false, 'is_deleted' => false], true, 25, $kitchen_stock_category));
+        $suggestions = array_merge($suggestions, $this->item->get_search_suggestions($search, ['search_custom' => false, 'is_deleted' => false], true));
         $suggestions = array_merge($suggestions, $this->item_kit->get_search_suggestions($search));
 
         echo json_encode($suggestions);
@@ -545,7 +542,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Adds an item to the sale unless it belongs to the hidden restaurant kitchen stock category.
+     * Add an item to the sale. Used in app/Views/sales/register.php
      *
      * @noinspection PhpUnused
      */
@@ -574,13 +571,7 @@ class Sales extends Secure_Controller
         $quantity      = ($mode == 'return') ? -$quantity : $quantity;
         $item_location = $this->sale_lib->get_sale_location();
 
-        $item_info                 = $this->item->get_info_by_id_or_number($item_id_or_number_or_item_kit_or_receipt, false);
-        $hidden_kitchen_stock_item = is_object($item_info)
-            && Till_layout::is_kitchen_stock_category($item_info->category ?? null, $this->config);
-
-        if ($hidden_kitchen_stock_item) {
-            $data['error'] = lang('Sales.unable_to_add_item');
-        } elseif ($mode == 'return' && $this->sale->is_valid_receipt($item_id_or_number_or_item_kit_or_receipt)) {
+        if ($mode == 'return' && $this->sale->is_valid_receipt($item_id_or_number_or_item_kit_or_receipt)) {
             $this->sale_lib->return_entire_sale($item_id_or_number_or_item_kit_or_receipt);
         } elseif ($this->item_kit->is_valid_item_kit($item_id_or_number_or_item_kit_or_receipt)) {
             // Add kit item to order if one is assigned
@@ -753,7 +744,7 @@ class Sales extends Secure_Controller
                 }
             }
 
-            if (is_quantity_zero($quantity)) {
+            if ($this->isZeroQuantity($quantity)) {
                 $data['error'] = lang('Sales.quantity_zero');
                 $this->_reload($data);
 
@@ -1641,12 +1632,23 @@ class Sales extends Secure_Controller
     }
 
     /**
+     * Returns true when a quantity would be saved as zero.
+     *
+     * Sale quantities are stored with three decimals, so anything smaller than half of
+     * 0.001 rounds to zero in the database.
+     */
+    private function isZeroQuantity(mixed $quantity): bool
+    {
+        return abs((float) $quantity) < 0.0005;
+    }
+
+    /**
      * Returns true when any line in the current cart has a quantity of zero.
      */
     private function cartHasZeroQuantity(): bool
     {
         foreach ($this->sale_lib->get_cart() as $line) {
-            if (is_quantity_zero($line['quantity'] ?? 0)) {
+            if ($this->isZeroQuantity($line['quantity'] ?? 0)) {
                 return true;
             }
         }

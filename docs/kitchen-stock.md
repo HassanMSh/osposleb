@@ -24,7 +24,7 @@ LL means Lebanese pounds.
 ## Record a purchase
 
 1. Open Receivings and select the receiving location.
-2. Find or scan the ingredient item.
+2. Find or scan the ingredient item. Fast scans are added in order. If you finish or change a receiving control while scans are still being added, that action runs after the scans finish and the cart updates. If an add fails or shows a warning while an action waits, check the cart and press that action again. If the cart line changes while an edit or delete waits, choose the line again from the current cart. If a reload notice appears, scan again any item it says may be missing.
 3. Enter the quantity and the LL price for one item unit.
 4. For 5 kg of chicken costing 425,000 LL total, enter quantity 5 and a unit price of 85,000 LL per kg.
 5. At an exchange rate of 89,500 LL per dollar, that purchase stores a $4.75 total and a rounded 425,000 LL total.

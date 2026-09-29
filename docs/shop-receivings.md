@@ -9,7 +9,11 @@ LL means Lebanese pounds. Screen names are given in English, with the Arabic lab
 - Adding stock with the Items inventory button records only a quantity. It saves no price paid, so no report can say how much was spent on stock.
 - With Items only, the wholesale price must be edited by hand every time the supplier changes the price. If someone forgets, the profit report is wrong.
 - Receivings saves every delivery with its lines, prices, and LL total, and shows it in Reports.
-- With the average setting on, Receivings updates the item's wholesale price by itself.
+- When `Calc avg. Price (Receiving)` is ticked and stock stays above 0, Receivings rounds the average to the nearest 1,000 LL.
+- A first delivery or a delivery made while stock is at or below 0 sets the wholesale price to the price paid for that line.
+- If a delivery or supplier return leaves total stock at 0 or below, the wholesale price stays unchanged.
+- If the setting is off or the price paid equals the current cost, the wholesale price does not change.
+- This rule changes only the cost saved by Receivings and does not change prices entered on Items or prices charged on the till.
 - Old sales never change. Each sale keeps the wholesale and retail price it was sold at.
 
 ## The one rule
@@ -43,7 +47,7 @@ LL means Lebanese pounds. Screen names are given in English, with the Arabic lab
 6. Optional: type the supplier's invoice number in `Reference` (`رقم المرجع`) so the delivery can be found later.
 7. Check every line against the supplier's invoice. Very fast barcode scans can lose a line while the page reloads (issue #203).
 8. Press `Finish` (`إنهاء`).
-9. Stock goes up by the received quantities, and the wholesale price becomes the average of the old stock and the new delivery.
+9. Stock goes up by the received quantities, and the wholesale price follows the cost price rule above.
 10. A negative price or a quantity of 0 is refused.
 
 ## When the supplier changes the price
@@ -80,7 +84,7 @@ Tested on 2026-09-29 at 90,000 LL per dollar with a Pepsi 330ml item that starte
 - Receivings report: 900,000 + 1,350,000 = 2,250,000 LL ($25) paid for Pepsi.
 - Items summary: 15 sold, subtotal $35.00, wholesale $18.30, profit $16.70.
 - Inventory summary: 5 left at $1.33, which is $6.65.
-- The average price is rounded to 2 decimals ($1.3333 is saved as $1.33), so $18.30 + $6.65 is $24.95 instead of $25.
+- The average is rounded to the nearest 1,000 LL before it is saved in dollars to 2 decimals, so $18.30 + $6.65 is $24.95 instead of $25.
 
 ## Limits
 

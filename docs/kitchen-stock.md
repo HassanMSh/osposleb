@@ -30,8 +30,11 @@ LL means Lebanese pounds.
 5. At an exchange rate of 89,500 LL per dollar, that purchase stores a $4.75 total and a rounded 425,000 LL total.
 6. Complete the receiving without selecting a supplier.
 7. OSPOS adds the received quantity to stock.
-8. If `Calc avg. Price (Receiving)` in Settings > General is ticked, the item's cost price changes to the average of the old cost and the new purchase price. If it is off, the cost price does not change.
-9. A negative price or a quantity of 0 is refused.
+8. If `Calc avg. Price (Receiving)` is ticked and stock stays above 0, the average is rounded to the nearest 1,000 LL.
+9. A first delivery or a delivery made while stock is at or below 0 uses the price paid for that line.
+10. If a delivery or supplier return leaves total stock at 0 or below, the old cost stays unchanged.
+11. If the setting is off or the paid price matches the current cost, the cost does not change.
+12. A negative price or a quantity of 0 is refused.
 
 ## Record kitchen use
 

@@ -1144,15 +1144,12 @@ class Item extends Model
     }
 
     /**
-     * changes the cost price of a given item
-     * calculates the average price between received items and items on stock
-     * $item_id : the item which price should be changed
-     * $items_received : the amount of new items received
-     * $new_price : the cost-price for the newly received items
-     * $old_price (optional) : the current-cost-price
+     * Updates an item's receiving cost, keeping the cost when stock ends at zero or below,
+     * using the paid price when starting stock is zero or below, and rounding other averages
+     * to the nearest 1,000 LL (halves up, at least 1,000 LL when not zero) when a valid exchange rate is set.
+     * If the rate is missing or not positive, it saves the dollar average without LL rounding.
      *
-     * used in receiving-process to update cost-price if changed
-     * caution: must be used before item_quantities gets updated, otherwise the average price is wrong!
+     * This must run before item_quantities is updated so the old stock total is used.
      */
     public function change_cost_price(int $item_id, float $items_received, float $new_price, ?float $old_price = null): bool
     {
@@ -1166,12 +1163,46 @@ class Item extends Model
         $builder->where('item_id', $item_id);
         $builder->join('stock_locations', 'stock_locations.location_id=item_quantities.location_id');
         $builder->where('stock_locations.deleted', 0);
-        $old_total_quantity = $builder->get()->getRow()->quantity;
+        $old_total_quantity = (float) $builder->get()->getRow()->quantity;
 
         $total_quantity = $old_total_quantity + $items_received;
-        $average_price  = bcdiv(bcadd(bcmul((string) $items_received, (string) $new_price), bcmul((string) $old_total_quantity, (string) $old_price)), (string) $total_quantity);
+        if ($total_quantity <= 0) {
+            return true;
+        }
 
-        $data = ['cost_price' => $average_price];
+        if ($old_total_quantity <= 0) {
+            $data = ['cost_price' => $new_price];
+
+            return $this->save_value($data, $item_id);
+        }
+
+        $calculation_precision = 8;
+        $average_price_scale   = 4;
+        $average_total         = bcadd(
+            bcmul((string) $items_received, (string) $new_price, $calculation_precision),
+            bcmul((string) $old_total_quantity, (string) $old_price, $calculation_precision),
+            $calculation_precision,
+        );
+        $average_price = bcdiv($average_total, (string) $total_quantity, $average_price_scale);
+        $rate          = config(OSPOS::class)->settings['lbp_exchange_rate'] ?? null;
+
+        if (! is_numeric($rate) || (float) $rate <= 0) {
+            $data = ['cost_price' => $average_price];
+
+            return $this->save_value($data, $item_id);
+        }
+
+        // Convert the unrounded total, not $average_price, so a 500 LL boundary is not cut off.
+        $average_lbp = bcdiv(bcmul($average_total, (string) (float) $rate, $calculation_precision), (string) $total_quantity, $calculation_precision);
+        // Round straight to the nearest 1,000 LL, halves up. Rounding to a whole pound first would turn 91,499.5 into 92,000.
+        $rounded_lbp = bccomp($average_lbp, '0', $calculation_precision) > 0
+            ? (int) bcmul(bcdiv(bcadd($average_lbp, '500', $calculation_precision), '1000', 0), '1000', 0)
+            : 0;
+        if (bccomp($average_lbp, '0', $calculation_precision) !== 0 && $rounded_lbp < 1000) {
+            $rounded_lbp = 1000;
+        }
+
+        $data = ['cost_price' => lbp_to_dollar_string($rounded_lbp, $rate)];
 
         return $this->save_value($data, $item_id);
     }

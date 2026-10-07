@@ -155,7 +155,7 @@ if (isset($success)) {
                         <td><?= esc($item['item_number']) ?></td>
                         <td style="text-align: center;">
                             <?= esc($item['name'] . ' ' . implode(' ', [$item['attribute_values'], $item['attribute_dtvalues']])) ?><br>
-                            <?= '[' . to_quantity_decimals($item['in_stock']) . ' in ' . esc($item['stock_name']) . ']' ?>
+                            <?= '[' . esc(lang('Receivings.stock_in_location', [to_quantity_decimals($item['in_stock']), $item['stock_name']])) . ']' ?>
                             <?= form_input(['type' => 'hidden', 'name' => 'location', 'value' => (string) $item['item_location'], 'form' => "cart_{$line}"]) ?>
                         </td>
 
@@ -1124,7 +1124,9 @@ if (isset($success)) {
             });
 
             $('.selectpicker').selectpicker();
-            $('[data-toggle="toggle"]').bootstrapToggle();
+            // Only the checkboxes: the plugin wrapper div also carries data-toggle="toggle", and setting it
+            // up again on a page load nests a second switch with the default On/Off labels (issue #212).
+            $('input[type=checkbox][data-toggle="toggle"]').bootstrapToggle();
             dialog_support.init('a.modal-dlg, button.modal-dlg');
             $(document).off('hidden.bs.modal.receiving').on('hidden.bs.modal.receiving', function() {
                 if (deferredReceivingAction !== null) {

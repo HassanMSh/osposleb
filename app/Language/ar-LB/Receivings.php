@@ -51,6 +51,7 @@ return [
     'stock_source'                  => 'مصدر المخزون',
     'locations_changed'             => 'تغيّرت صلاحيات مواقع المخزون لديك. تم إفراغ عملية الاستلام المفتوحة.',
     'location_not_allowed'          => 'ما عندك صلاحية تستخدم موقع المخزون هيدا.',
+    'stock_in_location'             => '{0} في {1}',
     'successfully_deleted'          => 'لقد تم الحذف',
     'successfully_updated'          => 'لقد تم التحديث',
     'supplier'                      => 'المورد',

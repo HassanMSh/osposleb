@@ -50,6 +50,7 @@ return [
     'stock_source'                 => 'Stock Source',
     'locations_changed'            => 'Your stock locations changed. The open receiving was cleared.',
     'location_not_allowed'         => 'You cannot use that stock location.',
+    'stock_in_location'            => '{0} in {1}',
     'successfully_deleted'         => 'You have successfully deleted receiving',
     'successfully_updated'         => 'Receiving successfully updated',
     'supplier'                     => 'Supplier',

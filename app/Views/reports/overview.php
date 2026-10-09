@@ -88,6 +88,14 @@
     #reports-overview-chart .ct-label {
         direction: ltr;
     }
+
+    /* reports.css rotates every x-axis label by 60 degrees, which pushes them into the plot; keep them flat here */
+    #reports-overview-chart .ct-label.ct-horizontal {
+        -webkit-transform: none;
+        transform: none;
+        filter: none;
+        white-space: nowrap;
+    }
 </style>
 
 <div class="row reports-overview-row">
@@ -140,6 +148,7 @@
         var overviewTotalsUrl = <?= json_encode(site_url('reports/overview/totals')) ?>;
         var overviewGraphUrl = <?= json_encode(site_url('reports/overview/graph')) ?>;
         var overviewChart = null;
+        var overviewData = null;
 
         /** Updates a tile's store currency and Lebanese pound values. */
         function setOverviewMoney(prefix, money) {
@@ -164,30 +173,76 @@
                 });
         }
 
+        /**
+         * Returns which x-axis labels to show (every step-th, at most 12) so the widest measured label fits its slot,
+         * and the right padding that keeps the last shown label inside the chart.
+         * Widths are measured with the current font, so call it again after a resize or once web fonts have loaded.
+         */
+        function getOverviewLabelLayout(labels) {
+            var chart = $('#reports-overview-chart');
+            var context = document.createElement('canvas').getContext('2d');
+            context.font = '12px ' + chart.css('font-family');
+
+            var widest = 0;
+            $.each(labels, function(index, label) {
+                widest = Math.max(widest, context.measureText(String(label)).width);
+            });
+
+            var gaps = Math.max(1, labels.length - 1);
+            var plotWidth = Math.max(1, chart.width() - 50 - widest);
+            var slotWidth = plotWidth / gaps;
+            var step = Math.max(1, Math.ceil((widest + 10) / slotWidth), Math.ceil(labels.length / 12));
+            var lastShownIndex = Math.floor((labels.length - 1) / step) * step;
+            var overhang = widest + 4 - (labels.length - 1 - lastShownIndex) * slotWidth;
+
+            return { step: step, rightPadding: Math.max(12, Math.ceil(overhang)) };
+        }
+
+        /** Draws or redraws the chart for the last loaded data with a label layout that fits the current width. */
+        function drawOverviewChart() {
+            if (!overviewData) {
+                return;
+            }
+
+            var labelLayout = getOverviewLabelLayout(overviewData.labels);
+            var chartData = { labels: overviewData.labels, series: [overviewData.values] };
+            var chartOptions = {
+                showArea: true,
+                fullWidth: true,
+                chartPadding: { right: labelLayout.rightPadding },
+                axisX: { labelInterpolationFnc: function(value, index) {
+                    return index % labelLayout.step !== 0 ? '' : value;
+                } },
+            };
+
+            if (overviewChart) {
+                overviewChart.update(chartData, chartOptions);
+            } else {
+                overviewChart = new Chartist.Line('#reports-overview-chart', chartData, chartOptions);
+            }
+        }
+
         /** Loads the selected chart period from the secured JSON endpoint. */
         function loadOverviewGraph(period) {
             $('#reports-overview-chart-error').prop('hidden', true);
             $.getJSON(overviewGraphUrl, { period: period })
                 .done(function(data) {
-                    var chartData = { labels: data.labels, series: [data.values] };
-                    var chartOptions = {
-                        showArea: true,
-                        fullWidth: true,
-                        chartPadding: { right: 12 },
-                        axisX: { labelInterpolationFnc: function(value, index) {
-                            return data.labels.length > 12 && index % Math.ceil(data.labels.length / 12) !== 0 ? '' : value;
-                        } },
-                    };
-
-                    if (overviewChart) {
-                        overviewChart.update(chartData, chartOptions);
-                    } else {
-                        overviewChart = new Chartist.Line('#reports-overview-chart', chartData, chartOptions);
-                    }
+                    overviewData = data;
+                    drawOverviewChart();
                 })
                 .fail(function() {
                     $('#reports-overview-chart-error').prop('hidden', false);
                 });
+        }
+
+        var overviewResizeTimer;
+        $(window).on('resize', function() {
+            clearTimeout(overviewResizeTimer);
+            overviewResizeTimer = setTimeout(drawOverviewChart, 150);
+        });
+
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(drawOverviewChart);
         }
 
         $('[data-reports-period]').on('click', function() {

@@ -1,4 +1,65 @@
 @media screen {
+/* Theme picker in the top bar: a small pill that blends into the dark bar in every theme. */
+.ospos-theme-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    vertical-align: middle;
+}
+
+.ospos-theme-switch .glyphicon {
+    top: 0;
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+#ospos-theme-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    height: 22px;
+    margin: 0;
+    padding: 0 22px 0 9px;
+    font-size: 12px;
+    line-height: 20px;
+    color: inherit;
+    background-color: rgba(255, 255, 255, 0.08);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%23eeeeee' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 8px 5px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+#ospos-theme-select:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+#ospos-theme-select:focus {
+    outline: none;
+    border-color: #ffffff;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+#ospos-theme-select option {
+    color: #222222;
+    background-color: #ffffff;
+}
+
+html[dir="rtl"] #ospos-theme-select {
+    padding: 0 9px 0 22px;
+    background-position: left 8px center;
+}
+
+html[data-ospos-theme="dark"] #ospos-theme-select option {
+    color: var(--ospos-control-text);
+    background-color: var(--ospos-control);
+}
+
 html[data-ospos-theme="dark"] {
     color-scheme: dark;
     --ospos-page: #111827;
@@ -339,15 +400,6 @@ html[data-ospos-theme="tech"] .navbar-default .navbar-toggle:focus,
 html[data-ospos-theme="earthy"] .navbar-default .navbar-toggle:hover,
 html[data-ospos-theme="earthy"] .navbar-default .navbar-toggle:focus {
     background-color: var(--ospos-nav-hover);
-}
-
-html[data-ospos-theme="dark"] #ospos-theme-select,
-html[data-ospos-theme="tech"] #ospos-theme-select,
-html[data-ospos-theme="earthy"] #ospos-theme-select {
-    background-color: var(--ospos-topbar);
-    border-color: var(--ospos-topbar-text);
-    color: var(--ospos-topbar-text);
-    margin-inline-start: 6px;
 }
 
 html[data-ospos-theme="dark"] body,

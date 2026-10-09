@@ -1,10 +1,13 @@
-<label class="sr-only" for="ospos-theme-select"><?= esc(lang('Common.theme')) ?></label>
-<select id="ospos-theme-select" class="form-control input-sm" aria-label="<?= esc(lang('Common.theme')) ?>" style="display: inline-block; width: auto; max-width: 116px; vertical-align: middle;">
-    <option value=""><?= esc(lang('Common.theme_default')) ?></option>
-    <option value="dark"><?= esc(lang('Common.theme_dark')) ?></option>
-    <option value="tech"><?= esc(lang('Common.theme_tech')) ?></option>
-    <option value="earthy"><?= esc(lang('Common.theme_earthy')) ?></option>
-</select>
+<span class="ospos-theme-switch">
+    <span class="glyphicon glyphicon-adjust" aria-hidden="true"></span>
+    <label class="sr-only" for="ospos-theme-select"><?= esc(lang('Common.theme')) ?></label>
+    <select id="ospos-theme-select" aria-label="<?= esc(lang('Common.theme')) ?>" title="<?= esc(lang('Common.theme')) ?>">
+        <option value=""><?= esc(lang('Common.theme_default')) ?></option>
+        <option value="dark"><?= esc(lang('Common.theme_dark')) ?></option>
+        <option value="tech"><?= esc(lang('Common.theme_tech')) ?></option>
+        <option value="earthy"><?= esc(lang('Common.theme_earthy')) ?></option>
+    </select>
+</span>
 <script>
     /* Keep the theme picker in sync with the page and browser storage. */
     (function () {

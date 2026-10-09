@@ -91,7 +91,19 @@ final class ColourThemeTest extends CIUnitTestCase
         $this->assertSame('سمة الألوان', $egyptian['theme']);
         $this->assertSame('ترابي', $egyptian['theme_earthy']);
 
-        preg_match_all('/(?:^|})\s*([^{}]+?)\s*\{/s', $themeCss, $ruleMatches);
+        // Only the theme picker itself is styled without a theme attribute, because it is new to the page.
+        $pickerSelectors = [
+            '.ospos-theme-switch',
+            '.ospos-theme-switch .glyphicon',
+            '#ospos-theme-select',
+            '#ospos-theme-select:hover',
+            '#ospos-theme-select:focus',
+            '#ospos-theme-select option',
+            'html[dir="rtl"] #ospos-theme-select',
+        ];
+        $themeCss = preg_replace('~/\*.*?\*/~s', '', $themeCss);
+        // Every selector list sits between a brace (or the file start) and its opening brace, including the first rule inside @media.
+        preg_match_all('/([^{}]+)\{/', $themeCss, $ruleMatches);
         $checkedRules = 0;
 
         foreach ($ruleMatches[1] as $selectorBlock) {
@@ -103,8 +115,13 @@ final class ColourThemeTest extends CIUnitTestCase
 
             foreach (explode(',', $selectorBlock) as $selector) {
                 $selector = trim($selector);
-                $this->assertStringStartsWith('html[data-ospos-theme=', $selector);
                 $checkedRules++;
+
+                if (in_array($selector, $pickerSelectors, true)) {
+                    continue;
+                }
+
+                $this->assertStringStartsWith('html[data-ospos-theme=', $selector);
             }
         }
 

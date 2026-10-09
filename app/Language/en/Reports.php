@@ -62,6 +62,7 @@ return [
     'overview_cash_receivings'                => 'Receivings',
     'overview_drawer_cash'                    => 'Drawer cash',
     'overview_drawer_cash_today'              => 'Drawer cash today',
+    'overview_graph_axis'                     => 'Sales ({0})',
     'overview_graph_error'                    => 'The sales graph could not be loaded.',
     'overview_graph_title'                    => 'Sales graph',
     'overview_lbp_unavailable'                => 'Not saved',

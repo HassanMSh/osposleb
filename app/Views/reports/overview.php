@@ -1,6 +1,7 @@
 <?php
 /**
- * @var bool $can_view_receivings
+ * @var bool  $can_view_receivings
+ * @var array $config
  */
 ?>
 
@@ -80,9 +81,17 @@
         margin: 0;
     }
 
+    /* The chart is always drawn left to right, so the axis title stays on the left above the amounts in both directions */
+    .reports-overview-axis-title {
+        color: #555;
+        direction: ltr;
+        font-size: 12px;
+        margin-top: 12px;
+        text-align: left;
+    }
+
     #reports-overview-chart {
         height: 220px;
-        margin-top: 12px;
     }
 
     #reports-overview-chart .ct-label {
@@ -138,6 +147,7 @@
                 <button type="button" class="btn btn-default btn-sm<?= $period === 'day' ? ' active' : '' ?>" data-reports-period="<?= esc($period) ?>" aria-pressed="<?= $period === 'day' ? 'true' : 'false' ?>"><?= lang('Reports.overview_period_' . $period) ?></button>
             <?php } ?>
         </div>
+        <div class="reports-overview-axis-title"><span dir="auto"><?= esc(lang('Reports.overview_graph_axis', [$config['currency_symbol']])) ?></span></div>
         <div id="reports-overview-chart" aria-label="<?= esc(lang('Reports.overview_graph_title')) ?>"></div>
         <div class="text-danger" id="reports-overview-chart-error" role="status" hidden><?= lang('Reports.overview_graph_error') ?></div>
     </div>
@@ -149,6 +159,30 @@
         var overviewGraphUrl = <?= json_encode(site_url('reports/overview/graph')) ?>;
         var overviewChart = null;
         var overviewData = null;
+        var overviewCurrencySymbol = <?= json_encode($config['currency_symbol']) ?>;
+        var overviewCurrencyOnRight = <?= json_encode(is_right_side_currency_symbol()) ?>;
+        var overviewUseGrouping = <?= json_encode(! empty($config['thousands_separator'])) ?>;
+
+        /** Formats a y-axis value as a whole store currency amount, such as $1,500 or -$3, following the thousands separator setting. */
+        function formatOverviewAxisMoney(value) {
+            var number = Number(value);
+            var amount = Math.abs(number).toLocaleString('en-US', { maximumFractionDigits: 0, useGrouping: overviewUseGrouping });
+            var sign = number < 0 ? '-' : '';
+            return sign + (overviewCurrencyOnRight ? amount + ' ' + overviewCurrencySymbol : overviewCurrencySymbol + amount);
+        }
+
+        /** Returns the width in pixels of the widest text in the list, measured in the chart's 12px label font. */
+        function measureOverviewText(texts) {
+            var context = document.createElement('canvas').getContext('2d');
+            context.font = '12px ' + $('#reports-overview-chart').css('font-family');
+
+            var widest = 0;
+            $.each(texts, function(index, text) {
+                widest = Math.max(widest, context.measureText(String(text)).width);
+            });
+
+            return widest;
+        }
 
         /** Updates a tile's store currency and Lebanese pound values. */
         function setOverviewMoney(prefix, money) {
@@ -178,18 +212,10 @@
          * and the right padding that keeps the last shown label inside the chart.
          * Widths are measured with the current font, so call it again after a resize or once web fonts have loaded.
          */
-        function getOverviewLabelLayout(labels) {
-            var chart = $('#reports-overview-chart');
-            var context = document.createElement('canvas').getContext('2d');
-            context.font = '12px ' + chart.css('font-family');
-
-            var widest = 0;
-            $.each(labels, function(index, label) {
-                widest = Math.max(widest, context.measureText(String(label)).width);
-            });
-
+        function getOverviewLabelLayout(labels, axisYOffset) {
+            var widest = measureOverviewText(labels);
             var gaps = Math.max(1, labels.length - 1);
-            var plotWidth = Math.max(1, chart.width() - 50 - widest);
+            var plotWidth = Math.max(1, $('#reports-overview-chart').width() - axisYOffset - 10 - widest);
             var slotWidth = plotWidth / gaps;
             var step = Math.max(1, Math.ceil((widest + 10) / slotWidth), Math.ceil(labels.length / 12));
             var lastShownIndex = Math.floor((labels.length - 1) / step) * step;
@@ -204,15 +230,24 @@
                 return;
             }
 
-            var labelLayout = getOverviewLabelLayout(overviewData.labels);
+            // Below $1 the whole-dollar ticks would only show $0, so keep the scale at least $0 to $1.
+            // The y-axis is as wide as the largest amount it can label (ticks stay within twice the highest and lowest values).
+            var highest = Math.max.apply(null, [0].concat(overviewData.values));
+            var lowest = Math.min.apply(null, [0].concat(overviewData.values));
+            var axisYOffset = Math.max(40, Math.ceil(measureOverviewText([
+                formatOverviewAxisMoney(Math.ceil(highest * 2)),
+                formatOverviewAxisMoney(Math.floor(lowest * 2)),
+            ])) + 12);
+            var labelLayout = getOverviewLabelLayout(overviewData.labels, axisYOffset);
             var chartData = { labels: overviewData.labels, series: [overviewData.values] };
             var chartOptions = {
                 showArea: true,
                 fullWidth: true,
-                chartPadding: { right: labelLayout.rightPadding },
+                chartPadding: { top: 14, right: labelLayout.rightPadding },
                 axisX: { labelInterpolationFnc: function(value, index) {
                     return index % labelLayout.step !== 0 ? '' : value;
                 } },
+                axisY: { onlyInteger: true, high: highest < 1 ? 1 : undefined, offset: axisYOffset, labelInterpolationFnc: formatOverviewAxisMoney },
             };
 
             if (overviewChart) {

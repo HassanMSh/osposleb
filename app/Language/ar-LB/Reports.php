@@ -62,6 +62,7 @@ return [
     'overview_cash_receivings'                => 'المشتريات النقدية',
     'overview_drawer_cash'                    => 'نقد الدرج',
     'overview_drawer_cash_today'              => 'نقد الدرج اليوم',
+    'overview_graph_axis'                     => 'المبيعات ({0})',
     'overview_graph_error'                    => 'تعذر تحميل رسم المبيعات البياني.',
     'overview_graph_title'                    => 'رسم المبيعات البياني',
     'overview_lbp_unavailable'                => 'غير محفوظ',

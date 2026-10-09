@@ -1,0 +1,718 @@
+@media screen {
+html[data-ospos-theme="dark"] {
+    color-scheme: dark;
+    --ospos-page: #111827;
+    --ospos-surface: #1f2937;
+    --ospos-surface-raised: #273449;
+    --ospos-text: #f3f4f6;
+    --ospos-muted: #cbd5e1;
+    --ospos-border: #475569;
+    --ospos-control: #111827;
+    --ospos-control-text: #f8fafc;
+    --ospos-control-border: #64748b;
+    --ospos-topbar: #0b1220;
+    --ospos-topbar-text: #f8fafc;
+    --ospos-nav: #172033;
+    --ospos-nav-link: #e5edf7;
+    --ospos-nav-hover: #273449;
+    --ospos-nav-active: #334155;
+    --ospos-nav-active-text: #ffffff;
+    --ospos-focus: #93c5fd;
+    --ospos-btn-default: #3b4757;
+    --ospos-btn-default-text: #f8fafc;
+    --ospos-btn-default-border: #718096;
+    --ospos-btn-primary: #1769aa;
+    --ospos-btn-primary-text: #ffffff;
+    --ospos-btn-primary-border: #3988c6;
+    --ospos-btn-info: #087e8b;
+    --ospos-btn-info-text: #ffffff;
+    --ospos-btn-info-border: #21a1aa;
+    --ospos-btn-success: #237a45;
+    --ospos-btn-success-text: #ffffff;
+    --ospos-btn-success-border: #45a465;
+    --ospos-btn-warning: #f0ad4e;
+    --ospos-btn-warning-text: #241a0d;
+    --ospos-btn-warning-border: #d19236;
+    --ospos-btn-danger: #b3404a;
+    --ospos-btn-danger-text: #ffffff;
+    --ospos-btn-danger-border: #d16670;
+}
+
+html[data-ospos-theme="tech"] {
+    --ospos-topbar: #0c2542;
+    --ospos-topbar-text: #f1f7ff;
+    --ospos-nav: #144b7a;
+    --ospos-nav-link: #f1f7ff;
+    --ospos-nav-hover: #1d6096;
+    --ospos-nav-active: #dcecff;
+    --ospos-nav-active-text: #12395d;
+    --ospos-focus: #1474c4;
+    --ospos-btn-default: #dcecff;
+    --ospos-btn-default-text: #17324d;
+    --ospos-btn-default-border: #a7c4df;
+    --ospos-btn-primary: #1468b5;
+    --ospos-btn-primary-text: #ffffff;
+    --ospos-btn-primary-border: #0d4f8c;
+    --ospos-btn-info: #0d7281;
+    --ospos-btn-info-text: #ffffff;
+    --ospos-btn-info-border: #075764;
+    --ospos-btn-success: #277b53;
+    --ospos-btn-success-text: #ffffff;
+    --ospos-btn-success-border: #1e6141;
+    --ospos-btn-warning: #d89b22;
+    --ospos-btn-warning-text: #241a0d;
+    --ospos-btn-warning-border: #a97515;
+    --ospos-btn-danger: #bd4652;
+    --ospos-btn-danger-text: #ffffff;
+    --ospos-btn-danger-border: #963641;
+}
+
+html[data-ospos-theme="earthy"] {
+    --ospos-topbar: #453629;
+    --ospos-topbar-text: #fbf6ed;
+    --ospos-nav: #604a38;
+    --ospos-nav-link: #fbf6ed;
+    --ospos-nav-hover: #765b42;
+    --ospos-nav-active: #eadcc3;
+    --ospos-nav-active-text: #493a2b;
+    --ospos-focus: #597b54;
+    --ospos-btn-default: #e8dcc8;
+    --ospos-btn-default-text: #43352c;
+    --ospos-btn-default-border: #b7a68c;
+    --ospos-btn-primary: #456b4d;
+    --ospos-btn-primary-text: #ffffff;
+    --ospos-btn-primary-border: #34533b;
+    --ospos-btn-info: #536a71;
+    --ospos-btn-info-text: #ffffff;
+    --ospos-btn-info-border: #40565d;
+    --ospos-btn-success: #4d783e;
+    --ospos-btn-success-text: #ffffff;
+    --ospos-btn-success-border: #3a5d30;
+    --ospos-btn-warning: #bd8128;
+    --ospos-btn-warning-text: #241a0d;
+    --ospos-btn-warning-border: #93631c;
+    --ospos-btn-danger: #a3473e;
+    --ospos-btn-danger-text: #ffffff;
+    --ospos-btn-danger-border: #7e362f;
+}
+
+html[data-ospos-theme="dark"] .topbar,
+html[data-ospos-theme="tech"] .topbar,
+html[data-ospos-theme="earthy"] .topbar {
+    background-color: var(--ospos-topbar);
+    color: var(--ospos-topbar-text);
+}
+
+html[data-ospos-theme="dark"] .topbar a,
+html[data-ospos-theme="tech"] .topbar a,
+html[data-ospos-theme="earthy"] .topbar a {
+    color: var(--ospos-topbar-text);
+}
+
+html[data-ospos-theme="dark"] .navbar-default,
+html[data-ospos-theme="tech"] .navbar-default,
+html[data-ospos-theme="earthy"] .navbar-default {
+    background-color: var(--ospos-nav);
+    border-color: var(--ospos-nav);
+}
+
+html[data-ospos-theme="dark"] .navbar-default .navbar-nav > li > a,
+html[data-ospos-theme="tech"] .navbar-default .navbar-nav > li > a,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-nav > li > a,
+html[data-ospos-theme="dark"] .navbar-default .navbar-brand,
+html[data-ospos-theme="tech"] .navbar-default .navbar-brand,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-brand {
+    color: var(--ospos-nav-link);
+}
+
+html[data-ospos-theme="dark"] .navbar-default .navbar-nav > li > a:hover,
+html[data-ospos-theme="dark"] .navbar-default .navbar-nav > li > a:focus,
+html[data-ospos-theme="tech"] .navbar-default .navbar-nav > li > a:hover,
+html[data-ospos-theme="tech"] .navbar-default .navbar-nav > li > a:focus,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-nav > li > a:hover,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-nav > li > a:focus,
+html[data-ospos-theme="dark"] .navbar-default .navbar-brand:hover,
+html[data-ospos-theme="tech"] .navbar-default .navbar-brand:hover,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-brand:hover {
+    background-color: var(--ospos-nav-hover);
+    color: var(--ospos-nav-link);
+}
+
+html[data-ospos-theme="dark"] .navbar-default .navbar-nav > .active > a,
+html[data-ospos-theme="dark"] .navbar-default .navbar-nav > .active > a:hover,
+html[data-ospos-theme="dark"] .navbar-default .navbar-nav > .active > a:focus,
+html[data-ospos-theme="tech"] .navbar-default .navbar-nav > .active > a,
+html[data-ospos-theme="tech"] .navbar-default .navbar-nav > .active > a:hover,
+html[data-ospos-theme="tech"] .navbar-default .navbar-nav > .active > a:focus,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-nav > .active > a,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-nav > .active > a:hover,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-nav > .active > a:focus {
+    background-color: var(--ospos-nav-active);
+    color: var(--ospos-nav-active-text);
+}
+
+html[data-ospos-theme="dark"] .navbar-default .navbar-toggle,
+html[data-ospos-theme="tech"] .navbar-default .navbar-toggle,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-toggle {
+    border-color: var(--ospos-nav-link);
+}
+
+html[data-ospos-theme="dark"] .navbar-default .navbar-toggle .icon-bar,
+html[data-ospos-theme="tech"] .navbar-default .navbar-toggle .icon-bar,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-toggle .icon-bar {
+    background-color: var(--ospos-nav-link);
+}
+
+html[data-ospos-theme="dark"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="tech"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="earthy"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item) {
+    background-color: var(--ospos-btn-default);
+    border-color: var(--ospos-btn-default-border);
+    color: var(--ospos-btn-default-text);
+}
+
+html[data-ospos-theme="dark"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="tech"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="earthy"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item) {
+    background-color: var(--ospos-btn-primary);
+    border-color: var(--ospos-btn-primary-border);
+    color: var(--ospos-btn-primary-text);
+}
+
+html[data-ospos-theme="dark"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="tech"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="earthy"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item) {
+    background-color: var(--ospos-btn-info);
+    border-color: var(--ospos-btn-info-border);
+    color: var(--ospos-btn-info-text);
+}
+
+html[data-ospos-theme="dark"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="tech"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="earthy"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item) {
+    background-color: var(--ospos-btn-success);
+    border-color: var(--ospos-btn-success-border);
+    color: var(--ospos-btn-success-text);
+}
+
+html[data-ospos-theme="dark"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="tech"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="earthy"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item) {
+    background-color: var(--ospos-btn-warning);
+    border-color: var(--ospos-btn-warning-border);
+    color: var(--ospos-btn-warning-text);
+}
+
+html[data-ospos-theme="dark"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="tech"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item),
+html[data-ospos-theme="earthy"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item) {
+    background-color: var(--ospos-btn-danger);
+    border-color: var(--ospos-btn-danger-border);
+    color: var(--ospos-btn-danger-text);
+}
+
+html[data-ospos-theme="dark"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="dark"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="dark"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="tech"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="tech"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="tech"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="earthy"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="earthy"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="earthy"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="dark"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="dark"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="dark"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="tech"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="tech"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="tech"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="earthy"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="earthy"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="earthy"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="dark"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="dark"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="dark"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="tech"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="tech"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="tech"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="earthy"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="earthy"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="earthy"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="dark"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="dark"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="dark"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="tech"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="tech"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="tech"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="earthy"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="earthy"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="earthy"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="dark"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="dark"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="dark"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="tech"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="tech"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="tech"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="earthy"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="earthy"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="earthy"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="dark"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="dark"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="dark"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="tech"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="tech"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="tech"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item).active,
+html[data-ospos-theme="earthy"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):hover,
+html[data-ospos-theme="earthy"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):active,
+html[data-ospos-theme="earthy"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item).active {
+    filter: brightness(0.9);
+}
+
+html[data-ospos-theme="dark"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="dark"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="dark"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="dark"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="dark"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="dark"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="tech"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="tech"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="tech"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="tech"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="tech"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="tech"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="earthy"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="earthy"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="earthy"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="earthy"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="earthy"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus,
+html[data-ospos-theme="earthy"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):focus {
+    box-shadow: 0 0 0 3px var(--ospos-focus);
+    outline: 2px solid var(--ospos-focus);
+    outline-offset: 1px;
+}
+
+html[data-ospos-theme="dark"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="dark"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="tech"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="tech"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="earthy"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="earthy"] .btn-default:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="dark"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="dark"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="tech"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="tech"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="earthy"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="earthy"] .btn-primary:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="dark"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="dark"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="tech"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="tech"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="earthy"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="earthy"] .btn-info:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="dark"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="dark"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="tech"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="tech"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="earthy"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="earthy"] .btn-success:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="dark"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="dark"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="tech"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="tech"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="earthy"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="earthy"] .btn-warning:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="dark"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="dark"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="tech"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="tech"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled,
+html[data-ospos-theme="earthy"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item):disabled,
+html[data-ospos-theme="earthy"] .btn-danger:not(.restaurant-menu-tab):not(.restaurant-menu-item).disabled {
+    cursor: not-allowed;
+    filter: saturate(0.65);
+    opacity: 0.8;
+}
+
+html[data-ospos-theme="dark"] .navbar-default .navbar-toggle:hover,
+html[data-ospos-theme="dark"] .navbar-default .navbar-toggle:focus,
+html[data-ospos-theme="tech"] .navbar-default .navbar-toggle:hover,
+html[data-ospos-theme="tech"] .navbar-default .navbar-toggle:focus,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-toggle:hover,
+html[data-ospos-theme="earthy"] .navbar-default .navbar-toggle:focus {
+    background-color: var(--ospos-nav-hover);
+}
+
+html[data-ospos-theme="dark"] #ospos-theme-select,
+html[data-ospos-theme="tech"] #ospos-theme-select,
+html[data-ospos-theme="earthy"] #ospos-theme-select {
+    background-color: var(--ospos-topbar);
+    border-color: var(--ospos-topbar-text);
+    color: var(--ospos-topbar-text);
+    margin-inline-start: 6px;
+}
+
+html[data-ospos-theme="dark"] body,
+html[data-ospos-theme="dark"] .wrapper {
+    background-color: var(--ospos-page);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] a,
+html[data-ospos-theme="dark"] a:hover,
+html[data-ospos-theme="dark"] a:focus {
+    color: #93c5fd;
+}
+
+html[data-ospos-theme="dark"] .panel,
+html[data-ospos-theme="dark"] .well,
+html[data-ospos-theme="dark"] .modal-content,
+html[data-ospos-theme="dark"] .bootstrap-dialog .modal-content,
+html[data-ospos-theme="dark"] .dropdown-menu,
+html[data-ospos-theme="dark"] .jumbotron {
+    background-color: var(--ospos-surface);
+    border-color: var(--ospos-border);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .panel-heading,
+html[data-ospos-theme="dark"] .panel-footer,
+html[data-ospos-theme="dark"] .modal-header,
+html[data-ospos-theme="dark"] .modal-footer,
+html[data-ospos-theme="dark"] .bootstrap-dialog .modal-header,
+html[data-ospos-theme="dark"] .bootstrap-dialog .modal-footer {
+    background-color: var(--ospos-surface-raised);
+    border-color: var(--ospos-border);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .panel-body,
+html[data-ospos-theme="dark"] .modal-body,
+html[data-ospos-theme="dark"] .bootstrap-dialog .modal-body {
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .modal-header .close,
+html[data-ospos-theme="dark"] .bootstrap-dialog .modal-header .close {
+    color: var(--ospos-text);
+    opacity: 0.9;
+    text-shadow: none;
+}
+
+html[data-ospos-theme="dark"] .form-control,
+html[data-ospos-theme="dark"] .bootstrap-select > .dropdown-toggle,
+html[data-ospos-theme="dark"] .bootstrap-tagsinput,
+html[data-ospos-theme="dark"] .input-group-addon {
+    background-color: var(--ospos-control);
+    border-color: var(--ospos-control-border);
+    color: var(--ospos-control-text);
+}
+
+html[data-ospos-theme="dark"] .form-control:focus,
+html[data-ospos-theme="dark"] .bootstrap-select > .dropdown-toggle:focus,
+html[data-ospos-theme="dark"] .bootstrap-tagsinput:focus-within {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 3px rgb(96 165 250 / 35%);
+}
+
+html[data-ospos-theme="dark"] .form-control::placeholder,
+html[data-ospos-theme="dark"] .bootstrap-tagsinput input::placeholder {
+    color: #cbd5e1;
+    opacity: 1;
+}
+
+html[data-ospos-theme="dark"] select option {
+    background-color: var(--ospos-control);
+    color: var(--ospos-control-text);
+}
+
+html[data-ospos-theme="dark"] .dropdown-menu > li > a,
+html[data-ospos-theme="dark"] .dropdown-menu > li > a:hover,
+html[data-ospos-theme="dark"] .dropdown-menu > li > a:focus {
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .dropdown-menu > li > a:hover,
+html[data-ospos-theme="dark"] .dropdown-menu > li > a:focus,
+html[data-ospos-theme="dark"] .dropdown-menu > .active > a,
+html[data-ospos-theme="dark"] .dropdown-menu > .active > a:hover,
+html[data-ospos-theme="dark"] .dropdown-menu > .active > a:focus {
+    background-color: #334155;
+    color: #ffffff;
+}
+
+html[data-ospos-theme="dark"] .table,
+html[data-ospos-theme="dark"] .table > thead > tr > th,
+html[data-ospos-theme="dark"] .table > tbody > tr > th,
+html[data-ospos-theme="dark"] .table > tfoot > tr > th,
+html[data-ospos-theme="dark"] .table > thead > tr > td,
+html[data-ospos-theme="dark"] .table > tbody > tr > td,
+html[data-ospos-theme="dark"] .table > tfoot > tr > td {
+    background-color: var(--ospos-surface);
+    border-color: var(--ospos-border);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td,
+html[data-ospos-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > th {
+    background-color: var(--ospos-surface-raised);
+}
+
+html[data-ospos-theme="dark"] .table-hover > tbody > tr:hover > td,
+html[data-ospos-theme="dark"] .table-hover > tbody > tr:hover > th {
+    background-color: #334155;
+    color: #ffffff;
+}
+
+html[data-ospos-theme="dark"] .pagination > li > a,
+html[data-ospos-theme="dark"] .pagination > li > span {
+    background-color: var(--ospos-surface);
+    border-color: var(--ospos-border);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .pagination > .active > a,
+html[data-ospos-theme="dark"] .pagination > .active > span,
+html[data-ospos-theme="dark"] .pagination > li > a:hover,
+html[data-ospos-theme="dark"] .pagination > li > span:hover {
+    background-color: #334155;
+    border-color: #64748b;
+    color: #ffffff;
+}
+
+html[data-ospos-theme="dark"] label,
+html[data-ospos-theme="dark"] .help-block,
+html[data-ospos-theme="dark"] .text-muted {
+    color: var(--ospos-muted);
+}
+
+html[data-ospos-theme="dark"] .alert-info {
+    background-color: #123447;
+    border-color: #1c6078;
+    color: #d8f3ff;
+}
+
+html[data-ospos-theme="dark"] .alert-success {
+    background-color: #163c2c;
+    border-color: #28734a;
+    color: #d9fbe7;
+}
+
+html[data-ospos-theme="dark"] .alert-warning {
+    background-color: #493817;
+    border-color: #82652a;
+    color: #fff2c7;
+}
+
+html[data-ospos-theme="dark"] .alert-danger {
+    background-color: #4b2026;
+    border-color: #8f3944;
+    color: #ffe1e4;
+}
+
+html[data-ospos-theme="dark"] #register_wrapper,
+html[data-ospos-theme="dark"] #overall_sale,
+html[data-ospos-theme="dark"] .restaurant-till-layout,
+html[data-ospos-theme="dark"] .restaurant-cart,
+html[data-ospos-theme="dark"] .restaurant-till-layout #overall_sale .panel-body,
+html[data-ospos-theme="dark"] .restaurant-till-layout > #payment_details {
+    background-color: var(--ospos-surface);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] #register_wrapper .panel,
+html[data-ospos-theme="dark"] #overall_sale .panel,
+html[data-ospos-theme="dark"] .restaurant-till-layout .restaurant-cart {
+    border-color: var(--ospos-border);
+}
+
+html[data-ospos-theme="dark"] #sale_totals,
+html[data-ospos-theme="dark"] #payment_totals {
+    border-color: var(--ospos-border);
+}
+
+html[data-ospos-theme="dark"] #receipt_wrapper,
+html[data-ospos-theme="dark"] #page-wrap,
+html[data-ospos-theme="dark"] .kitchen-ticket {
+    background-color: #ffffff;
+    color: #222222;
+}
+
+html[data-ospos-theme="dark"] .ui-autocomplete {
+    background-color: var(--ospos-surface);
+    border-color: var(--ospos-border);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .ui-autocomplete .ui-menu-item > a.ui-corner-all,
+html[data-ospos-theme="dark"] .ui-autocomplete .ui-menu-item > a.ui-corner-all.ui-state-hover,
+html[data-ospos-theme="dark"] .ui-autocomplete .ui-menu-item > a.ui-corner-all.ui-state-active {
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .ui-autocomplete .ui-menu-item > a.ui-corner-all.ui-state-hover,
+html[data-ospos-theme="dark"] .ui-autocomplete .ui-menu-item > a.ui-corner-all.ui-state-active {
+    background-color: #334155;
+}
+
+html[data-ospos-theme="dark"] .ui-autocomplete .ui-menu-item-wrapper {
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .ui-autocomplete .ui-menu-item-wrapper:hover,
+html[data-ospos-theme="dark"] .ui-autocomplete .ui-menu-item-wrapper.ui-state-active,
+html[data-ospos-theme="dark"] .ui-autocomplete .ui-menu-item-wrapper.ui-state-focus {
+    background-color: #334155;
+    color: #ffffff;
+}
+
+html[data-ospos-theme="tech"] .ui-autocomplete {
+    background-color: #ffffff;
+    border-color: #a7c4df;
+}
+
+html[data-ospos-theme="tech"] .ui-autocomplete .ui-menu-item > a.ui-corner-all {
+    color: #17324d;
+}
+
+html[data-ospos-theme="tech"] .ui-autocomplete .ui-menu-item > a.ui-corner-all.ui-state-hover,
+html[data-ospos-theme="tech"] .ui-autocomplete .ui-menu-item > a.ui-corner-all.ui-state-active {
+    background-color: #dcecff;
+    color: #12395d;
+}
+
+html[data-ospos-theme="tech"] .ui-autocomplete .ui-menu-item-wrapper {
+    color: #17324d;
+}
+
+html[data-ospos-theme="tech"] .ui-autocomplete .ui-menu-item-wrapper:hover,
+html[data-ospos-theme="tech"] .ui-autocomplete .ui-menu-item-wrapper.ui-state-active,
+html[data-ospos-theme="tech"] .ui-autocomplete .ui-menu-item-wrapper.ui-state-focus {
+    background-color: #dcecff;
+    color: #12395d;
+}
+
+html[data-ospos-theme="earthy"] .ui-autocomplete {
+    background-color: #ffffff;
+    border-color: #b7a68c;
+}
+
+html[data-ospos-theme="earthy"] .ui-autocomplete .ui-menu-item > a.ui-corner-all {
+    color: #43352c;
+}
+
+html[data-ospos-theme="earthy"] .ui-autocomplete .ui-menu-item > a.ui-corner-all.ui-state-hover,
+html[data-ospos-theme="earthy"] .ui-autocomplete .ui-menu-item > a.ui-corner-all.ui-state-active {
+    background-color: #eadcc3;
+    color: #493a2b;
+}
+
+html[data-ospos-theme="earthy"] .ui-autocomplete .ui-menu-item-wrapper {
+    color: #43352c;
+}
+
+html[data-ospos-theme="earthy"] .ui-autocomplete .ui-menu-item-wrapper:hover,
+html[data-ospos-theme="earthy"] .ui-autocomplete .ui-menu-item-wrapper.ui-state-active,
+html[data-ospos-theme="earthy"] .ui-autocomplete .ui-menu-item-wrapper.ui-state-focus {
+    background-color: #eadcc3;
+    color: #493a2b;
+}
+
+html[data-ospos-theme="dark"] .bootstrap-select .dropdown-menu > li > a,
+html[data-ospos-theme="dark"] .bootstrap-select .dropdown-menu > li.selected > a,
+html[data-ospos-theme="dark"] .bootstrap-select .dropdown-menu > li > a:hover,
+html[data-ospos-theme="dark"] .bootstrap-select .dropdown-menu > li > a:focus {
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .bootstrap-select .dropdown-menu > li.selected > a,
+html[data-ospos-theme="dark"] .bootstrap-select .dropdown-menu > li > a:hover,
+html[data-ospos-theme="dark"] .bootstrap-select .dropdown-menu > li > a:focus {
+    background-color: #334155;
+}
+
+html[data-ospos-theme="dark"] .datepicker,
+html[data-ospos-theme="dark"] .datepicker-dropdown,
+html[data-ospos-theme="dark"] .datetimepicker,
+html[data-ospos-theme="dark"] .bootstrap-datetimepicker-widget,
+html[data-ospos-theme="dark"] .daterangepicker,
+html[data-ospos-theme="dark"] .daterangepicker .calendar-table {
+    background-color: var(--ospos-surface);
+    border-color: var(--ospos-border);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .datepicker table th,
+html[data-ospos-theme="dark"] .datepicker table td,
+html[data-ospos-theme="dark"] .datetimepicker table th,
+html[data-ospos-theme="dark"] .datetimepicker table td,
+html[data-ospos-theme="dark"] .bootstrap-datetimepicker-widget table th,
+html[data-ospos-theme="dark"] .bootstrap-datetimepicker-widget table td,
+html[data-ospos-theme="dark"] .daterangepicker th,
+html[data-ospos-theme="dark"] .daterangepicker td {
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .datepicker table td:hover,
+html[data-ospos-theme="dark"] .datetimepicker table td:hover,
+html[data-ospos-theme="dark"] .bootstrap-datetimepicker-widget table td:hover,
+html[data-ospos-theme="dark"] .daterangepicker td.available:hover,
+html[data-ospos-theme="dark"] .daterangepicker th.available:hover,
+html[data-ospos-theme="dark"] .daterangepicker td.in-range {
+    background-color: #334155;
+    color: #ffffff;
+}
+
+html[data-ospos-theme="dark"] .datepicker table td.active,
+html[data-ospos-theme="dark"] .datetimepicker table td.active,
+html[data-ospos-theme="dark"] .bootstrap-datetimepicker-widget table td.active,
+html[data-ospos-theme="dark"] .daterangepicker td.active,
+html[data-ospos-theme="dark"] .daterangepicker td.active:hover {
+    background-color: #1769aa;
+    color: #ffffff;
+}
+
+html[data-ospos-theme="dark"] .daterangepicker td.off,
+html[data-ospos-theme="dark"] .daterangepicker td.off.in-range,
+html[data-ospos-theme="dark"] .daterangepicker td.off.start-date,
+html[data-ospos-theme="dark"] .daterangepicker td.off.end-date {
+    background-color: var(--ospos-surface-raised);
+    color: var(--ospos-muted);
+}
+
+html[data-ospos-theme="dark"] .daterangepicker .ranges li,
+html[data-ospos-theme="dark"] .daterangepicker .ranges li:hover {
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .daterangepicker .ranges li:hover,
+html[data-ospos-theme="dark"] .daterangepicker .ranges li.active {
+    background-color: #334155;
+    border-color: var(--ospos-border);
+}
+
+html[data-ospos-theme="dark"] .popover {
+    background-color: var(--ospos-surface);
+    border-color: var(--ospos-border);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .popover-title {
+    background-color: var(--ospos-surface-raised);
+    border-color: var(--ospos-border);
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .popover-content,
+html[data-ospos-theme="dark"] .tooltip-inner {
+    color: var(--ospos-text);
+}
+
+html[data-ospos-theme="dark"] .tooltip-inner {
+    background-color: #334155;
+}
+
+html[data-ospos-theme="dark"] #payment_details,
+html[data-ospos-theme="dark"] #change_helper {
+    background-color: var(--ospos-surface);
+    color: var(--ospos-text);
+}
+}

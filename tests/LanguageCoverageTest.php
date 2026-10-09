@@ -17,11 +17,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 final class LanguageCoverageTest extends CIUnitTestCase
 {
     /**
-     * Keys that are deliberately left in Latin script because they are product
-     * names or brand names rather than translatable text.
+     * Keys that stay in Latin script because they are project names, domains,
+     * or brand names rather than translatable text.
      */
     private const UNTRANSLATED_BY_DESIGN = [
         'Common.php::software_short',
+        'Common.php::website',
     ];
 
     private const LANGUAGE_PATH = APPPATH . 'Language';

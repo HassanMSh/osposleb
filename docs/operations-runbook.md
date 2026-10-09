@@ -64,6 +64,20 @@ Held sales, quotes, and work orders save no LBP total until they are completed.
 
 A reprinted or emailed receipt shows the saved LBP total and the rate used at the sale, not today's rate; receipts of older sales still use the current rate.
 
+## Reports overview
+
+The Reports overview shows sales today, sales this week, sales this month, and drawer cash today.
+
+Each sales tile uses the Summary Sales report, including completed returns and saved LBP totals.
+
+Today starts at midnight, this week starts Monday at midnight, and this month starts on the first day of the month.
+
+Drawer cash today is cash sale payments minus cash paid for receivings minus cash expenses, with no opening drawer amount.
+
+The drawer tile lists the three parts so you can check the result.
+
+Open Reports and choose Print today's sales to print the daily summary on the receipt printer.
+
 ## Start the shop
 
 ```bash

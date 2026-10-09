@@ -4,6 +4,8 @@ namespace App\Models\Reports;
 
 class Summary_sales extends Summary_report
 {
+    private bool $groupByHour = false;
+
     /**
      * @return list<array>
      */
@@ -22,8 +24,13 @@ class Summary_sales extends Summary_report
         ];
     }
 
+    /**
+     * Adds the standard daily columns or hourly grouping when requested by the chart.
+     */
     protected function _select(array $inputs, object &$builder): void    // TODO: hungarian notation
     {
+        $this->groupByHour = ! empty($inputs['group_by_hour']);
+
         parent::_select($inputs, $builder);    // TODO: hungarian notation
 
         $builder->select('
@@ -31,22 +38,44 @@ class Summary_sales extends Summary_report
                 SUM(sales_items.quantity_purchased) AS quantity_purchased,
                 COUNT(DISTINCT sales.sale_id) AS sales
         ');
-    }
 
-    protected function _group_order(object &$builder): void    // TODO: hungarian notation
-    {
-        $builder->groupBy('sale_date');
-        $builder->orderBy('sale_date');
+        if ($this->groupByHour) {
+            $builder->select("DATE_FORMAT(sales.sale_time, '%Y-%m-%d %H') AS sale_hour");
+        }
     }
 
     /**
-     * Returns one row per day and adds the saved Lebanese pound total of that day's sales as `lbp_total`.
+     * Groups Summary Sales rows by day, or by day and hour for the chart.
+     */
+    protected function _group_order(object &$builder): void    // TODO: hungarian notation
+    {
+        $builder->groupBy('sale_date');
+
+        if ($this->groupByHour) {
+            $builder->groupBy('sale_hour');
+        }
+
+        $builder->orderBy('sale_date');
+
+        if ($this->groupByHour) {
+            $builder->orderBy('sale_hour');
+        }
+    }
+
+    /**
+     * Returns daily rows with saved pound totals, or raw hourly Summary Sales rows for the chart.
      *
      * `lbp_total` is null when any sale of the day has no saved pound total, such as sales from before it was saved.
+     * Hourly grouping is requested with `group_by_hour` and leaves out `lbp_total` because the chart uses store currency.
      */
     public function getData(array $inputs): array
     {
-        $rows       = parent::getData($inputs);
+        $rows = parent::getData($inputs);
+
+        if (! empty($inputs['group_by_hour'])) {
+            return $rows;
+        }
+
         $lbp_by_day = [];
 
         foreach ($this->get_lbp_totals($inputs, true) as $lbp_row) {

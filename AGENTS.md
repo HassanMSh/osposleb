@@ -153,6 +153,17 @@ The Till layout setting (Settings > General, `till_layout`, read through `App\Li
 - Test both versions after every change, not only the one the change is for. Every implementer and reviewer brief must say this.
 - Each issue and pull request that changes app behaviour says which version it affects: shop only, restaurant only, or both.
 
+## Colour themes
+
+The top bar has a theme switch with four colour themes: the default light theme, Dark, Tech, and Earthy. Each browser remembers its own choice. The themes live in `public/css/ospos_themes.css`, and the page applies the saved one through the `data-ospos-theme` attribute on the `<html>` tag (`app/Views/partial/theme_init.php`). Added in PR #224 on 2026-10-10.
+
+- Every UI change must work in all four themes, not only the default one.
+- Text, icons, borders, focus outlines, and disabled controls must stay easy for a person to read in every theme. Look for text with too little contrast against its background, white-on-white or dark-on-dark text, and colours hard-coded in a view that ignore the theme.
+- When new UI uses colours, follow the theme rules in `public/css/ospos_themes.css` or add rules there for each theme. Do not hard-code a colour that only fits the light theme.
+- Each issue that changes the UI says that the change must be checked in all four themes. Each implementer and reviewer brief for a UI change says the same.
+- For a UI change, the full screenshot set in the final round (see "Agent roles") includes the changed screen in each of the four themes, in Arabic (right to left) and in English. Small fix rounds keep their two-screenshot limit.
+- Receipts, invoices, and kitchen tickets (`#receipt_wrapper`, `#page-wrap`, `.kitchen-ticket`) stay dark text on white in every theme, so they print the same. A change to them must keep that in all four themes.
+
 ## Scope boundaries
 
 Included:
@@ -224,6 +235,7 @@ Always test critical paths:
 - Returns, voids, and discounts affected by changed code.
 - Arabic and English interfaces.
 - RTL and mixed-direction content.
+- All four colour themes, for any UI change (see "Colour themes").
 - Receipt totals.
 - Barcode input.
 - Modifier and combo pricing.

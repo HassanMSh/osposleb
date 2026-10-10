@@ -27,6 +27,7 @@ $language_code = current_language_code();
     <base href="<?= base_url() ?>">
     <title><?= esc($config['company']) . ' | ' . lang('Common.powered_by') . ' OSPOS ' . esc(config('App')->application_version) ?></title>
     <link rel="shortcut icon" type="image/x-icon" href="images/favicon.ico">
+    <?= view('partial/theme_init') ?>
     <link rel="stylesheet" href="<?= 'resources/bootswatch/' . (empty($config['theme']) ? 'flatly' : esc($config['theme'])) . '/bootstrap.min.css' ?>">
 
     <?php
@@ -62,6 +63,8 @@ if ($header_assets_built) {
                     <?= anchor("home/changePassword/{$user_info->person_id}", "{$user_info->first_name} {$user_info->last_name}", ['class' => 'modal-dlg', 'data-btn-submit' => lang('Common.submit'), 'title' => lang('Employees.change_password')]) ?>
                     <span>&nbsp;|&nbsp;</span>
                     <?= anchor('home/logout', lang('Login.logout')) ?>
+                    <span>&nbsp;|&nbsp;</span>
+                    <?= view('partial/theme_switch') ?>
                 </div>
 
                 <div class="navbar-center" style="text-align: center;">

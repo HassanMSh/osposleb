@@ -40,17 +40,30 @@ final class FooterSignatureTest extends CIUnitTestCase
     }
 
     /**
-     * Checks that the footer links the brand and wraps the phone number as left-to-right text.
+     * Checks that the shared support line links the brand and wraps the phone number as left-to-right text.
      */
-    public function testFooterLinksBrandAndWrapsPhoneNumber(): void
+    public function testSupportLineLinksBrandAndWrapsPhoneNumber(): void
     {
-        $footer = file_get_contents(APPPATH . 'Views/partial/footer.php');
+        $supportLine = file_get_contents(APPPATH . 'Views/partial/support_line.php');
 
-        $this->assertIsString($footer);
+        $this->assertIsString($supportLine);
         $this->assertStringContainsString(
             'href="https://hassanshamseddine.qzz.io/" target="_blank" rel="noopener noreferrer"',
-            $footer,
+            $supportLine,
         );
-        $this->assertStringContainsString('<bdi dir="ltr">+96171881267</bdi>', $footer);
+        $this->assertStringContainsString('<bdi dir="ltr">+96171881267</bdi>', $supportLine);
+    }
+
+    /**
+     * Checks that the app footer and the login page footer both show the shared support line.
+     */
+    public function testAppAndLoginFootersShowSupportLine(): void
+    {
+        foreach (['Views/partial/footer.php', 'Views/login.php'] as $view) {
+            $contents = file_get_contents(APPPATH . $view);
+
+            $this->assertIsString($contents);
+            $this->assertStringContainsString("<?= view('partial/support_line') ?>", $contents, $view);
+        }
     }
 }

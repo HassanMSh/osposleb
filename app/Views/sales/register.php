@@ -594,7 +594,7 @@ if ($restaurant_till) {
         };
 
         /**
-         * Validates the response, keeps the entered tender, and refreshes the helper from both sale totals.
+         * Validates the response, removes the old pickers, replaces the register, sets up its pickers again, keeps the entered tender, and refreshes the helper from both sale totals.
          */
         const renderAddItemResponse = function(response) {
             if (typeof response !== 'string') {
@@ -637,7 +637,9 @@ if ($restaurant_till) {
             if ($message.length) {
                 $('#register_wrapper').before($message.clone());
             }
+            $('#register_wrapper .selectpicker').selectpicker('destroy');
             $('#register_wrapper').replaceWith($register);
+            $('#register_wrapper .selectpicker').selectpicker();
             $('#overall_sale').replaceWith($sale);
             changeHelperTotal = responseTotal;
             changeHelperPoundsTotal = responsePoundsTotal;

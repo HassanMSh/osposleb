@@ -69,9 +69,10 @@
         gap: 10px;
     }
 
-    .reports-overview-tile {
-        background: #f5f5f5;
-        border: 1px solid #ddd;
+    .reports-overview-tile,
+    .reports-overview-best-tile {
+        background: var(--ospos-surface-raised, #f5f5f5);
+        border: 1px solid var(--ospos-border, #ddd);
         border-radius: 4px;
         min-width: 0;
         padding: 10px;
@@ -83,7 +84,7 @@
     }
 
     .reports-overview-comparison {
-        color: #666;
+        color: var(--ospos-muted, #666);
         font-size: 12px;
         line-height: 1.4;
         margin-top: 5px;
@@ -98,9 +99,22 @@
         color: #b02a37;
     }
 
+    html[data-ospos-theme="dark"] .reports-overview-comparison-up {
+        color: #86efac;
+    }
+
+    html[data-ospos-theme="dark"] .reports-overview-comparison-down {
+        color: #fca5a5;
+    }
+
+    html[data-ospos-theme="tech"] .reports-overview-comparison-up,
+    html[data-ospos-theme="earthy"] .reports-overview-comparison-up {
+        color: #206832;
+    }
+
     /* Page section headings: the sales dashboard on top, the report links below it */
     .reports-overview-section-title {
-        border-bottom: 1px solid #ddd;
+        border-bottom: 1px solid var(--ospos-border, #ddd);
         font-size: 20px;
         margin: 0 0 15px;
         padding-bottom: 8px;
@@ -119,14 +133,6 @@
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
-    }
-
-    .reports-overview-best-tile {
-        background: #f5f5f5;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        min-width: 0;
-        padding: 10px;
     }
 
     .reports-overview-best-tile span,
@@ -152,7 +158,7 @@
     }
 
     .reports-overview-chart {
-        border: 1px solid #ddd;
+        border: 1px solid var(--ospos-border, #ddd);
         border-radius: 4px;
         padding: 10px;
     }
@@ -174,7 +180,7 @@
 
     /* The chart is always drawn left to right, so the axis title stays on the left above the amounts in both directions */
     .reports-overview-axis-title {
-        color: #555;
+        color: var(--ospos-muted, #555);
         direction: ltr;
         font-size: 12px;
         margin-top: 12px;
@@ -187,6 +193,15 @@
 
     #reports-overview-chart .ct-label {
         direction: ltr;
+    }
+
+    html[data-ospos-theme="dark"] #reports-overview-chart .ct-label {
+        color: var(--ospos-text);
+        fill: var(--ospos-text);
+    }
+
+    html[data-ospos-theme="dark"] #reports-overview-chart .ct-grid {
+        stroke: var(--ospos-border);
     }
 
     /* reports.css rotates every x-axis label by 60 degrees, which pushes them into the plot; keep them flat here */
@@ -220,24 +235,14 @@
         </div>
 
         <div class="reports-overview-tiles" id="reports-overview-tiles">
-            <div class="reports-overview-tile">
-                <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_today') ?></span>
-                <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-today-store">—</bdi></strong>
-                <small><bdi dir="ltr" id="reports-overview-sales-today-lbp">—</bdi></small>
-                <small class="reports-overview-comparison" id="reports-overview-comparison-today"></small>
-            </div>
-            <div class="reports-overview-tile">
-                <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_week') ?></span>
-                <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-week-store">—</bdi></strong>
-                <small><bdi dir="ltr" id="reports-overview-sales-week-lbp">—</bdi></small>
-                <small class="reports-overview-comparison" id="reports-overview-comparison-week"></small>
-            </div>
-            <div class="reports-overview-tile">
-                <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_month') ?></span>
-                <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-month-store">—</bdi></strong>
-                <small><bdi dir="ltr" id="reports-overview-sales-month-lbp">—</bdi></small>
-                <small class="reports-overview-comparison" id="reports-overview-comparison-month"></small>
-            </div>
+            <?php foreach (['today', 'week', 'month'] as $period) { ?>
+                <div class="reports-overview-tile">
+                    <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_' . $period) ?></span>
+                    <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-<?= esc($period) ?>-store">—</bdi></strong>
+                    <small><bdi dir="ltr" id="reports-overview-sales-<?= esc($period) ?>-lbp">—</bdi></small>
+                    <small class="reports-overview-comparison" id="reports-overview-comparison-<?= esc($period) ?>"></small>
+                </div>
+            <?php } ?>
             <?php if ($can_view_receivings) { ?>
                 <div class="reports-overview-tile">
                     <span class="reports-overview-tile-label"><?= lang('Reports.overview_drawer_cash_today') ?></span>
@@ -351,21 +356,22 @@
         function loadOverviewTotals() {
             $.getJSON(overviewTotalsUrl)
                 .done(function(data) {
-                    setOverviewMoney('reports-overview-sales-today', data.sales_today);
-                    setOverviewMoney('reports-overview-sales-week', data.sales_week);
-                    setOverviewMoney('reports-overview-sales-month', data.sales_month);
-                    setOverviewComparison('today', data.comparisons.today);
-                    setOverviewComparison('week', data.comparisons.week);
-                    setOverviewComparison('month', data.comparisons.month);
-                    setOverviewBestPeriod('day', data.best_sales.day);
-                    setOverviewBestPeriod('week', data.best_sales.week);
-                    setOverviewBestPeriod('month', data.best_sales.month);
+                    ['today', 'week', 'month'].forEach(function(period) {
+                        setOverviewMoney('reports-overview-sales-' + period, data['sales_' + period]);
+                        setOverviewComparison(period, data.comparisons[period]);
+                    });
+
+                    ['day', 'week', 'month'].forEach(function(period) {
+                        setOverviewBestPeriod(period, data.best_sales[period]);
+                    });
 
                     if (data.drawer_cash) {
                         setOverviewMoney('reports-overview-drawer', data.drawer_cash.total);
-                        $('#reports-overview-cash-in').text(data.drawer_cash.cash_in.store + ' / ' + data.drawer_cash.cash_in.lbp);
-                        $('#reports-overview-cash-receivings').text(data.drawer_cash.receivings.store + ' / ' + data.drawer_cash.receivings.lbp);
-                        $('#reports-overview-cash-expenses').text(data.drawer_cash.expenses.store + ' / ' + data.drawer_cash.expenses.lbp);
+
+                        [['cash_in', 'in'], ['receivings', 'receivings'], ['expenses', 'expenses']].forEach(function(part) {
+                            var amount = data.drawer_cash[part[0]];
+                            $('#reports-overview-cash-' + part[1]).text(amount.store + ' / ' + amount.lbp);
+                        });
                     }
                 });
         }

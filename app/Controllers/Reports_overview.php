@@ -36,17 +36,19 @@ class Reports_overview extends Secure_Controller
             'sales_today' => $this->formatMoney($data['sales_today']),
             'sales_week'  => $this->formatMoney($data['sales_week']),
             'sales_month' => $this->formatMoney($data['sales_month']),
-            'comparisons' => [
-                'today' => $this->formatComparison($data['comparisons']['today'], 'today'),
-                'week'  => $this->formatComparison($data['comparisons']['week'], 'week'),
-                'month' => $this->formatComparison($data['comparisons']['month'], 'month'),
-            ],
-            'best_sales' => [
-                'day'   => $this->formatBestPeriod($data['best_sales']['day'] ?? null, 'day'),
-                'week'  => $this->formatBestPeriod($data['best_sales']['week'] ?? null, 'week'),
-                'month' => $this->formatBestPeriod($data['best_sales']['month'] ?? null, 'month'),
-            ],
         ];
+
+        $formatted['comparisons'] = [];
+
+        foreach (['today', 'week', 'month'] as $period) {
+            $formatted['comparisons'][$period] = $this->formatComparison($data['comparisons'][$period], $period);
+        }
+
+        $formatted['best_sales'] = [];
+
+        foreach (['day', 'week', 'month'] as $period) {
+            $formatted['best_sales'][$period] = $this->formatBestPeriod($data['best_sales'][$period] ?? null, $period);
+        }
 
         if (isset($data['drawer_cash'])) {
             $drawer                   = $data['drawer_cash'];
@@ -235,10 +237,12 @@ class Reports_overview extends Secure_Controller
             default => $start->format($dateFormat),
         };
 
+        $money = $this->formatMoney($periodData);
+
         return [
             'period'   => $label,
-            'store'    => to_currency($periodData['total']),
-            'lbp'      => $periodData['lbp_total'] === null ? lang('Reports.overview_lbp_unavailable') : format_lbp($periodData['lbp_total']),
+            'store'    => $money['store'],
+            'lbp'      => $money['lbp'],
             'no_sales' => false,
             'message'  => '',
         ];

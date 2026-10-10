@@ -54,23 +54,15 @@ class ReportsOverview extends Model
                 'sales_month' => $this->getSalesSummary($month, $now),
             ];
 
-            $overview['comparisons'] = [
-                'today' => $this->getComparisonFigures(
-                    $overview['sales_today']['total'],
-                    'today',
+            $overview['comparisons'] = [];
+
+            foreach (['today', 'week', 'month'] as $period) {
+                $overview['comparisons'][$period] = $this->getComparisonFigures(
+                    $overview['sales_' . $period]['total'],
+                    $period,
                     $now,
-                ),
-                'week' => $this->getComparisonFigures(
-                    $overview['sales_week']['total'],
-                    'week',
-                    $now,
-                ),
-                'month' => $this->getComparisonFigures(
-                    $overview['sales_month']['total'],
-                    'month',
-                    $now,
-                ),
-            ];
+                );
+            }
 
             $overview['best_sales'] = $this->getBestSalesPeriods($now);
 
@@ -226,9 +218,9 @@ class ReportsOverview extends Model
             $values  = array_fill_keys(array_column($buckets, 'key'), 0.0);
             $start   = $buckets[0]['start'];
             $inputs  = $this->getSalesInputs($start, $now);
+            $this->dropTemporaryTables(['sales_items_taxes_temp', 'sales_payments_temp']);
 
             if ($period === 'hour') {
-                $this->dropTemporaryTables(['sales_items_taxes_temp', 'sales_payments_temp']);
                 $inputs['group_by_hour'] = true;
                 $rows                    = $this->summarySales->getData($inputs);
 
@@ -236,8 +228,6 @@ class ReportsOverview extends Model
                     $values[substr($row['sale_hour'], 11, 2)] = (float) $row['total'];
                 }
             } else {
-                $this->dropTemporaryTables(['sales_items_taxes_temp', 'sales_payments_temp']);
-
                 foreach ($this->summarySales->getData($inputs) as $row) {
                     $saleDate = new DateTimeImmutable($row['sale_date'], new DateTimeZone(date_default_timezone_get()));
                     $key      = $this->getGraphBucketKey($period, $saleDate);
@@ -327,8 +317,8 @@ class ReportsOverview extends Model
     {
         $this->dropTemporaryTables(['sumpay_taxes_temp', 'sumpay_items_temp', 'sumpay_payments_temp']);
         $payments   = [];
-        $cashLabels = $this->getLocalizedCashLabels('Sales.php');
         $cashLabel  = trim((string) lang('Sales.cash'));
+        $cashLabels = $this->getLocalizedCashLabels('Sales.php');
 
         foreach ($this->summaryPayments->getData($this->getSalesInputs($start, $end)) as $row) {
             if ($row['trans_group'] != lang('Reports.trans_payments')) {
@@ -338,7 +328,7 @@ class ReportsOverview extends Model
             $amount      = (float) $row['trans_amount'];
             $paymentType = (string) $row['trans_type'];
 
-            if (in_array(trim($paymentType), $cashLabels, true)) {
+            if ($this->isCashPaymentType($paymentType, $cashLabels)) {
                 $paymentType = $cashLabel;
             }
 
@@ -373,7 +363,7 @@ class ReportsOverview extends Model
         $missingTotal = false;
 
         foreach ($summary as $row) {
-            if (! in_array(trim((string) $row['payment_type']), $cashLabels, true)) {
+            if (! $this->isCashPaymentType((string) $row['payment_type'], $cashLabels)) {
                 continue;
             }
 
@@ -400,22 +390,7 @@ class ReportsOverview extends Model
         $builder->select('payment_type, SUM(amount) AS amount');
         $builder->where('deleted', 0);
 
-        $startDate = $this->formatReportBoundary($start);
-        $endDate   = $this->formatReportBoundary($end);
-
-        if (empty(config(OSPOS::class)->settings['date_or_time_format'])) {
-            $dateCondition = 'DATE_FORMAT(date, "%Y-%m-%d") BETWEEN '
-                . $this->db->escape($startDate)
-                . ' AND '
-                . $this->db->escape($endDate);
-        } else {
-            $dateCondition = 'date BETWEEN '
-                . $this->db->escape(rawurldecode($startDate))
-                . ' AND '
-                . $this->db->escape(rawurldecode($endDate));
-        }
-
-        $builder->where($dateCondition, null, false);
+        $builder->where($this->getDateCondition('date', $start, $end), null, false);
 
         $cashLabels = array_values(array_unique(array_merge(
             $this->getLocalizedCashLabels('Sales.php'),
@@ -426,7 +401,7 @@ class ReportsOverview extends Model
         $total    = 0.0;
 
         foreach ($payments as $payment) {
-            if (in_array(trim((string) $payment['payment_type']), $cashLabels, true)) {
+            if ($this->isCashPaymentType((string) $payment['payment_type'], $cashLabels)) {
                 $total += (float) $payment['amount'];
             }
         }
@@ -447,12 +422,25 @@ class ReportsOverview extends Model
         $total      = 0.0;
 
         foreach ($payments as $paymentType => $payment) {
-            if (in_array(trim($paymentType), $cashLabels, true)) {
+            if ($this->isCashPaymentType($paymentType, $cashLabels)) {
                 $total += $payment['total'];
             }
         }
 
         return $total;
+    }
+
+    /**
+     * Checks whether a payment type matches one of the localized cash labels after trimming whitespace.
+     *
+     * @param string       $paymentType Payment label saved with the transaction.
+     * @param list<string> $cashLabels  Cash labels loaded from installed languages.
+     *
+     * @return bool Whether the label matches a localized cash label.
+     */
+    private function isCashPaymentType(string $paymentType, array $cashLabels): bool
+    {
+        return in_array(trim($paymentType), $cashLabels, true);
     }
 
     /**
@@ -485,7 +473,7 @@ class ReportsOverview extends Model
     }
 
     /**
-     * Counts today's completed sales or returns using the Summary Sales status and type rules.
+     * Counts today's completed sales or returns using the report date and sale type rules.
      *
      * @param list<int> $saleTypes Sale types to count.
      */
@@ -496,7 +484,7 @@ class ReportsOverview extends Model
         $builder->join('sales_items AS sales_items', 'sales_items.sale_id = sales.sale_id', 'inner');
         $builder->where('sales.sale_status', COMPLETED);
         $builder->whereIn('sales.sale_type', $saleTypes);
-        $builder->where($this->getSalesDateCondition($start, $end));
+        $builder->where($this->getDateCondition('sales.sale_time', $start, $end));
 
         return (int) $builder->get()->getRow()->sale_count;
     }
@@ -504,85 +492,61 @@ class ReportsOverview extends Model
     /**
      * Returns all zero-filled date buckets for the selected chart period.
      *
-     * @return list<array{key: string, label: string, start: DateTimeImmutable, end: DateTimeImmutable}> Chart buckets.
+     * @return list<array{key: string, label: string, start: DateTimeImmutable}> Chart buckets.
      */
     private function getGraphBuckets(string $period, DateTimeImmutable $now): array
     {
         $today   = $now->setTime(0, 0);
-        $buckets = [];
+        $periods = [
+            'hour' => [
+                'count'        => 24,
+                'first'        => $today,
+                'step'         => 'hours',
+                'key_format'   => 'H',
+                'label_format' => 'H',
+            ],
+            'day' => [
+                'count'        => 30,
+                'first'        => $today->modify('-29 days'),
+                'step'         => 'days',
+                'key_format'   => 'Y-m-d',
+                'label_format' => 'd/m',
+            ],
+            'week' => [
+                'count'        => 12,
+                'first'        => $today->modify('monday this week')->modify('-11 weeks'),
+                'step'         => 'weeks',
+                'key_format'   => 'Y-m-d',
+                'label_format' => 'd/m',
+            ],
+            'month' => [
+                'count'        => 12,
+                'first'        => $today->modify('first day of this month')->modify('-11 months'),
+                'step'         => 'months',
+                'key_format'   => 'Y-m',
+                'label_format' => null,
+            ],
+            'year' => [
+                'count'        => 5,
+                'first'        => $today->setDate((int) $today->format('Y') - 4, 1, 1),
+                'step'         => 'years',
+                'key_format'   => 'Y',
+                'label_format' => 'Y',
+            ],
+        ];
+        $description = $periods[$period] ?? $periods['year'];
+        $buckets     = [];
 
-        if ($period === 'hour') {
-            for ($hour = 0; $hour < 24; $hour++) {
-                $start     = $today->setTime($hour, 0);
-                $buckets[] = [
-                    'key'   => $start->format('H'),
-                    'label' => $start->format('H'),
-                    'start' => $start,
-                    'end'   => $start->modify('+1 hour')->modify('-1 second'),
-                ];
-            }
+        for ($index = 0; $index < $description['count']; $index++) {
+            $start = $description['first']->modify('+' . $index . ' ' . $description['step']);
+            $label = $period === 'month'
+                ? lang('Calendar.' . strtolower($start->format('F'))) . ' ' . $start->format('Y')
+                : $start->format($description['label_format']);
 
-            return $buckets;
-        }
-
-        if ($period === 'day') {
-            $first = $today->modify('-29 days');
-
-            for ($index = 0; $index < 30; $index++) {
-                $start     = $first->modify('+' . $index . ' days');
-                $buckets[] = [
-                    'key'   => $start->format('Y-m-d'),
-                    'label' => $start->format('d/m'),
-                    'start' => $start,
-                    'end'   => $start->setTime(23, 59, 59),
-                ];
-            }
-
-            return $buckets;
-        }
-
-        if ($period === 'week') {
-            $first = $today->modify('monday this week')->modify('-11 weeks');
-
-            for ($index = 0; $index < 12; $index++) {
-                $start     = $first->modify('+' . $index . ' weeks');
-                $buckets[] = [
-                    'key'   => $start->format('Y-m-d'),
-                    'label' => $start->format('d/m'),
-                    'start' => $start,
-                    'end'   => $start->modify('+6 days')->setTime(23, 59, 59),
-                ];
-            }
-
-            return $buckets;
-        }
-
-        if ($period === 'month') {
-            $first = $today->modify('first day of this month')->modify('-11 months');
-
-            for ($index = 0; $index < 12; $index++) {
-                $start     = $first->modify('+' . $index . ' months');
-                $monthName = lang('Calendar.' . strtolower($start->format('F')));
-                $buckets[] = [
-                    'key'   => $start->format('Y-m'),
-                    'label' => $monthName . ' ' . $start->format('Y'),
-                    'start' => $start,
-                    'end'   => $start->modify('last day of this month')->setTime(23, 59, 59),
-                ];
-            }
-
-            return $buckets;
-        }
-
-        $firstYear = $today->setDate((int) $today->format('Y') - 4, 1, 1);
-
-        for ($index = 0; $index < 5; $index++) {
-            $start     = $firstYear->modify('+' . $index . ' years');
             $buckets[] = [
-                'key'   => $start->format('Y'),
-                'label' => $start->format('Y'),
+                'key'   => $start->format($description['key_format']),
+                'label' => $label,
                 'start' => $start,
-                'end'   => $start->setDate((int) $start->format('Y'), 12, 31)->setTime(23, 59, 59),
             ];
         }
 
@@ -621,16 +585,18 @@ class ReportsOverview extends Model
     }
 
     /**
-     * Returns the date condition used by Summary Sales for completed transaction counts.
+     * Builds an escaped date range condition for a report column and the configured date mode.
+     *
+     * Date-only mode compares calendar dates; timestamp mode compares the full formatted boundaries.
      */
-    private function getSalesDateCondition(DateTimeImmutable $start, DateTimeImmutable $end): string
+    private function getDateCondition(string $column, DateTimeImmutable $start, DateTimeImmutable $end): string
     {
         $startDate = $this->db->escape($this->formatReportBoundary($start));
         $endDate   = $this->db->escape($this->formatReportBoundary($end));
 
         return empty(config(OSPOS::class)->settings['date_or_time_format'])
-            ? "DATE(sales.sale_time) BETWEEN {$startDate} AND {$endDate}"
-            : "sales.sale_time BETWEEN {$startDate} AND {$endDate}";
+            ? "DATE({$column}) BETWEEN {$startDate} AND {$endDate}"
+            : "{$column} BETWEEN {$startDate} AND {$endDate}";
     }
 
     /**

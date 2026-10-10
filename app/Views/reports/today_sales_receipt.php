@@ -23,6 +23,19 @@
 
 <?= view('partial/print_receipt', ['print_after_sale' => false, 'selected_printer' => 'receipt_printer']) ?>
 
+<?php
+/** Renders one summary row with its store amount and its pound amount, or the unavailable note. */
+$renderTotalRow = static function (string $label, array $amount): void { ?>
+    <tr>
+        <td><?= $label ?></td>
+        <td class="total-value">
+            <span dir="ltr"><?= esc(to_currency($amount['total'])) ?></span><br>
+            <span dir="ltr"><?= $amount['lbp_total'] === null ? esc(lang('Reports.overview_lbp_unavailable')) : esc(format_lbp($amount['lbp_total'])) ?></span>
+        </td>
+    </tr>
+<?php };
+?>
+
 <div class="print_hide" style="text-align: right;">
     <a href="javascript:printdoc();" class="btn btn-info btn-sm" id="show_print_button"><span class="glyphicon glyphicon-print">&nbsp;</span><?= lang('Common.print') ?></a>
     <?= anchor('reports', '<span class="glyphicon glyphicon-chevron-left">&nbsp;</span>' . lang('Reports.overview_back_to_reports'), ['class' => 'btn btn-info btn-sm']) ?>
@@ -46,13 +59,7 @@
 
     <table id="receipt_items">
         <tbody>
-            <tr>
-                <td><?= lang('Reports.overview_total_sales') ?></td>
-                <td class="total-value">
-                    <span dir="ltr"><?= esc(to_currency($receipt_data['sales_total']['total'])) ?></span><br>
-                    <span dir="ltr"><?= $receipt_data['sales_total']['lbp_total'] === null ? esc(lang('Reports.overview_lbp_unavailable')) : esc(format_lbp($receipt_data['sales_total']['lbp_total'])) ?></span>
-                </td>
-            </tr>
+            <?php $renderTotalRow(lang('Reports.overview_total_sales'), $receipt_data['sales_total']); ?>
             <?php foreach ($receipt_data['payments'] as $payment_type => $payment) { ?>
                 <tr>
                     <td><bdi dir="auto"><?= esc($payment_type) ?></bdi></td>
@@ -63,27 +70,9 @@
                 </tr>
             <?php } ?>
             <?php if ($include_receiving_lines) { ?>
-                <tr>
-                    <td><?= lang('Reports.overview_cash_paid_receivings') ?></td>
-                    <td class="total-value">
-                        <span dir="ltr"><?= esc(to_currency($receipt_data['cash_receivings']['total'])) ?></span><br>
-                        <span dir="ltr"><?= $receipt_data['cash_receivings']['lbp_total'] === null ? esc(lang('Reports.overview_lbp_unavailable')) : esc(format_lbp($receipt_data['cash_receivings']['lbp_total'])) ?></span>
-                    </td>
-                </tr>
-                <tr>
-                    <td><?= lang('Reports.overview_cash_paid_expenses') ?></td>
-                    <td class="total-value">
-                        <span dir="ltr"><?= esc(to_currency($receipt_data['cash_expenses']['total'])) ?></span><br>
-                        <span dir="ltr"><?= esc(format_lbp($receipt_data['cash_expenses']['lbp_total'])) ?></span>
-                    </td>
-                </tr>
-                <tr>
-                    <td><?= lang('Reports.overview_drawer_cash') ?></td>
-                    <td class="total-value">
-                        <span dir="ltr"><?= esc(to_currency($receipt_data['drawer_cash']['total'])) ?></span><br>
-                        <span dir="ltr"><?= esc(format_lbp($receipt_data['drawer_cash']['lbp_total'])) ?></span>
-                    </td>
-                </tr>
+                <?php $renderTotalRow(lang('Reports.overview_cash_paid_receivings'), $receipt_data['cash_receivings']); ?>
+                <?php $renderTotalRow(lang('Reports.overview_cash_paid_expenses'), $receipt_data['cash_expenses']); ?>
+                <?php $renderTotalRow(lang('Reports.overview_drawer_cash'), $receipt_data['drawer_cash']); ?>
             <?php } ?>
         </tbody>
     </table>

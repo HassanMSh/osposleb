@@ -23,7 +23,7 @@ class Reports_overview extends Secure_Controller
     }
 
     /**
-     * Returns the overview tiles as JSON for employees with Sales Reports access.
+     * Returns sales tiles with saved pound totals and dollar-only drawer values as JSON for employees with Sales Reports access.
      */
     public function getTotals(): ResponseInterface
     {
@@ -53,10 +53,10 @@ class Reports_overview extends Secure_Controller
         if (isset($data['drawer_cash'])) {
             $drawer                   = $data['drawer_cash'];
             $formatted['drawer_cash'] = [
-                'total'      => $this->formatMoney($drawer),
-                'cash_in'    => $this->formatMoney($drawer['cash_in']),
-                'receivings' => $this->formatMoney($drawer['receivings']),
-                'expenses'   => $this->formatMoney($drawer['expenses']),
+                'total'      => to_currency($drawer['total']),
+                'cash_in'    => to_currency($drawer['cash_in']['total']),
+                'receivings' => to_currency($drawer['receivings']['total']),
+                'expenses'   => to_currency($drawer['expenses']['total']),
             ];
         }
 

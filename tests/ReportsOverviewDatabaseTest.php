@@ -166,23 +166,33 @@ final class ReportsOverviewDatabaseTest extends CIUnitTestCase
         $this->assertSame(45.0, $overview['sales_week']['total']);
         $this->assertSame(55.0, $overview['sales_month']['total']);
         $this->assertSame(4050000, $overview['sales_today']['lbp_total']);
+        $this->assertArrayNotHasKey('lbp_total', $overview['drawer_cash']);
         $this->assertSame(20.0, $overview['drawer_cash']['total']);
-        $this->assertSame(1800000, $overview['drawer_cash']['lbp_total']);
         $this->assertSame(25.0, $overview['drawer_cash']['cash_in']['total']);
+        $this->assertSame(['total'], array_keys($overview['drawer_cash']['cash_in']));
         $this->assertSame(3.0, $overview['drawer_cash']['receivings']['total']);
-        $this->assertSame(270000, $overview['drawer_cash']['receivings']['lbp_total']);
+        $this->assertSame(['total'], array_keys($overview['drawer_cash']['receivings']));
         $this->assertSame(2.0, $overview['drawer_cash']['expenses']['total']);
-        $this->assertSame(180000, $overview['drawer_cash']['expenses']['lbp_total']);
+        $this->assertSame(['total'], array_keys($overview['drawer_cash']['expenses']));
 
         $this->assertEqualsWithDelta($overview['sales_today']['total'], $this->summarySalesTotal('2031-03-03', '2031-03-03'), 0.001);
         $this->assertEqualsWithDelta($overview['sales_week']['total'], $this->summarySalesTotal('2031-03-03', '2031-03-03'), 0.001);
         $this->assertEqualsWithDelta($overview['sales_month']['total'], $this->summarySalesTotal('2031-03-01', '2031-03-03'), 0.001);
 
         $receipt = $model->getTodayReceiptData($now, true);
+        $this->assertArrayHasKey('lbp_total', $receipt['sales_total']);
         $this->assertSame(2, $receipt['sales_count']);
         $this->assertSame(1, $receipt['returns_count']);
         $this->assertSame(25.0, $receipt['payments'][lang('Sales.cash')]['total']);
         $this->assertSame(20.0, $receipt['payments'][lang('Sales.credit')]['total']);
+
+        foreach ($receipt['payments'] as $payment) {
+            $this->assertSame(['total'], array_keys($payment));
+        }
+        $this->assertArrayNotHasKey('lbp_total', $receipt['drawer_cash']);
+        $this->assertSame(['total'], array_keys($receipt['drawer_cash']));
+        $this->assertSame(['total'], array_keys($receipt['cash_receivings']));
+        $this->assertSame(['total'], array_keys($receipt['cash_expenses']));
         $this->assertArrayHasKey('cash_receivings', $receipt);
         $this->assertArrayHasKey('cash_expenses', $receipt);
 
@@ -207,6 +217,35 @@ final class ReportsOverviewDatabaseTest extends CIUnitTestCase
         $this->assertArrayNotHasKey('cash_expenses', $receipt);
         $this->assertArrayHasKey('sales_total', $receipt);
         $this->assertArrayHasKey('payments', $receipt);
+    }
+
+    /**
+     * Returns dollar-only payment and drawer shapes in both till layouts while keeping saved sales pounds.
+     */
+    public function testReceiptAmountsKeepTheirShapesInBothTillLayouts(): void
+    {
+        $this->seedSales();
+        $savedSettings = config(OSPOS::class)->settings;
+
+        try {
+            foreach (['shop', 'restaurant'] as $layout) {
+                config(OSPOS::class)->settings['till_layout'] = $layout;
+                $receipt                                      = (new ReportsOverview())->getTodayReceiptData($this->reportNow(), true);
+
+                $this->assertArrayHasKey('lbp_total', $receipt['sales_total'], $layout);
+                $this->assertArrayNotHasKey('lbp_total', $receipt['drawer_cash'], $layout);
+
+                foreach ($receipt['payments'] as $payment) {
+                    $this->assertSame(['total'], array_keys($payment), $layout);
+                }
+
+                $this->assertSame(['total'], array_keys($receipt['drawer_cash']), $layout);
+                $this->assertSame(['total'], array_keys($receipt['cash_receivings']), $layout);
+                $this->assertSame(['total'], array_keys($receipt['cash_expenses']), $layout);
+            }
+        } finally {
+            config(OSPOS::class)->settings = $savedSettings;
+        }
     }
 
     /**

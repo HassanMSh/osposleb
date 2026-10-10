@@ -94,9 +94,9 @@ final class ReportsOverviewPermissionTest extends CIUnitTestCase
         $weekComparison  = $data['comparisons']['week'];
         $monthComparison = $data['comparisons']['month'];
 
-        $this->assertSame('Better than yesterday by $12.00', $todayComparison['before'] . $todayComparison['value'] . $todayComparison['after']);
-        $this->assertSame('Worse than last week by $9.00', $weekComparison['before'] . $weekComparison['value'] . $weekComparison['after']);
-        $this->assertSame('Same as last month', $monthComparison['message']);
+        $this->assertSame(str_replace('{0}', '$12.00', lang('Reports.overview_compare_better_today')), $todayComparison['before'] . $todayComparison['value'] . $todayComparison['after']);
+        $this->assertSame(str_replace('{0}', '$9.00', lang('Reports.overview_compare_worse_week')), $weekComparison['before'] . $weekComparison['value'] . $weekComparison['after']);
+        $this->assertSame(lang('Reports.overview_compare_same_month'), $monthComparison['message']);
         $this->assertSame('up', $todayComparison['icon']);
         $this->assertSame('down', $weekComparison['icon']);
         $this->assertSame('', $monthComparison['icon']);
@@ -105,9 +105,135 @@ final class ReportsOverviewPermissionTest extends CIUnitTestCase
     }
 
     /**
+     * Formats drawer values as dollars while keeping saved pound values on the sales tiles.
+     */
+    public function testTotalsKeepPoundsOnlyOnSalesTiles(): void
+    {
+        $overview = $this->createMock(ReportsOverview::class);
+        $overview->expects($this->once())
+            ->method('getOverview')
+            ->with($this->isInstanceOf(DateTimeImmutable::class), true)
+            ->willReturn([
+                'sales_today' => ['total' => 4.0, 'lbp_total' => 360000],
+                'sales_week'  => ['total' => 4.0, 'lbp_total' => 360000],
+                'sales_month' => ['total' => 4.0, 'lbp_total' => 360000],
+                'comparisons' => [
+                    'today' => ['status' => 'same', 'difference' => 0.0],
+                    'week'  => ['status' => 'same', 'difference' => 0.0],
+                    'month' => ['status' => 'same', 'difference' => 0.0],
+                ],
+                'best_sales'  => ['day' => null, 'week' => null, 'month' => null],
+                'drawer_cash' => [
+                    'total'      => 4.0,
+                    'cash_in'    => ['total' => 6.0],
+                    'receivings' => ['total' => 1.0],
+                    'expenses'   => ['total' => 1.0],
+                ],
+            ]);
+        $controller = $this->makeController(['reports_sales' => true, 'reports_receivings' => true], $overview);
+
+        $response = $controller->getTotals();
+        $data     = json_decode($response->getBody(), true);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('$4.00', $data['sales_today']['store']);
+        $this->assertSame(format_lbp(360000), $data['sales_today']['lbp']);
+        $this->assertSame([
+            'total'      => '$4.00',
+            'cash_in'    => '$6.00',
+            'receivings' => '$1.00',
+            'expenses'   => '$1.00',
+        ], $data['drawer_cash']);
+    }
+
+    /**
      * Hides drawer cash on the printed receipt without Receiving Reports access.
      */
     public function testReceiptHidesDrawerWhenReceivingReportPermissionIsMissing(): void
+    {
+        $response = $this->makeReceiptResponse([
+            'sales_total'     => ['total' => 2.0, 'lbp_total' => 180000],
+            'sales_count'     => 1,
+            'returns_count'   => 0,
+            'payments'        => ['Cash' => ['total' => 2.0]],
+            'drawer_cash'     => ['total' => 2.0],
+            'cash_receivings' => ['total' => 0.0],
+            'cash_expenses'   => ['total' => 0.0],
+        ], false, 'shop');
+        $body = $response->getBody();
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringContainsString(lang('Reports.overview_total_sales'), $body);
+        $this->assertStringNotContainsString(lang('Reports.overview_drawer_cash'), $body);
+        $this->assertStringNotContainsString(lang('Reports.overview_cash_paid_receivings'), $body);
+        $this->assertStringNotContainsString(lang('Reports.overview_cash_paid_expenses'), $body);
+    }
+
+    /**
+     * Prints saved pounds only for Total sales and one dollar amount for payment and drawer rows in both till layouts.
+     */
+    public function testPrintedReceiptShowsPoundsOnlyForTotalSalesInBothTillLayouts(): void
+    {
+        $savedSettings = config(OSPOS::class)->settings;
+
+        try {
+            foreach (['shop', 'restaurant'] as $layout) {
+                config(OSPOS::class)->settings['till_layout'] = $layout;
+                $receiptData                                  = [
+                    'sales_total'   => ['total' => 4.0, 'lbp_total' => 360000],
+                    'sales_count'   => 2,
+                    'returns_count' => 0,
+                    'payments'      => [
+                        'Cash' => ['total' => 6.0],
+                        'Card' => ['total' => 2.0],
+                    ],
+                    'drawer_cash'     => ['total' => 4.0],
+                    'cash_receivings' => ['total' => 1.0],
+                    'cash_expenses'   => ['total' => 1.0],
+                ];
+                $response = $this->makeReceiptResponse($receiptData, true, $layout);
+                $body     = $response->getBody();
+
+                $this->assertSame(200, $response->getStatusCode(), $layout);
+                preg_match_all('/<tr\b[^>]*>.*?<\/tr>/s', $body, $rowMatches);
+                $salesRows   = array_values(array_filter($rowMatches[0], static fn (string $row): bool => str_contains($row, esc(lang('Reports.overview_total_sales')))));
+                $poundFigure = esc(format_lbp(360000));
+
+                $this->assertCount(1, $salesRows, $layout);
+                $this->assertStringContainsString($poundFigure, $salesRows[0], $layout);
+                $this->assertSame(2, substr_count($salesRows[0], '<span dir="ltr">'), $layout);
+
+                $dollarOnlyLabels = array_merge(
+                    array_keys($receiptData['payments']),
+                    [
+                        lang('Reports.overview_cash_paid_receivings'),
+                        lang('Reports.overview_cash_paid_expenses'),
+                        lang('Reports.overview_drawer_cash'),
+                    ],
+                );
+
+                foreach ($dollarOnlyLabels as $label) {
+                    $labelMarkup  = '<bdi dir="auto">' . esc($label) . '</bdi>';
+                    $matchingRows = array_values(array_filter($rowMatches[0], static fn (string $row): bool => str_contains($row, $labelMarkup)));
+
+                    $this->assertCount(1, $matchingRows, $layout . ': ' . $label);
+                    $this->assertSame(1, substr_count($matchingRows[0], '<span dir="ltr">'), $layout . ': ' . $label);
+                    $this->assertStringNotContainsString($poundFigure, $matchingRows[0], $layout . ': ' . $label);
+                }
+
+                $this->assertSame(1, substr_count($body, $poundFigure), $layout);
+            }
+        } finally {
+            config(OSPOS::class)->settings = $savedSettings;
+        }
+    }
+
+    /**
+     * Renders today's receipt through a mocked report model for the selected permissions and till layout.
+     *
+     * @param array<string, mixed> $receiptData Receipt rows returned by the report model.
+     */
+    private function makeReceiptResponse(array $receiptData, bool $includeReceivingLines, string $tillLayout): ResponseInterface
     {
         $viewEmployee = $this->createMock(Employee::class);
         $viewEmployee->method('is_logged_in')->willReturn(false);
@@ -116,17 +242,9 @@ final class ReportsOverviewPermissionTest extends CIUnitTestCase
         $overview = $this->createMock(ReportsOverview::class);
         $overview->expects($this->once())
             ->method('getTodayReceiptData')
-            ->with($this->isInstanceOf(DateTimeImmutable::class), false)
-            ->willReturn([
-                'sales_total'     => ['total' => 2.0, 'lbp_total' => 180000],
-                'sales_count'     => 1,
-                'returns_count'   => 0,
-                'payments'        => ['Cash' => ['total' => 2.0, 'lbp_total' => 180000]],
-                'drawer_cash'     => ['total' => 2.0, 'lbp_total' => 180000],
-                'cash_receivings' => ['total' => 0.0, 'lbp_total' => 0],
-                'cash_expenses'   => ['total' => 0.0, 'lbp_total' => 0],
-            ]);
-        $controller                   = $this->makeController(['reports_sales' => true, 'reports_receivings' => false], $overview);
+            ->with($this->isInstanceOf(DateTimeImmutable::class), $includeReceivingLines)
+            ->willReturn($receiptData);
+        $controller                   = $this->makeController(['reports_sales' => true, 'reports_receivings' => $includeReceivingLines], $overview);
         $controller->global_view_data = [
             'allowed_modules' => [],
             'user_info'       => (object) ['person_id' => 42, 'first_name' => 'Test', 'last_name' => 'Employee'],
@@ -146,20 +264,14 @@ final class ReportsOverviewPermissionTest extends CIUnitTestCase
                 'print_top_margin'           => '0',
                 'receipt_font_size'          => 12,
                 'receipt_show_company_name'  => true,
-                'timeformat'                 => 'H:i',
                 'theme'                      => 'flatly',
+                'timeformat'                 => 'H:i',
+                'till_layout'                => $tillLayout,
             ],
         ];
         view('viewData', $controller->global_view_data);
 
-        $response = $controller->getPrintToday();
-        $body     = $response->getBody();
-
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertStringContainsString(lang('Reports.overview_total_sales'), $body);
-        $this->assertStringNotContainsString(lang('Reports.overview_drawer_cash'), $body);
-        $this->assertStringNotContainsString(lang('Reports.overview_cash_paid_receivings'), $body);
-        $this->assertStringNotContainsString(lang('Reports.overview_cash_paid_expenses'), $body);
+        return $controller->getPrintToday();
     }
 
     /**

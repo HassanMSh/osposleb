@@ -171,11 +171,11 @@ class ReportsOverview extends Model
     }
 
     /**
-     * Returns today's receipt figures and omits all drawer amounts when access is missing.
+     * Returns sales with saved pound totals, dollar-only payment amounts, and drawer amounts when access allows.
      *
      * @param bool $includeDrawer Whether Receiving Reports access allows drawer amounts.
      *
-     * @return array<string, mixed> Receipt figures, counts, and payment totals.
+     * @return array<string, mixed> Receipt figures, counts, payment totals, and optional dollar-only drawer amounts.
      */
     public function getTodayReceiptData(DateTimeImmutable $now, bool $includeDrawer): array
     {
@@ -193,7 +193,7 @@ class ReportsOverview extends Model
 
             if ($includeDrawer) {
                 $drawer                  = $this->getDrawerFigures($today, $now, $payments);
-                $data['drawer_cash']     = ['total' => $drawer['total'], 'lbp_total' => $drawer['lbp_total']];
+                $data['drawer_cash']     = ['total' => $drawer['total']];
                 $data['cash_receivings'] = $drawer['receivings'];
                 $data['cash_expenses']   = $drawer['expenses'];
             }
@@ -287,9 +287,9 @@ class ReportsOverview extends Model
     /**
      * Returns the cash payment, cash receiving, and cash expense parts of today's drawer total.
      *
-     * @param array<string, array{total: float, lbp_total: int}>|null $payments Loaded sale payment totals, if available.
+     * @param array<string, array{total: float}>|null $payments Loaded sale payment totals, if available.
      *
-     * @return array<string, mixed> Drawer total and its three checkable parts.
+     * @return array{total: float, cash_in: array{total: float}, receivings: array{total: float}, expenses: array{total: float}} Dollar-only drawer total and its three checkable parts.
      */
     private function getDrawerFigures(DateTimeImmutable $start, DateTimeImmutable $end, ?array $payments = null): array
     {
@@ -297,21 +297,20 @@ class ReportsOverview extends Model
         $cashSales  = $this->getCashPaymentAmount($payments);
         $receivings = $this->getCashReceivingTotal($start, $end);
         $expenses   = $this->getCashExpenseTotal($start, $end);
-        $drawerCash = $cashSales - $receivings['total'] - $expenses;
+        $drawerCash = $cashSales - $receivings - $expenses;
 
         return [
             'total'      => $drawerCash,
-            'lbp_total'  => to_lbp($drawerCash),
-            'cash_in'    => ['total' => $cashSales, 'lbp_total' => to_lbp($cashSales)],
-            'receivings' => $receivings,
-            'expenses'   => ['total' => $expenses, 'lbp_total' => to_lbp($expenses)],
+            'cash_in'    => ['total' => $cashSales],
+            'receivings' => ['total' => $receivings],
+            'expenses'   => ['total' => $expenses],
         ];
     }
 
     /**
      * Returns sale payments with cash labels merged under the current language's cash label.
      *
-     * @return array<string, array{total: float, lbp_total: int}> Payment amounts by label.
+     * @return array<string, array{total: float}> Dollar payment amounts by label.
      */
     private function getPaymentTotals(DateTimeImmutable $start, DateTimeImmutable $end): array
     {
@@ -332,20 +331,19 @@ class ReportsOverview extends Model
                 $paymentType = $cashLabel;
             }
 
-            $payments[$paymentType] ??= ['total' => 0.0, 'lbp_total' => 0];
+            $payments[$paymentType] ??= ['total' => 0.0];
             $payments[$paymentType]['total'] += $amount;
-            $payments[$paymentType]['lbp_total'] = to_lbp($payments[$paymentType]['total']);
         }
 
         return $payments;
     }
 
     /**
-     * Returns today's cash receiving amount and its saved pound total.
+     * Returns today's cash receiving amount in store currency.
      *
-     * @return array{total: float, lbp_total: int|null} Cash receiving amount and saved pound total.
+     * @return float Cash receiving amount in store currency.
      */
-    private function getCashReceivingTotal(DateTimeImmutable $start, DateTimeImmutable $end): array
+    private function getCashReceivingTotal(DateTimeImmutable $start, DateTimeImmutable $end): float
     {
         $this->dropTemporaryTables(['receivings_items_temp']);
         $inputs = [
@@ -356,11 +354,9 @@ class ReportsOverview extends Model
             'definition_ids' => [],
         ];
         $this->detailedReceivings->create($inputs);
-        $summary      = $this->detailedReceivings->getData($inputs)['summary'];
-        $cashLabels   = $this->getLocalizedCashLabels('Sales.php');
-        $total        = 0.0;
-        $lbpTotal     = 0;
-        $missingTotal = false;
+        $summary    = $this->detailedReceivings->getData($inputs)['summary'];
+        $cashLabels = $this->getLocalizedCashLabels('Sales.php');
+        $total      = 0.0;
 
         foreach ($summary as $row) {
             if (! $this->isCashPaymentType((string) $row['payment_type'], $cashLabels)) {
@@ -368,15 +364,9 @@ class ReportsOverview extends Model
             }
 
             $total += (float) $row['total'];
-
-            if ($row['lbp_total'] === null) {
-                $missingTotal = true;
-            } else {
-                $lbpTotal += (int) $row['lbp_total'];
-            }
         }
 
-        return ['total' => $total, 'lbp_total' => $missingTotal ? null : $lbpTotal];
+        return $total;
     }
 
     /**
@@ -412,7 +402,7 @@ class ReportsOverview extends Model
     /**
      * Adds sale payments whose stored type matches any language's cash label.
      *
-     * @param array<string, array{total: float, lbp_total: int}> $payments Payment totals by label.
+     * @param array<string, array{total: float}> $payments Payment totals by label.
      *
      * @return float Total sale payments tagged as cash.
      */

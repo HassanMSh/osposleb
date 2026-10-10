@@ -247,7 +247,6 @@
                 <div class="reports-overview-tile">
                     <span class="reports-overview-tile-label"><?= lang('Reports.overview_drawer_cash_today') ?></span>
                     <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-drawer-store">—</bdi></strong>
-                    <small><bdi dir="ltr" id="reports-overview-drawer-lbp">—</bdi></small>
                     <small><?= lang('Reports.overview_cash_in') ?>: <bdi dir="ltr" id="reports-overview-cash-in">—</bdi></small>
                     <small><?= lang('Reports.overview_cash_receivings') ?>: <bdi dir="ltr" id="reports-overview-cash-receivings">—</bdi></small>
                     <small><?= lang('Reports.overview_cash_expenses') ?>: <bdi dir="ltr" id="reports-overview-cash-expenses">—</bdi></small>
@@ -319,7 +318,7 @@
             return widest;
         }
 
-        /** Updates a tile's store currency and Lebanese pound values. */
+        /** Updates a sales tile's store currency and saved Lebanese pound values. */
         function setOverviewMoney(prefix, money) {
             $('#' + prefix + '-store').text(money.store);
             $('#' + prefix + '-lbp').text(money.lbp);
@@ -366,11 +365,11 @@
                     });
 
                     if (data.drawer_cash) {
-                        setOverviewMoney('reports-overview-drawer', data.drawer_cash.total);
+                        $('#reports-overview-drawer-store').text(data.drawer_cash.total);
 
                         [['cash_in', 'in'], ['receivings', 'receivings'], ['expenses', 'expenses']].forEach(function(part) {
                             var amount = data.drawer_cash[part[0]];
-                            $('#reports-overview-cash-' + part[1]).text(amount.store + ' / ' + amount.lbp);
+                            $('#reports-overview-cash-' + part[1]).text(amount);
                         });
                     }
                 });

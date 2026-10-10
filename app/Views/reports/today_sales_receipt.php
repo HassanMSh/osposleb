@@ -24,7 +24,7 @@
 <?= view('partial/print_receipt', ['print_after_sale' => false, 'selected_printer' => 'receipt_printer']) ?>
 
 <?php
-/** Renders one summary row with its store amount and its pound amount, or the unavailable note. */
+/** Renders one sales summary row with its store amount and saved pound amount, or the unavailable note. */
 $renderTotalRow = static function (string $label, array $amount): void { ?>
     <tr>
         <td><?= $label ?></td>
@@ -32,6 +32,14 @@ $renderTotalRow = static function (string $label, array $amount): void { ?>
             <span dir="ltr"><?= esc(to_currency($amount['total'])) ?></span><br>
             <span dir="ltr"><?= $amount['lbp_total'] === null ? esc(lang('Reports.overview_lbp_unavailable')) : esc(format_lbp($amount['lbp_total'])) ?></span>
         </td>
+    </tr>
+<?php };
+
+/** Renders one payment or drawer row with its store currency amount only. */
+$renderDollarRow = static function (string $label, float|int $amount): void { ?>
+    <tr>
+        <td><bdi dir="auto"><?= esc($label) ?></bdi></td>
+        <td class="total-value"><span dir="ltr"><?= esc(to_currency($amount)) ?></span></td>
     </tr>
 <?php };
 ?>
@@ -61,18 +69,12 @@ $renderTotalRow = static function (string $label, array $amount): void { ?>
         <tbody>
             <?php $renderTotalRow(lang('Reports.overview_total_sales'), $receipt_data['sales_total']); ?>
             <?php foreach ($receipt_data['payments'] as $payment_type => $payment) { ?>
-                <tr>
-                    <td><bdi dir="auto"><?= esc($payment_type) ?></bdi></td>
-                    <td class="total-value">
-                        <span dir="ltr"><?= esc(to_currency($payment['total'])) ?></span><br>
-                        <span dir="ltr"><?= esc(format_lbp($payment['lbp_total'])) ?></span>
-                    </td>
-                </tr>
+                <?php $renderDollarRow((string) $payment_type, $payment['total']); ?>
             <?php } ?>
             <?php if ($include_receiving_lines) { ?>
-                <?php $renderTotalRow(lang('Reports.overview_cash_paid_receivings'), $receipt_data['cash_receivings']); ?>
-                <?php $renderTotalRow(lang('Reports.overview_cash_paid_expenses'), $receipt_data['cash_expenses']); ?>
-                <?php $renderTotalRow(lang('Reports.overview_drawer_cash'), $receipt_data['drawer_cash']); ?>
+                <?php $renderDollarRow(lang('Reports.overview_cash_paid_receivings'), $receipt_data['cash_receivings']['total']); ?>
+                <?php $renderDollarRow(lang('Reports.overview_cash_paid_expenses'), $receipt_data['cash_expenses']['total']); ?>
+                <?php $renderDollarRow(lang('Reports.overview_drawer_cash'), $receipt_data['drawer_cash']['total']); ?>
             <?php } ?>
         </tbody>
     </table>

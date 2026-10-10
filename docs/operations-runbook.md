@@ -64,9 +64,9 @@ Held sales, quotes, and work orders save no LBP total until they are completed.
 
 A reprinted or emailed receipt shows the saved LBP total and the rate used at the sale, not today's rate; receipts of older sales still use the current rate.
 
-## Reports overview
+## Sales Dashboard
 
-The Reports overview shows sales today, sales this week, sales this month, and drawer cash today.
+The Reports screen opens with the Sales Dashboard (لوحة المبيعات in Arabic), followed by the report links under the Reports (التقارير) heading. The Sales Dashboard shows sales today, sales this week, sales this month, and drawer cash today.
 
 Each sales tile uses the Summary Sales report, including completed returns and saved LBP totals.
 

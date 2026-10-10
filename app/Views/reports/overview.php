@@ -96,6 +96,14 @@
         color: #b02a37;
     }
 
+    /* Page section headings: the sales dashboard on top, the report links below it */
+    .reports-overview-section-title {
+        border-bottom: 1px solid #ddd;
+        font-size: 20px;
+        margin: 0 0 15px;
+        padding-bottom: 8px;
+    }
+
     .reports-overview-best {
         margin-bottom: 20px;
     }
@@ -201,6 +209,8 @@
     }
 </style>
 
+<h2 class="reports-overview-section-title"><?= esc(lang('Reports.overview_dashboard_title')) ?></h2>
+
 <div class="row reports-overview-row">
     <div class="col-md-5 reports-overview-left">
         <div class="reports-overview-action">
@@ -268,6 +278,8 @@
         <?php } ?>
     </div>
 </section>
+
+<h2 class="reports-overview-section-title"><?= esc(lang('Reports.overview_reports_title')) ?></h2>
 
 <script>
     $(function() {

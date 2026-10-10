@@ -14,6 +14,10 @@ $routes->post('login', 'Login::index');
 $routes->add('no_access/index/(:segment)', 'No_access::index/$1');
 $routes->add('no_access/index/(:segment)/(:segment)', 'No_access::index/$1/$2');
 
+$routes->get('reports/overview/totals', 'Reports_overview::getTotals');
+$routes->get('reports/overview/graph', 'Reports_overview::getGraph');
+$routes->get('reports/overview/print-today', 'Reports_overview::getPrintToday');
+
 $routes->add('reports/summary_(:any)/(:any)/(:any)', 'Reports::Summary_$1/$2/$3/$4');
 $routes->add('reports/summary_expenses_categories', 'Reports::date_input_only');
 $routes->add('reports/summary_payments', 'Reports::date_input_only');

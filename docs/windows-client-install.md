@@ -33,7 +33,10 @@ Clone the repository into a folder that will not move, because the daily backup 
 git clone https://github.com/HassanMSh/osposleb.git
 cd osposleb
 git switch develop
+git pull --ff-only origin develop
 ```
+
+Run the pull even if you cloned the repository earlier. It makes sure `./shop install` uses the current scripts and Compose files from `develop`.
 
 Keep the checkout on the `develop` branch. `./shop update` refuses to run from any other branch, and a new database is created from the SQL files in this checkout.
 
@@ -69,13 +72,13 @@ cd osposleb
 git switch develop
 git pull --ff-only origin develop
 ./shop check
-./shop update
+./shop status
 ```
 
-- `git pull` is the only manual pull, because the old checkout does not contain `./shop` yet. After this, only `./shop update` pulls.
+- Pull first because the `./shop` file in an older checkout may be older than the one on `develop`. After this first pull, `./shop update` is the only command that pulls code.
+- Check that `./shop status` says `Backup task: present`, or check Task Scheduler for `OSPOS daily backup`. The first client's PC had no task and no backup as of 2026-09-24. If the task is missing, run `./shop schedule-backup TIME=23:30`; without it, the shop can run with no daily backup at all.
+- Then run `./shop update`. It downloads the latest app image, takes a backup, saves a rollback point, pulls code and restarts the shop. Stop sales first.
 - If `git pull` or `./shop update` reports local changes or untracked files, the manual setup left files in the checkout. Move or delete them, then run the command again.
-- `./shop update` takes a backup, saves a rollback point, downloads the latest app image and restarts the shop. Stop sales first.
-- The daily backup task created by hand keeps working, because it runs `scripts/backup.ps1` from this checkout.
 - The rollback point saved by this first update pairs the old app image with the new checkout, because `git pull` moved the code first. The app itself is inside the image, so a rollback still returns the old app, but it is not a full old-version rollback. From the next `./shop update` on, code and image move together.
 
 ## 3. First login and settings
@@ -84,7 +87,7 @@ git pull --ff-only origin develop
 2. Log in with `admin` / `pointofsale`.
 3. Change the admin password under Employees.
 4. In Settings, Localization tab, set the timezone to `Asia/Beirut` and save. The default is `America/New_York`, which stamps sales 7 hours early.
-5. Leave the shop language on Arabic (Lebanon).
+5. Set the shop language under Settings > Localization > Language. Arabic (Lebanon) is the default. For the first client's setup, change the shop language to English and set Arabic for each cashier under Employees > select cashier > Edit Employee > Login > Language. The admin can stay in English.
 6. Upload a company logo in Settings to prove that pictures can be saved.
 
 ### Restaurant till setup
@@ -137,7 +140,8 @@ The app runs in Chrome, so Windows and Chrome handle the hardware. Docker is not
 - Barcode label printer: tested 2026-09-23 on an Xprinter XP-365B. The shop's labels measure 1.6 × 1.05 in (about 40.6 × 26.7 mm, measured 2026-09-24, issue #97).
   - In the driver, add a paper size of 1.6 × 1.05 in (Portrait), the exact size of one label, under both "Printing preferences" and "Printer properties → Advanced → Printing Defaults". Then restart Chrome. A paper size that does not match the real label makes the content land at a different height on each label and can split one label across two.
   - Calibrate the label gap: turn the printer off, hold FEED, turn it on, and let go after the second beep.
-  - In Settings, Barcode tab: type EAN13, width 125, height 30, font size 9, number in row 1, page width 100, cell spacing 0, first row item name, second row retail price, third row none.
+  - In Settings, Barcode tab, keep these label settings for this printer: type EAN 13, width 125, height 30, font size 9, number in row 1, page width 100, cell spacing 0.
+  - The first, second and third row contents are the owner's choice. The first client chose Item Name, Barcode and Retail Price, in that order.
   - Print labels from the POS Office shortcut (below). In Chrome's print window: destination XP-365B, paper size the label size, margins None, scale Custom 100, headers and footers off.
   - Each item prints on its own label. The page drops its extra spacing only on paper 80 mm wide or narrower, so A4 label sheets print as before.
 
@@ -155,9 +159,11 @@ Receipts must print with no Chrome print window, but barcode labels need the win
 1. Create each shortcut: right-click the desktop, New, Shortcut, and paste the target. If port 80 was changed, use the same port in the address. If Chrome is installed elsewhere, use its real `chrome.exe` path.
 2. Close every Chrome window before you open each shortcut for the first time. If another Chrome is already running, the new window can join it and ignore the options.
 3. Log in once in each shortcut. They do not share a login.
-4. In Settings, Receipt tab, set "Print Receipt checkbox" to "Always checked" and "Autoreturn to Sale delay" to `1`. With `0`, the page can go back to the sale before the receipt is sent.
-5. Test in POS Register: finish a sale. The receipt must print with no window, and the screen must return to a new sale.
-6. Test in POS Office: print a barcode sheet. The print window must open, and Chrome remembers the label printer for this shortcut.
+4. In Settings, Receipt tab, two settings matter for printing: "Print Receipt checkbox" decides whether the receipt prints, and "Autoreturn to Sale delay" decides how long the receipt page waits before going back to a new sale. The template, font size, margins, and what the receipt shows are the owner's choice.
+5. Choose the "Print Receipt checkbox" behavior for the cashiers: "Always checked" starts the box checked, "Remember last selection" uses the last choice saved in the session, and "Always unchecked" starts it clear. A receipt prints only when the box is checked at the end of the sale. Use "Always checked" if every sale should print a receipt.
+6. The first client uses "Remember last selection" and an Autoreturn to Sale delay of `0`. Zero is allowed, but the page goes back to Sales right after it starts printing, so the browser may leave before the receipt reaches the printer. This is a known risk, not a required value. Use `1` second to leave time for printing.
+7. Test in POS Register: finish a sale with the print box checked. The receipt must print with no window, and the screen must return to a new sale.
+8. Test in POS Office: print a barcode sheet. The print window must open, and Chrome remembers the label printer for this shortcut.
 
 Do not print labels from POS Register, because they would go to the receipt printer without asking.
 
@@ -217,7 +223,7 @@ Result of the first run: pending.
 
 | Command | What it does |
 | --- | --- |
-| `./shop status` | Shows the containers, code version, running image, recovery markers, lock age and owner, recovery steps, and last backup result. |
+| `./shop status` | Shows the containers, code version, running image, recovery markers, lock age and owner, recovery steps, last backup result, and on Windows, daily backup task status, next run and last result. |
 | `./shop start` / `./shop stop` | Starts or stops the shop without downloading anything, and start refuses while update or rollback recovery is needed. |
 | `./shop update` | Refuses local changes and previews code and image changes before asking; stop sales first because it downloads the app image before the rollback backup, then saves a rollback point, pulls code, and starts the shop without changing the database image. |
 | `./shop rollback` | Checks and fully extracts the saved archive before stopping, restores through the current checkout, checks out the saved code, and starts the saved image; see the recovery steps below if a rollback retry is needed. |

@@ -55,6 +55,7 @@ Follow its phases, ADR numbering, scope, and acceptance criteria. If this file c
 - If you are `gpt-6-luna`, you are the implementer. Do the work yourself in this run. Do not start `codex exec`, another Codex session, or any sub-agent, and do not hand the task on to another model.
 - If you are `gpt-6-sol`, you are the reviewer. Review the work yourself in this run and do not edit files. Do not start `codex exec`, another Codex session, or any sub-agent, and do not run your own review rounds.
 - One run is one round. The implementer and the reviewer each finish their run with a report and stop. The coordinating agent decides whether another round is needed and starts it.
+- Match the checks in each brief to the size of the change. A small fix round runs only the affected test files, the style gate on the changed PHP files, and at most two screenshots (Arabic desktop and phone) when the screen changed. Run the full PHPUnit suite (no database, clean database, seeded database) and the full screenshot set once, in the final round before the pull request is opened or updated. Do a fix of a few lines directly instead of starting a new implementer round. Decided by the owner on 2026-10-10, after small fix rounds took 15 to 45 minutes each.
 
 ### Containers for the implementer
 

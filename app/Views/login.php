@@ -122,6 +122,7 @@
                 </svg>
             </span>
             <span><?= lang('Common.software_title') ?></span>
+            <?= view('partial/support_line') ?>
         </div>
     </footer>
 </body>

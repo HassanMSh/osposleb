@@ -17,12 +17,7 @@ use Config\OSPOS;
                     <?= esc(substr(config(OSPOS::class)->commit_sha1, 0, 6)); ?>
                 </a>
             </strong>.
-            <div class="footer-support">
-                <?= esc(lang('Common.managed_by')) ?>
-                <a href="https://hassanshamseddine.qzz.io/" target="_blank" rel="noopener noreferrer"><bdi dir="ltr">Shamseddine Tech</bdi></a> ·
-                <?= esc(lang('Common.support_contact')) ?>
-                <bdi dir="ltr">+96171881267</bdi>
-            </div>
+            <?= view('partial/support_line') ?>
         </div>
     </div>
 </body>

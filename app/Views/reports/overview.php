@@ -59,10 +59,12 @@
         white-space: normal;
     }
 
+    /* Every tile takes the height of the tallest one; the column itself still keeps its natural height next to the graph */
     .reports-overview-tiles {
-        align-items: start;
         align-content: start;
+        align-items: stretch;
         display: grid;
+        grid-auto-rows: 1fr;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
     }

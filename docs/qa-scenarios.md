@@ -185,6 +185,19 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | RECV-04 | Admin | Enters a zero quantity or a quantity below 0.0005, then tries to complete the receiving. | The edit and completion are refused; valid negative return quantities remain allowed. |
 | RECV-05 | Admin | With average cost on and the rate at 90,000, complete case 1, case 10, and case 12 through Receivings in both till layouts, then sell one item in each layout. | Case 1 saves $1.02 after rounding its exact 91,500 LL average up to 92,000 LL, case 10 uses its $1.20 paid price, case 12 completes and keeps its $1.67 cost, and both tills still charge the item's retail price. |
 
+## Reports overview (manual)
+
+These checks cover the Reports overview in both till layouts and in English and Arabic.
+
+| ID | Who | What to do | Expected |
+| --- | --- | --- | --- |
+| REPORT-01 | Admin | In both till layouts, make cash and card sales, complete a return, add a cash receiving and a cash expense, then open Reports in English and Arabic. | Sales today, this week, and this month match Summary Sales; drawer cash equals cash sales minus cash receivings minus cash expenses; the weekly range starts Monday. |
+| REPORT-02 | Admin | Switch the graph through Hour, Day, Week, Month, and Year, then print today's sales from Reports. | Every range shows the right buckets, empty buckets are zero, the receipt shows saved or converted LBP amounts, and printing returns to Reports. |
+| REPORT-03 | Employees with limited grants | Open Reports as an employee without reports_sales, then as an employee with reports_sales but without reports_receivings. | The first employee sees no overview row and the direct graph, totals, and receipt URLs return no data; the second employee sees sales but no drawer tile or receiving and expense receipt lines. |
+| REPORT-04 | Admin | Compare today, this week, and this month with earlier sales in both date-only and date-time modes, including an earlier sale after the current clock time and a 31st against February. | Each tile shows one Better, Worse, or Same line with an absolute currency amount when needed; comparisons use the same time, weeks start Monday, shorter months clamp to their last day, and zero or negative earlier totals use the same difference rule. |
+| REPORT-05 | Admin | Add completed sales and returns on tied days, weeks, and months, then open Reports in both till layouts and both languages. | Best day, week, and month subtract returns, use Monday weeks, include the current incomplete period, choose the earliest tie, show store and saved LBP amounts, and localize dates. |
+| REPORT-06 | Admin | Open Reports at 1440, 1100, 800, 500, and 390 pixels in English LTR and Arabic RTL, with and without reports_receivings access. | The new rows (top row and best sales) do not overflow. The older panels' overflow is tracked in #222. |
+
 ## Speed and repetitive work
 
 | ID | What is measured | Result on 2026-09-23 |

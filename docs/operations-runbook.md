@@ -64,6 +64,32 @@ Held sales, quotes, and work orders save no LBP total until they are completed.
 
 A reprinted or emailed receipt shows the saved LBP total and the rate used at the sale, not today's rate; receipts of older sales still use the current rate.
 
+## Sales Dashboard
+
+The Reports screen opens with the Sales Dashboard (لوحة المبيعات in Arabic), followed by the report links under the Reports (التقارير) heading. The Sales Dashboard shows sales today, sales this week, sales this month, and drawer cash today.
+
+Each sales tile uses the Summary Sales report, including completed returns and saved LBP totals.
+
+Today starts at midnight, this week starts Monday at midnight, and this month starts on the first day of the month.
+
+Drawer cash today is cash sale payments minus cash paid for receivings minus cash expenses, with no opening drawer amount.
+
+The drawer tile lists the three parts so you can check the result.
+
+Open Reports and choose Print today's sales to print the daily summary on the receipt printer.
+
+Each sales tile compares its total with the same time yesterday, the same weekday and time last week, or the same day and time last month.
+
+The last-month comparison stops at that month's last day when it has fewer days. Each tile shows one comparison line: Better or Worse with the absolute difference in store currency, or Same when the difference rounds to zero in that currency.
+
+Better uses a green up arrow, and Worse uses a red down arrow. Earlier totals of zero or less follow the same comparison rule.
+
+Best sales shows the highest all-time day, Monday-to-Sunday week, and month, with returns subtracted and the saved LBP total.
+
+The current incomplete day, week, or month can be the best period, and a tie uses the earliest period.
+
+If there are no completed sales, each best sales tile says no sales yet.
+
 ## Start the shop
 
 ```bash

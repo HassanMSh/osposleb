@@ -264,6 +264,8 @@ Choose Default, Dark, Tech, or Earthy from the top bar.
 
 Each browser remembers its own choice.
 
+Tech and Earthy use lightly tinted pages and controls. Receipts, invoices, quotes, work orders, and kitchen tickets stay white for printing.
+
 ## Known risks
 
 Without a USB drive, one disk failure can lose both the shop data and its backups.

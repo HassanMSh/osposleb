@@ -141,12 +141,69 @@ final class ColourThemeTest extends CIUnitTestCase
             $this->assertStringContainsString('html[data-ospos-theme="dark"] ' . $documentContainer, $themeCss);
         }
 
-        foreach (['.ui-autocomplete', '.datepicker', '.daterangepicker', '.bootstrap-select .dropdown-menu', '.popover', '.tooltip-inner', '#payment_details'] as $cashierComponent) {
+        foreach (['.ui-autocomplete', '.datepicker', '.daterangepicker', '.bootstrap-select .dropdown-menu', '.popover', '.tooltip-inner', '.ui-tooltip', '#payment_details'] as $cashierComponent) {
             $this->assertStringContainsString('html[data-ospos-theme="dark"] ' . $cashierComponent, $themeCss);
         }
 
         foreach (['html[data-ospos-theme="tech"] .ui-autocomplete', 'html[data-ospos-theme="earthy"] .ui-autocomplete'] as $themedAutocomplete) {
             $this->assertStringContainsString($themedAutocomplete, $themeCss);
+        }
+    }
+
+    /**
+     * Checks report, table, tooltip, date-picker, and selected or hovered row rules remain theme-scoped.
+     */
+    public function testThemeContrastRulesCoverReportedControls(): void
+    {
+        $themeCss = file_get_contents(ROOTPATH . 'public/css/ospos_themes.css');
+
+        $this->assertIsString($themeCss);
+
+        foreach ([
+            'html[data-ospos-theme="dark"] .list-group-item',
+            'html[data-ospos-theme="dark"] a.list-group-item:hover',
+            'html[data-ospos-theme="dark"] .bootstrap-table .fixed-table-container tbody > tr.selected > td',
+            'html[data-ospos-theme="dark"] .bootstrap-table .fixed-table-container tbody > tr:not(.selected):hover > td',
+            'html[data-ospos-theme="dark"] .daterangepicker .ranges li',
+            'html[data-ospos-theme="dark"] .daterangepicker td.off:not(.active).in-range.available',
+            'html[data-ospos-theme="dark"] .ui-tooltip',
+            'html[data-ospos-theme="dark"] .ct-chart .ct-label',
+            'html[data-ospos-theme="tech"] .daterangepicker .ranges li.active',
+            'html[data-ospos-theme="earthy"] .daterangepicker td.active',
+            'html[data-ospos-theme="tech"] .bootstrap-table .fixed-table-container tbody > tr.selected > td',
+            'html[data-ospos-theme="earthy"] .bootstrap-table .fixed-table-container tbody > tr:not(.selected):hover > td',
+        ] as $themeRule) {
+            $this->assertStringContainsString($themeRule, $themeCss);
+        }
+
+        $this->assertStringContainsString('accent-color: var(--ospos-focus);', $themeCss);
+        $this->assertStringContainsString('color: var(--ospos-btn-primary-text);', $themeCss);
+        $this->assertStringContainsString('--ospos-row-hover: #334155;', $themeCss);
+        $this->assertStringContainsString('--ospos-row-selected: #365d82;', $themeCss);
+    }
+
+    /**
+     * Checks Tech and Earthy use tinted surfaces, readable status colours, and white paper documents.
+     */
+    public function testLightThemesDefineTintedSurfacesAndControls(): void
+    {
+        $themeCss = file_get_contents(ROOTPATH . 'public/css/ospos_themes.css');
+
+        $this->assertIsString($themeCss);
+
+        foreach (['tech', 'earthy'] as $theme) {
+            $this->assertSame(1, preg_match('/html\\[data-ospos-theme="' . $theme . '"\\]\\s*\\{([^}]*)\\}/', $themeCss, $themeBlock));
+
+            foreach (['--ospos-page:', '--ospos-surface:', '--ospos-surface-raised:', '--ospos-text:', '--ospos-border:', '--ospos-control:', '--ospos-control-text:', '--ospos-control-border:'] as $variable) {
+                $this->assertStringContainsString($variable, $themeBlock[1]);
+            }
+
+            $this->assertStringContainsString('html[data-ospos-theme="' . $theme . '"] .bootstrap-dialog .modal-header', $themeCss);
+            $this->assertStringContainsString('html[data-ospos-theme="' . $theme . '"] #issuetemplate span[style*="green"]', $themeCss);
+        }
+
+        foreach (['html[data-ospos-theme="tech"] #receipt_wrapper', 'html[data-ospos-theme="earthy"] .kitchen-ticket'] as $paperRule) {
+            $this->assertStringContainsString($paperRule, $themeCss);
         }
     }
 

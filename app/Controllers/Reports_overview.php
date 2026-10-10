@@ -36,6 +36,16 @@ class Reports_overview extends Secure_Controller
             'sales_today' => $this->formatMoney($data['sales_today']),
             'sales_week'  => $this->formatMoney($data['sales_week']),
             'sales_month' => $this->formatMoney($data['sales_month']),
+            'comparisons' => [
+                'today' => $this->formatComparison($data['comparisons']['today'], 'today'),
+                'week'  => $this->formatComparison($data['comparisons']['week'], 'week'),
+                'month' => $this->formatComparison($data['comparisons']['month'], 'month'),
+            ],
+            'best_sales' => [
+                'day'   => $this->formatBestPeriod($data['best_sales']['day'] ?? null, 'day'),
+                'week'  => $this->formatBestPeriod($data['best_sales']['week'] ?? null, 'week'),
+                'month' => $this->formatBestPeriod($data['best_sales']['month'] ?? null, 'month'),
+            ],
         ];
 
         if (isset($data['drawer_cash'])) {
@@ -134,6 +144,103 @@ class Reports_overview extends Secure_Controller
         return [
             'store' => to_currency($amount['total']),
             'lbp'   => $amount['lbp_total'] === null ? lang('Reports.overview_lbp_unavailable') : format_lbp($amount['lbp_total']),
+        ];
+    }
+
+    /**
+     * Formats one comparison line with translated wording and a separate LTR amount.
+     *
+     * @param array{status: string, difference: float} $comparison Comparison result.
+     * @param string                                   $period     Period kind used to select localized wording.
+     *
+     * @return array<string, string> Localized comparison line and amount parts.
+     */
+    private function formatComparison(array $comparison, string $period): array
+    {
+        $status  = $comparison['status'];
+        $message = '';
+        $before  = '';
+        $value   = '';
+        $after   = '';
+        $icon    = '';
+
+        if (in_array($status, ['better', 'worse'], true)) {
+            $templateKey = 'Reports.overview_compare_' . $status . '_' . $period;
+            $parts       = $this->splitValueTemplate(lang($templateKey), to_currency($comparison['difference']));
+            $before      = $parts['before'];
+            $value       = $parts['value'];
+            $after       = $parts['after'];
+            $icon        = $status === 'better' ? 'up' : 'down';
+        } elseif ($status === 'same') {
+            $message = lang('Reports.overview_compare_same_' . $period);
+        }
+
+        return [
+            'status'  => $status,
+            'message' => $message,
+            'before'  => $before,
+            'value'   => $value,
+            'after'   => $after,
+            'icon'    => $icon,
+        ];
+    }
+
+    /**
+     * Splits a translated sentence around its `{0}` value marker for safe LTR markup.
+     *
+     * @return array{before: string, value: string, after: string} Sentence parts.
+     */
+    private function splitValueTemplate(string $template, string $value): array
+    {
+        $position = strpos($template, '{0}');
+
+        if ($position === false) {
+            return ['before' => $template, 'value' => $value, 'after' => ''];
+        }
+
+        return [
+            'before' => substr($template, 0, $position),
+            'value'  => $value,
+            'after'  => substr($template, $position + 3),
+        ];
+    }
+
+    /**
+     * Formats a best sales period with the shop date format and saved currency totals.
+     *
+     * @param array{start: string, end: string, total: float, lbp_total: int|null}|null $periodData Best period row.
+     * @param string                                                                    $period     Period kind: day, week, or month.
+     *
+     * @return array{period: string, store: string, lbp: string, no_sales: bool, message: string} Display data.
+     */
+    private function formatBestPeriod(?array $periodData, string $period): array
+    {
+        if ($periodData === null) {
+            return [
+                'period'   => '—',
+                'store'    => '—',
+                'lbp'      => '',
+                'no_sales' => true,
+                'message'  => lang('Reports.overview_no_sales_yet'),
+            ];
+        }
+
+        $dateFormat = (string) ($this->global_view_data['config']['dateformat'] ?? 'Y-m-d');
+        $timezone   = new DateTimeZone(date_default_timezone_get());
+        $start      = new DateTimeImmutable($periodData['start'], $timezone);
+        $end        = new DateTimeImmutable($periodData['end'], $timezone);
+        $label      = match ($period) {
+            'week'  => $start->format($dateFormat) . ' – ' . $end->format($dateFormat),
+            'month' => lang('Calendar.' . strtolower($start->format('F'))) . ' ' . $start->format('Y'),
+            default => $start->format($dateFormat),
+        };
+
+        return [
+            'period'   => $label,
+            'store'    => to_currency($periodData['total']),
+            'lbp'      => $periodData['lbp_total'] === null ? lang('Reports.overview_lbp_unavailable') : format_lbp($periodData['lbp_total']),
+            'no_sales' => false,
+            'message'  => '',
         ];
     }
 }

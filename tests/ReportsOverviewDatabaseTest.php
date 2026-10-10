@@ -210,6 +210,165 @@ final class ReportsOverviewDatabaseTest extends CIUnitTestCase
     }
 
     /**
+     * Compares the three periods by currency amounts and starts both weekly ranges on Monday.
+     */
+    public function testComparisonsUseMoneyDifferencesAndMondayWeekStart(): void
+    {
+        $this->saveSale('2031-03-03 10:00:00', 100.4, lang('Sales.cash'), 9036000);
+        $this->saveSale('2031-03-02 10:00:00', 110.0, lang('Sales.cash'), 9900000);
+        $this->saveSale('2031-03-01 10:00:00', 500.0, lang('Sales.cash'), 45000000);
+        $this->saveSale('2031-02-24 10:00:00', 90.0, lang('Sales.cash'), 8100000);
+        $this->saveSale('2031-02-23 10:00:00', 800.0, lang('Sales.cash'), 72000000);
+        $this->saveSale('2031-02-03 10:00:00', 210.0, lang('Sales.cash'), 18900000);
+
+        $model    = new ReportsOverview();
+        $overview = $model->getOverview($this->reportNow(), false);
+
+        $this->assertSame(100.4, $overview['sales_week']['total']);
+        $this->assertSame('worse', $overview['comparisons']['today']['status']);
+        $this->assertSame(9.6, $overview['comparisons']['today']['difference']);
+        $this->assertSame('better', $overview['comparisons']['week']['status']);
+        $this->assertSame(10.4, $overview['comparisons']['week']['difference']);
+        $this->assertSame('better', $overview['comparisons']['month']['status']);
+        $this->assertSame(500.4, $overview['comparisons']['month']['difference']);
+    }
+
+    /**
+     * Excludes yesterday's sales after the current clock time in both configured date modes.
+     */
+    public function testComparisonCutoffMatchesTimestampMode(): void
+    {
+        $this->saveSale('2031-03-02 12:00:00', 3.0, lang('Sales.cash'), 270000);
+        $this->saveSale('2031-03-02 12:31:00', 20.0, lang('Sales.cash'), 1800000);
+        $this->saveSale('2031-03-03 12:00:00', 4.0, lang('Sales.cash'), 360000);
+
+        foreach (['', 'H:i:s'] as $dateMode) {
+            config(OSPOS::class)->settings['date_or_time_format'] = $dateMode;
+            $overview                                             = (new ReportsOverview())->getOverview($this->reportNow(), false);
+
+            $this->assertSame('better', $overview['comparisons']['today']['status'], $dateMode);
+            $this->assertSame(1.0, $overview['comparisons']['today']['difference'], $dateMode);
+        }
+    }
+
+    /**
+     * Includes February's final second when clamping, while keeping the clock time for matching days.
+     */
+    public function testMonthComparisonClampsToShortPreviousMonth(): void
+    {
+        $this->saveSale('2031-02-28 12:00:00', 2.0, lang('Sales.cash'), 180000);
+        $this->saveSale('2031-02-28 23:59:59', 9.0, lang('Sales.cash'), 810000);
+        $this->saveSale('2031-03-31 12:00:00', 4.0, lang('Sales.cash'), 360000);
+        $now = new DateTimeImmutable('2031-03-31 12:30:00', new DateTimeZone(date_default_timezone_get()));
+
+        $overview = (new ReportsOverview())->getOverview($now, false);
+
+        $this->assertSame('worse', $overview['comparisons']['month']['status']);
+        $this->assertSame(7.0, $overview['comparisons']['month']['difference']);
+
+        $this->saveSale('2031-03-28 12:00:00', 3.0, lang('Sales.cash'), 270000);
+        $this->saveSale('2031-03-28 12:31:00', 20.0, lang('Sales.cash'), 1800000);
+        $this->saveSale('2031-04-28 12:00:00', 4.0, lang('Sales.cash'), 360000);
+        $sameDayNow = new DateTimeImmutable('2031-04-28 12:30:00', new DateTimeZone(date_default_timezone_get()));
+        $sameDay    = (new ReportsOverview())->getOverview($sameDayNow, false)['comparisons']['month'];
+
+        $this->assertSame('better', $sameDay['status']);
+        $this->assertSame(1.0, $sameDay['difference']);
+    }
+
+    /**
+     * Treats a difference that rounds to zero in the store currency as the same amount.
+     */
+    public function testComparisonIsSameWhenDifferenceRoundsToZero(): void
+    {
+        $currentSaleId  = $this->saveSale('2031-03-03 10:00:00', 1.0, lang('Sales.cash'), 90000);
+        $previousSaleId = $this->saveSale('2031-03-02 10:00:00', 1.0, lang('Sales.cash'), 90000);
+        $this->database->table('sales_items')->where('sale_id', $currentSaleId)->update(['quantity_purchased' => 1.001]);
+        $this->database->table('sales_items')->where('sale_id', $previousSaleId)->update(['quantity_purchased' => 1.004]);
+
+        $comparison = (new ReportsOverview())->getOverview($this->reportNow(), false)['comparisons']['today'];
+
+        $this->assertSame('same', $comparison['status']);
+        $this->assertSame(0.0, $comparison['difference']);
+    }
+
+    /**
+     * Shows today's full total as a better comparison when the earlier period has no sales.
+     */
+    public function testComparisonWithZeroEarlierTotalUsesFullCurrentTotal(): void
+    {
+        $this->saveSale('2031-03-03 10:00:00', 12.34, lang('Sales.cash'), 1110600);
+
+        $comparison = (new ReportsOverview())->getOverview($this->reportNow(), false)['comparisons']['today'];
+
+        $this->assertSame('better', $comparison['status']);
+        $this->assertSame(12.34, $comparison['difference']);
+    }
+
+    /**
+     * Compares a positive current total with a negative earlier total using the absolute difference.
+     */
+    public function testComparisonWithNegativeEarlierTotalUsesAbsoluteDifference(): void
+    {
+        $this->saveSale('2031-03-03 10:00:00', 5.0, lang('Sales.cash'), 450000);
+        $this->saveSale('2031-03-02 10:00:00', 3.0, lang('Sales.cash'), -270000, SALE_TYPE_RETURN);
+
+        $comparison = (new ReportsOverview())->getOverview($this->reportNow(), false)['comparisons']['today'];
+
+        $this->assertSame('better', $comparison['status']);
+        $this->assertSame(8.0, $comparison['difference']);
+    }
+
+    /**
+     * Finds all-time best periods in SQL, subtracts returns, and picks the earliest tie.
+     */
+    public function testBestPeriodsSubtractReturnsAndChooseEarliestTies(): void
+    {
+        $scale = 1_000_000;
+        $this->saveSale('1986-02-10 10:00:00', 25.0 * $scale, lang('Sales.cash'), 2250000 * $scale);
+        $this->saveSale('1986-02-10 11:00:00', 5.0 * $scale, lang('Sales.cash'), -450000 * $scale, SALE_TYPE_RETURN);
+        $this->saveSale('1986-02-24 10:00:00', 15.0 * $scale, lang('Sales.cash'), 1350000 * $scale);
+        $this->saveSale('1986-02-24 11:00:00', 5.0 * $scale, lang('Sales.cash'), -450000 * $scale, SALE_TYPE_RETURN);
+        $this->saveSale('1986-03-01 10:00:00', 10.0 * $scale, lang('Sales.cash'), 900000 * $scale);
+        $this->saveSale('1986-03-03 10:00:00', 20.0 * $scale, lang('Sales.cash'), 1800000 * $scale);
+
+        $now  = new DateTimeImmutable('1986-03-03 12:30:00', new DateTimeZone(date_default_timezone_get()));
+        $best = (new ReportsOverview())->getOverview($now, false)['best_sales'];
+
+        $this->assertSame('1986-02-10', $best['day']['start']);
+        $this->assertSame(20_000_000.0, $best['day']['total']);
+        $this->assertSame(1_800_000_000_000, $best['day']['lbp_total']);
+        $this->assertSame('1986-02-10', $best['week']['start']);
+        $this->assertSame('1986-02-16', $best['week']['end']);
+        $this->assertSame(20_000_000.0, $best['week']['total']);
+        $this->assertSame('1986-02-01', $best['month']['start']);
+        $this->assertSame(30_000_000.0, $best['month']['total']);
+        $this->assertSame(2_700_000_000_000, $best['month']['lbp_total']);
+    }
+
+    /**
+     * Returns empty best-period rows for a future date range with no transactions.
+     */
+    public function testBestPeriodQueryReturnsEmptyForSalesFreeDateRange(): void
+    {
+        $summarySales = new Summary_sales();
+        $inputs       = [
+            'start_date'  => '9999-01-01',
+            'end_date'    => '9999-01-31',
+            'sale_type'   => 'complete',
+            'location_id' => 'all',
+        ];
+
+        foreach (['day', 'week', 'month'] as $period) {
+            foreach (['sales_items_taxes_temp', 'sales_payments_temp'] as $tableName) {
+                $this->database->query('DROP TEMPORARY TABLE IF EXISTS ' . $this->database->prefixTable($tableName));
+            }
+
+            $this->assertNull($summarySales->getBestPeriodData($inputs, $period), $period);
+        }
+    }
+
+    /**
      * Excludes future-timestamped sales from tiles, receipt figures, and every graph range.
      */
     public function testDateOnlyReportsStopAtTheCurrentTimestamp(): void

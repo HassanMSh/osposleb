@@ -36,23 +36,43 @@ class ReportsOverview extends Model
     }
 
     /**
-     * Returns sales totals through the current timestamp and drawer cash when allowed.
+     * Returns sales totals, same-time comparisons, best periods, and drawer cash when allowed.
      *
      * @param bool $includeDrawer Whether Receiving Reports access allows drawer totals.
      *
-     * @return array<string, array<string, float|int|null>> Overview figures.
+     * @return array<string, mixed> Overview figures for the sales tiles and optional drawer tile.
      */
     public function getOverview(DateTimeImmutable $now, bool $includeDrawer): array
     {
         return $this->withTimestampReportBoundaries(function () use ($now, $includeDrawer): array {
             $today    = $now->setTime(0, 0);
-            $week     = $today->modify('monday this week');
-            $month    = $today->modify('first day of this month');
+            $week     = $now->modify('monday this week')->setTime(0, 0);
+            $month    = $now->modify('first day of this month')->setTime(0, 0);
             $overview = [
                 'sales_today' => $this->getSalesSummary($today, $now),
                 'sales_week'  => $this->getSalesSummary($week, $now),
                 'sales_month' => $this->getSalesSummary($month, $now),
             ];
+
+            $overview['comparisons'] = [
+                'today' => $this->getComparisonFigures(
+                    $overview['sales_today']['total'],
+                    'today',
+                    $now,
+                ),
+                'week' => $this->getComparisonFigures(
+                    $overview['sales_week']['total'],
+                    'week',
+                    $now,
+                ),
+                'month' => $this->getComparisonFigures(
+                    $overview['sales_month']['total'],
+                    'month',
+                    $now,
+                ),
+            ];
+
+            $overview['best_sales'] = $this->getBestSalesPeriods($now);
 
             if ($includeDrawer) {
                 $overview['drawer_cash'] = $this->getDrawerFigures($today, $now);
@@ -60,6 +80,102 @@ class ReportsOverview extends Model
 
             return $overview;
         });
+    }
+
+    /**
+     * Returns the same-time comparison status and its currency-rounded amount difference.
+     *
+     * @param float  $currentTotal Total in the current period.
+     * @param string $period       Period kind: today, week, or month.
+     *
+     * @return array{status: string, difference: float} Comparison data.
+     */
+    private function getComparisonFigures(float $currentTotal, string $period, DateTimeImmutable $now): array
+    {
+        [$previousStart, $previousEnd] = $this->getPreviousPeriodBounds($period, $now);
+        $previousTotal                 = $this->getSalesSummary($previousStart, $previousEnd)['total'];
+
+        $difference = round(abs($currentTotal - $previousTotal), totals_decimals(), PHP_ROUND_HALF_UP);
+        $status     = $difference === 0.0 ? 'same' : ($currentTotal > $previousTotal ? 'better' : 'worse');
+
+        return [
+            'status'     => $status,
+            'difference' => $difference,
+        ];
+    }
+
+    /**
+     * Returns the previous period through the same weekday or clock time, or the last second of a shorter month.
+     *
+     * @return array{0: DateTimeImmutable, 1: DateTimeImmutable} Previous period start and end.
+     */
+    private function getPreviousPeriodBounds(string $period, DateTimeImmutable $now): array
+    {
+        if ($period === 'today') {
+            return [$now->modify('-1 day')->setTime(0, 0), $now->modify('-1 day')];
+        }
+
+        if ($period === 'week') {
+            $start = $now->modify('monday this week')->setTime(0, 0)->modify('-1 week');
+
+            return [$start, $now->modify('-1 week')];
+        }
+
+        $start   = $now->modify('first day of this month')->setTime(0, 0)->modify('-1 month');
+        $day     = (int) $now->format('j');
+        $lastDay = (int) $start->format('t');
+
+        if ($day > $lastDay) {
+            $end = $start->setDate((int) $start->format('Y'), (int) $start->format('n'), $lastDay)->setTime(23, 59, 59);
+        } else {
+            $end = $start->setDate((int) $start->format('Y'), (int) $start->format('n'), $day)
+                ->setTime((int) $now->format('G'), (int) $now->format('i'), (int) $now->format('s'));
+        }
+
+        return [$start, $end];
+    }
+
+    /**
+     * Returns the highest day, Monday week, and month totals across all completed sales.
+     *
+     * The Summary Sales query groups and ranks periods in SQL; only each winning period's saved pound total is loaded.
+     *
+     * @return array{day: array<string, mixed>|null, week: array<string, mixed>|null, month: array<string, mixed>|null} Best periods.
+     */
+    private function getBestSalesPeriods(DateTimeImmutable $now): array
+    {
+        $firstSaleDate = new DateTimeImmutable('1000-01-01 00:00:00', $now->getTimezone());
+        $inputs        = $this->getSalesInputs($firstSaleDate, $now);
+        $best          = [];
+
+        foreach (['day', 'week', 'month'] as $period) {
+            $this->dropTemporaryTables(['sales_items_taxes_temp', 'sales_payments_temp']);
+            $winner = $this->summarySales->getBestPeriodData($inputs, $period);
+
+            if ($winner === null) {
+                $best[$period] = null;
+
+                continue;
+            }
+
+            $start     = new DateTimeImmutable($winner[$period === 'day' ? 'sale_date' : 'sale_period'], $now->getTimezone());
+            $periodEnd = match ($period) {
+                'week'  => $start->modify('+6 days')->setTime(23, 59, 59),
+                'month' => $start->modify('last day of this month')->setTime(23, 59, 59),
+                default => $start->setTime(23, 59, 59),
+            };
+            $totalEnd = $periodEnd > $now ? $now : $periodEnd;
+
+            $lbpRows       = $this->summarySales->get_lbp_totals($this->getSalesInputs($start, $totalEnd), false);
+            $best[$period] = [
+                'start'     => $start->format('Y-m-d'),
+                'end'       => $periodEnd->format('Y-m-d'),
+                'total'     => (float) $winner['total'],
+                'lbp_total' => complete_lbp_total($lbpRows[0] ?? null),
+            ];
+        }
+
+        return $best;
     }
 
     /**

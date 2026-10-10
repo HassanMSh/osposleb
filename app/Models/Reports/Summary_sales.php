@@ -2,9 +2,13 @@
 
 namespace App\Models\Reports;
 
+use InvalidArgumentException;
+
 class Summary_sales extends Summary_report
 {
-    private bool $groupByHour = false;
+    private bool $groupByHour     = false;
+    private string $groupByPeriod = '';
+    private bool $bestPeriod      = false;
 
     /**
      * @return list<array>
@@ -25,16 +29,25 @@ class Summary_sales extends Summary_report
     }
 
     /**
-     * Adds the standard daily columns or hourly grouping when requested by the chart.
+     * Adds standard daily columns, hourly chart grouping, or a best-period grouping.
      */
     protected function _select(array $inputs, object &$builder): void    // TODO: hungarian notation
     {
-        $this->groupByHour = ! empty($inputs['group_by_hour']);
+        $this->groupByHour   = ! empty($inputs['group_by_hour']);
+        $this->groupByPeriod = (string) ($inputs['group_by_period'] ?? '');
+        $this->bestPeriod    = ! empty($inputs['best_period']);
 
         parent::_select($inputs, $builder);    // TODO: hungarian notation
 
+        if ($this->groupByPeriod === 'week') {
+            $builder->select('DATE_SUB(DATE(sales.sale_time), INTERVAL WEEKDAY(sales.sale_time) DAY) AS sale_period');
+        } elseif ($this->groupByPeriod === 'month') {
+            $builder->select("DATE_FORMAT(sales.sale_time, '%Y-%m-01') AS sale_period");
+        } else {
+            $builder->select('DATE(sales.sale_time) AS sale_date');
+        }
+
         $builder->select('
-                DATE(sales.sale_time) AS sale_date,
                 SUM(sales_items.quantity_purchased) AS quantity_purchased,
                 COUNT(DISTINCT sales.sale_id) AS sales
         ');
@@ -45,17 +58,24 @@ class Summary_sales extends Summary_report
     }
 
     /**
-     * Groups Summary Sales rows by day, or by day and hour for the chart.
+     * Groups Summary Sales rows by day, chart hour, or the requested best period.
      */
     protected function _group_order(object &$builder): void    // TODO: hungarian notation
     {
-        $builder->groupBy('sale_date');
+        $periodColumn = $this->groupByPeriod === '' ? 'sale_date' : 'sale_period';
+        $builder->groupBy($periodColumn);
 
         if ($this->groupByHour) {
             $builder->groupBy('sale_hour');
         }
 
-        $builder->orderBy('sale_date');
+        if ($this->bestPeriod) {
+            $builder->orderBy('total', 'DESC');
+            $builder->orderBy($periodColumn, 'ASC');
+            $builder->limit(1);
+        } else {
+            $builder->orderBy($periodColumn);
+        }
 
         if ($this->groupByHour) {
             $builder->orderBy('sale_hour');
@@ -63,16 +83,17 @@ class Summary_sales extends Summary_report
     }
 
     /**
-     * Returns daily rows with saved pound totals, or raw hourly Summary Sales rows for the chart.
+     * Returns daily rows with saved pound totals, or raw grouped rows for chart and best-period queries.
      *
      * `lbp_total` is null when any sale of the day has no saved pound total, such as sales from before it was saved.
-     * Hourly grouping is requested with `group_by_hour` and leaves out `lbp_total` because the chart uses store currency.
+     * Hourly grouping uses `group_by_hour`; best-period grouping uses `group_by_period` and `best_period`.
+     * Those grouped queries leave out `lbp_total` because their callers fetch saved pound totals for the chosen range.
      */
     public function getData(array $inputs): array
     {
         $rows = parent::getData($inputs);
 
-        if (! empty($inputs['group_by_hour'])) {
+        if (! empty($inputs['group_by_hour']) || ! empty($inputs['best_period'])) {
             return $rows;
         }
 
@@ -88,6 +109,29 @@ class Summary_sales extends Summary_report
         unset($row);
 
         return $rows;
+    }
+
+    /**
+     * Returns the highest completed Summary Sales total for a day, Monday week, or month.
+     *
+     * Equal totals return the earliest period. The query returns only the winning row.
+     *
+     * @param array  $inputs Report filters: start_date, end_date, sale_type and location_id.
+     * @param string $period Period kind: day, week, or month.
+     *
+     * @return array<string, mixed>|null Best period row, or null when there are no completed sales.
+     */
+    public function getBestPeriodData(array $inputs, string $period): ?array
+    {
+        if (! in_array($period, ['day', 'week', 'month'], true)) {
+            throw new InvalidArgumentException('Unsupported best sales period: ' . $period);
+        }
+
+        $inputs['best_period']     = true;
+        $inputs['group_by_period'] = $period === 'day' ? '' : $period;
+        $rows                      = $this->getData($inputs);
+
+        return $rows[0] ?? null;
     }
 
     /**

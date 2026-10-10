@@ -60,7 +60,7 @@ final class ReportsOverviewPermissionTest extends CIUnitTestCase
     }
 
     /**
-     * Leaves the drawer total out of the tile JSON when Receiving Reports access is missing.
+     * Formats each comparison as one money line and omits drawer totals without Receiving Reports access.
      */
     public function testTotalsOmitDrawerWhenReceivingReportPermissionIsMissing(): void
     {
@@ -72,6 +72,12 @@ final class ReportsOverviewPermissionTest extends CIUnitTestCase
                 'sales_today' => ['total' => 2.0, 'lbp_total' => 180000],
                 'sales_week'  => ['total' => 2.0, 'lbp_total' => 180000],
                 'sales_month' => ['total' => 2.0, 'lbp_total' => 180000],
+                'comparisons' => [
+                    'today' => ['status' => 'better', 'difference' => 12.0],
+                    'week'  => ['status' => 'worse', 'difference' => 9.0],
+                    'month' => ['status' => 'same', 'difference' => 0.0],
+                ],
+                'best_sales' => ['day' => null, 'week' => null, 'month' => null],
             ]);
         $controller = $this->makeController(['reports_sales' => true, 'reports_receivings' => false], $overview);
 
@@ -81,6 +87,21 @@ final class ReportsOverviewPermissionTest extends CIUnitTestCase
         $this->assertSame(200, $response->getStatusCode());
         $this->assertArrayNotHasKey('drawer_cash', $data);
         $this->assertArrayHasKey('sales_today', $data);
+        $this->assertArrayHasKey('comparisons', $data);
+        $this->assertArrayHasKey('best_sales', $data);
+
+        $todayComparison = $data['comparisons']['today'];
+        $weekComparison  = $data['comparisons']['week'];
+        $monthComparison = $data['comparisons']['month'];
+
+        $this->assertSame('Better than yesterday by $12.00', $todayComparison['before'] . $todayComparison['value'] . $todayComparison['after']);
+        $this->assertSame('Worse than last week by $9.00', $weekComparison['before'] . $weekComparison['value'] . $weekComparison['after']);
+        $this->assertSame('Same as last month', $monthComparison['message']);
+        $this->assertSame('up', $todayComparison['icon']);
+        $this->assertSame('down', $weekComparison['icon']);
+        $this->assertSame('', $monthComparison['icon']);
+        $this->assertSame(['status', 'message', 'before', 'value', 'after', 'icon'], array_keys($todayComparison));
+        $this->assertStringNotContainsString('%', $response->getBody());
     }
 
     /**

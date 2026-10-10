@@ -7,9 +7,26 @@
 
 <style>
     .reports-overview-row {
+        align-items: flex-start;
         display: flex;
         flex-wrap: wrap;
         margin-bottom: 20px;
+    }
+
+    @media (max-width: 991px) {
+        .reports-overview-row {
+            flex-direction: column;
+        }
+
+        .reports-overview-left,
+        .reports-overview-chart-column {
+            flex: 0 0 100%;
+            width: 100%;
+        }
+
+        .reports-overview-row ~ .row > .col-md-4 {
+            width: 100%;
+        }
     }
 
     @media (max-width: 767px) {
@@ -17,12 +34,25 @@
             margin-left: 0;
             margin-right: 0;
         }
+
+        .reports-overview-left,
+        .reports-overview-chart-column {
+            padding-left: 0;
+            padding-right: 0;
+        }
     }
 
-    .reports-overview-action,
-    .reports-overview-tiles,
-    .reports-overview-chart {
+    .reports-overview-left,
+    .reports-overview-chart-column {
         margin-bottom: 15px;
+    }
+
+    .reports-overview-left {
+        align-self: flex-start;
+    }
+
+    .reports-overview-action {
+        margin-bottom: 10px;
     }
 
     .reports-overview-action .btn {
@@ -30,8 +60,10 @@
     }
 
     .reports-overview-tiles {
-        display: flex;
-        flex-wrap: wrap;
+        align-items: start;
+        align-content: start;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
     }
 
@@ -39,14 +71,63 @@
         background: #f5f5f5;
         border: 1px solid #ddd;
         border-radius: 4px;
-        flex: 1 1 145px;
-        min-width: 135px;
+        min-width: 0;
         padding: 10px;
     }
 
     .reports-overview-tile-label,
     .reports-overview-tile small {
         display: block;
+    }
+
+    .reports-overview-comparison {
+        color: #666;
+        font-size: 12px;
+        line-height: 1.4;
+        margin-top: 5px;
+        overflow-wrap: anywhere;
+    }
+
+    .reports-overview-comparison-up {
+        color: #287d3c;
+    }
+
+    .reports-overview-comparison-down {
+        color: #b02a37;
+    }
+
+    .reports-overview-best {
+        margin-bottom: 20px;
+    }
+
+    .reports-overview-best-title {
+        font-size: 16px;
+        margin: 0 0 10px;
+    }
+
+    .reports-overview-best-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .reports-overview-best-tile {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        min-width: 0;
+        padding: 10px;
+    }
+
+    .reports-overview-best-tile span,
+    .reports-overview-best-tile small {
+        display: block;
+        overflow-wrap: anywhere;
+    }
+
+    .reports-overview-best-value {
+        font-size: 18px;
+        margin: 5px 0;
     }
 
     .reports-overview-tile-value {
@@ -105,53 +186,88 @@
         filter: none;
         white-space: nowrap;
     }
+
+    @media (max-width: 767px) {
+        .reports-overview-best-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 400px) {
+        .reports-overview-tiles,
+        .reports-overview-best-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
 </style>
 
 <div class="row reports-overview-row">
-    <div class="col-md-2 reports-overview-action">
-        <?= anchor('reports/overview/print-today', '<span class="glyphicon glyphicon-print">&nbsp;</span>' . lang('Reports.overview_print_today_sales'), ['class' => 'btn btn-primary btn-block', 'id' => 'reports-overview-print']) ?>
+    <div class="col-md-5 reports-overview-left">
+        <div class="reports-overview-action">
+            <?= anchor('reports/overview/print-today', '<span class="glyphicon glyphicon-print">&nbsp;</span>' . lang('Reports.overview_print_today_sales'), ['class' => 'btn btn-primary btn-block', 'id' => 'reports-overview-print']) ?>
+        </div>
+
+        <div class="reports-overview-tiles" id="reports-overview-tiles">
+            <div class="reports-overview-tile">
+                <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_today') ?></span>
+                <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-today-store">—</bdi></strong>
+                <small><bdi dir="ltr" id="reports-overview-sales-today-lbp">—</bdi></small>
+                <small class="reports-overview-comparison" id="reports-overview-comparison-today"></small>
+            </div>
+            <div class="reports-overview-tile">
+                <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_week') ?></span>
+                <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-week-store">—</bdi></strong>
+                <small><bdi dir="ltr" id="reports-overview-sales-week-lbp">—</bdi></small>
+                <small class="reports-overview-comparison" id="reports-overview-comparison-week"></small>
+            </div>
+            <div class="reports-overview-tile">
+                <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_month') ?></span>
+                <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-month-store">—</bdi></strong>
+                <small><bdi dir="ltr" id="reports-overview-sales-month-lbp">—</bdi></small>
+                <small class="reports-overview-comparison" id="reports-overview-comparison-month"></small>
+            </div>
+            <?php if ($can_view_receivings) { ?>
+                <div class="reports-overview-tile">
+                    <span class="reports-overview-tile-label"><?= lang('Reports.overview_drawer_cash_today') ?></span>
+                    <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-drawer-store">—</bdi></strong>
+                    <small><bdi dir="ltr" id="reports-overview-drawer-lbp">—</bdi></small>
+                    <small><?= lang('Reports.overview_cash_in') ?>: <bdi dir="ltr" id="reports-overview-cash-in">—</bdi></small>
+                    <small><?= lang('Reports.overview_cash_receivings') ?>: <bdi dir="ltr" id="reports-overview-cash-receivings">—</bdi></small>
+                    <small><?= lang('Reports.overview_cash_expenses') ?>: <bdi dir="ltr" id="reports-overview-cash-expenses">—</bdi></small>
+                </div>
+            <?php } ?>
+        </div>
     </div>
 
-    <div class="col-md-5 reports-overview-tiles" id="reports-overview-tiles">
-        <div class="reports-overview-tile">
-            <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_today') ?></span>
-            <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-today-store">—</bdi></strong>
-            <small><bdi dir="ltr" id="reports-overview-sales-today-lbp">—</bdi></small>
+    <div class="col-md-7 reports-overview-chart-column">
+        <div class="reports-overview-chart">
+            <h2 class="reports-overview-chart-title"><?= lang('Reports.overview_graph_title') ?></h2>
+            <div class="reports-overview-chart-buttons" role="group" aria-label="<?= esc(lang('Reports.overview_graph_title')) ?>">
+                <?php foreach (['hour', 'day', 'week', 'month', 'year'] as $period) { ?>
+                    <button type="button" class="btn btn-default btn-sm<?= $period === 'day' ? ' active' : '' ?>" data-reports-period="<?= esc($period) ?>" aria-pressed="<?= $period === 'day' ? 'true' : 'false' ?>"><?= lang('Reports.overview_period_' . $period) ?></button>
+                <?php } ?>
+            </div>
+            <div class="reports-overview-axis-title"><span dir="auto"><?= esc(lang('Reports.overview_graph_axis', [$config['currency_symbol']])) ?></span></div>
+            <div id="reports-overview-chart" aria-label="<?= esc(lang('Reports.overview_graph_title')) ?>"></div>
+            <div class="text-danger" id="reports-overview-chart-error" role="status" hidden><?= lang('Reports.overview_graph_error') ?></div>
         </div>
-        <div class="reports-overview-tile">
-            <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_week') ?></span>
-            <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-week-store">—</bdi></strong>
-            <small><bdi dir="ltr" id="reports-overview-sales-week-lbp">—</bdi></small>
-        </div>
-        <div class="reports-overview-tile">
-            <span class="reports-overview-tile-label"><?= lang('Reports.overview_sales_month') ?></span>
-            <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-sales-month-store">—</bdi></strong>
-            <small><bdi dir="ltr" id="reports-overview-sales-month-lbp">—</bdi></small>
-        </div>
-        <?php if ($can_view_receivings) { ?>
-            <div class="reports-overview-tile">
-                <span class="reports-overview-tile-label"><?= lang('Reports.overview_drawer_cash_today') ?></span>
-                <strong class="reports-overview-tile-value"><bdi dir="ltr" id="reports-overview-drawer-store">—</bdi></strong>
-                <small><bdi dir="ltr" id="reports-overview-drawer-lbp">—</bdi></small>
-                <small><?= lang('Reports.overview_cash_in') ?>: <bdi dir="ltr" id="reports-overview-cash-in">—</bdi></small>
-                <small><?= lang('Reports.overview_cash_receivings') ?>: <bdi dir="ltr" id="reports-overview-cash-receivings">—</bdi></small>
-                <small><?= lang('Reports.overview_cash_expenses') ?>: <bdi dir="ltr" id="reports-overview-cash-expenses">—</bdi></small>
+    </div>
+</div>
+
+<section class="reports-overview-best" aria-labelledby="reports-overview-best-title">
+    <h2 class="reports-overview-best-title" id="reports-overview-best-title"><?= esc(lang('Reports.overview_best_sales')) ?></h2>
+    <div class="reports-overview-best-grid">
+        <?php foreach (['day', 'week', 'month'] as $bestPeriod) { ?>
+            <div class="reports-overview-best-tile" id="reports-overview-best-<?= esc($bestPeriod) ?>">
+                <span><?= esc(lang('Reports.overview_best_' . $bestPeriod)) ?></span>
+                <small dir="auto" id="reports-overview-best-<?= esc($bestPeriod) ?>-period">—</small>
+                <strong class="reports-overview-best-value"><bdi dir="ltr" id="reports-overview-best-<?= esc($bestPeriod) ?>-store">—</bdi></strong>
+                <small><bdi dir="ltr" id="reports-overview-best-<?= esc($bestPeriod) ?>-lbp"></bdi></small>
+                <small id="reports-overview-best-<?= esc($bestPeriod) ?>-message"></small>
             </div>
         <?php } ?>
     </div>
-
-    <div class="col-md-5 reports-overview-chart">
-        <h2 class="reports-overview-chart-title"><?= lang('Reports.overview_graph_title') ?></h2>
-        <div class="reports-overview-chart-buttons" role="group" aria-label="<?= esc(lang('Reports.overview_graph_title')) ?>">
-            <?php foreach (['hour', 'day', 'week', 'month', 'year'] as $period) { ?>
-                <button type="button" class="btn btn-default btn-sm<?= $period === 'day' ? ' active' : '' ?>" data-reports-period="<?= esc($period) ?>" aria-pressed="<?= $period === 'day' ? 'true' : 'false' ?>"><?= lang('Reports.overview_period_' . $period) ?></button>
-            <?php } ?>
-        </div>
-        <div class="reports-overview-axis-title"><span dir="auto"><?= esc(lang('Reports.overview_graph_axis', [$config['currency_symbol']])) ?></span></div>
-        <div id="reports-overview-chart" aria-label="<?= esc(lang('Reports.overview_graph_title')) ?>"></div>
-        <div class="text-danger" id="reports-overview-chart-error" role="status" hidden><?= lang('Reports.overview_graph_error') ?></div>
-    </div>
-</div>
+</section>
 
 <script>
     $(function() {
@@ -190,6 +306,33 @@
             $('#' + prefix + '-lbp').text(money.lbp);
         }
 
+        /** Adds one translated comparison line and keeps its currency amount in an LTR bdi element. */
+        function setOverviewComparison(period, data) {
+            var headline = $('#reports-overview-comparison-' + period).empty();
+            if (data.icon) {
+                var iconClass = data.icon === 'up' ? 'glyphicon-arrow-up reports-overview-comparison-up' : 'glyphicon-arrow-down reports-overview-comparison-down';
+                headline.append($('<span>').addClass('glyphicon ' + iconClass).attr('aria-hidden', 'true'));
+                headline.append(document.createTextNode(' '));
+            }
+
+            if (data.message) {
+                headline.append(document.createTextNode(data.message));
+            } else if (data.value) {
+                headline.append(document.createTextNode(data.before));
+                headline.append($('<bdi>').attr('dir', 'ltr').text(data.value));
+                headline.append(document.createTextNode(data.after));
+            }
+
+        }
+
+        /** Displays the date range and currency amounts for one all-time best period. */
+        function setOverviewBestPeriod(period, data) {
+            $('#reports-overview-best-' + period + '-period').text(data.period);
+            $('#reports-overview-best-' + period + '-store').text(data.store);
+            $('#reports-overview-best-' + period + '-lbp').text(data.lbp);
+            $('#reports-overview-best-' + period + '-message').text(data.message);
+        }
+
         /** Loads and displays all overview totals allowed for this employee. */
         function loadOverviewTotals() {
             $.getJSON(overviewTotalsUrl)
@@ -197,6 +340,12 @@
                     setOverviewMoney('reports-overview-sales-today', data.sales_today);
                     setOverviewMoney('reports-overview-sales-week', data.sales_week);
                     setOverviewMoney('reports-overview-sales-month', data.sales_month);
+                    setOverviewComparison('today', data.comparisons.today);
+                    setOverviewComparison('week', data.comparisons.week);
+                    setOverviewComparison('month', data.comparisons.month);
+                    setOverviewBestPeriod('day', data.best_sales.day);
+                    setOverviewBestPeriod('week', data.best_sales.week);
+                    setOverviewBestPeriod('month', data.best_sales.month);
 
                     if (data.drawer_cash) {
                         setOverviewMoney('reports-overview-drawer', data.drawer_cash.total);

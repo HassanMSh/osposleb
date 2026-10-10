@@ -14,6 +14,7 @@ Upstream files outside this directory are left as the original developers wrote 
 - `qa-scenarios.md` — cashier item and sale scenarios, and how to run the browser QA suite in `tests/qa-e2e/`.
 - [kitchen-stock.md](kitchen-stock.md) — how to record ingredient purchases, kitchen use, and month-end stock totals.
 - [shop-receivings.md](shop-receivings.md) — how the shop records supplier deliveries, price changes, and returns, and reads month-end spending and profit.
+- [shop-expenses.md](shop-expenses.md) — who can record expenses, how to add one, and where to read the monthly total.
 - `windows-client-install.md` — step-by-step checklist for a new Windows shop computer, the one-time switch to `./shop` for a shop installed by hand, and the Chrome shortcuts for silent receipt printing, with the problems found on the first run.
 
 Later phases may add hardware setup notes to this directory.

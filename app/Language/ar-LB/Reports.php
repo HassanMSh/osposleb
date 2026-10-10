@@ -49,7 +49,7 @@ return [
     'expenses_categories'                     => 'فئات المصاريف',
     'expenses_categories_summary_report'      => 'تقرير المصاريف حسب الفئات',
     'expenses_category'                       => 'الفئة',
-    'expenses_payment_amount'                 => '',
+    'expenses_payment_amount'                 => 'مبلغ الدفع',
     'expenses_tax_amount'                     => 'الضريبة',
     'expenses_total_amount'                   => 'المبلغ الإجمالي',
     'expenses_total_tax_amount'               => 'الضريبة الإجمالية',

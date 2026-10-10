@@ -669,13 +669,24 @@ class Employee extends Person
     }
 
     /**
-     * Determines whether the employee has access to at least one submodule
+     * Determines whether the employee has access to at least one submodule.
+     *
+     * Counts the grant for the permission itself and grants for its child permissions,
+     * so another module whose name starts with the same text (Expense categories for
+     * Expenses) does not open it.
      */
     public function has_module_grant(string $permission_id, int $person_id): bool
     {
         $builder = $this->db->table('grants');
-        $builder->like('permission_id', $permission_id, 'after');
-        $builder->where('person_id', $person_id);
+        $builder->join('permissions', 'permissions.permission_id = grants.permission_id');
+        $builder->groupStart()
+            ->where('grants.permission_id', $permission_id)
+            ->orGroupStart()
+            ->like('grants.permission_id', $permission_id . '_', 'after')
+            ->where('permissions.module_id', $permission_id)
+            ->groupEnd()
+            ->groupEnd();
+        $builder->where('grants.person_id', $person_id);
         $result_count = $builder->get()->getNumRows();
 
         if ($result_count != 1) {
@@ -686,12 +697,13 @@ class Employee extends Person
     }
 
     /**
-     * Checks permissions
+     * Checks whether the module has any child permissions.
      */
     public function has_subpermissions(string $permission_id): bool
     {
         $builder = $this->db->table('permissions');
         $builder->like('permission_id', $permission_id . '_', 'after');
+        $builder->where('module_id', $permission_id);
 
         return $builder->get()->getNumRows() == 0;    // TODO: ===
     }

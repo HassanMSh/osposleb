@@ -403,6 +403,7 @@ final class ShopLockdownDatabaseTest extends CIUnitTestCase
             ['permission_id' => 'config', 'menu_group' => 'home'],
             ['permission_id' => 'employees', 'menu_group' => 'home'],
             ['permission_id' => 'taxes', 'menu_group' => 'home'],
+            ['permission_id' => 'expenses', 'menu_group' => 'office'],
         ];
 
         $this->database->table('grants')->where('person_id', $admin_id)->delete();
@@ -415,10 +416,11 @@ final class ShopLockdownDatabaseTest extends CIUnitTestCase
         try {
             $this->assertTrue($employee->save_employee($person_data, $employee_data, $grants_data, $admin_id));
             $this->assertSame($employee_data['username'], $this->database->table('employees')->where('person_id', $admin_id)->get()->getRow('username'));
-            $this->assertSame(['config', 'employees', 'taxes'], array_column(
+            $this->assertSame(['config', 'employees', 'expenses', 'taxes'], array_column(
                 $this->database->table('grants')->select('permission_id')->where('person_id', $admin_id)->orderBy('permission_id', 'asc')->get()->getResultArray(),
                 'permission_id',
             ));
+            $this->assertSame('home', $this->grantGroupByPerson($admin_id, 'expenses'));
 
             $this->assertSame(['employees', 'taxes', 'config'], array_column(
                 (new Module())->get_allowed_office_modules($admin_id)->getResultArray(),
@@ -451,16 +453,22 @@ final class ShopLockdownDatabaseTest extends CIUnitTestCase
                 ['permission_id' => 'attributes', 'menu_group' => 'home'],
                 ['permission_id' => 'office', 'menu_group' => 'home'],
                 ['permission_id' => 'items', 'menu_group' => 'home'],
+                ['permission_id' => 'expenses', 'menu_group' => 'office'],
             ];
             $this->assertTrue($employee->save_employee($person_data, $employee_data, $posted_grants, $employee_id));
             $this->assertSame(0, $this->database->table('grants')
                 ->where('person_id', $employee_id)
                 ->whereIn('permission_id', ['config', 'employees', 'taxes', 'attributes', 'office'])
                 ->countAllResults());
-            $this->assertSame(['items'], array_column(
+            $allowed_home_modules = array_column(
                 (new Module())->get_allowed_home_modules($employee_id)->getResultArray(),
                 'module_id',
-            ));
+            );
+            $this->assertContains('items', $allowed_home_modules);
+            $this->assertContains('expenses', $allowed_home_modules);
+            $this->assertSame(1, $this->database->table('grants')
+                ->where(['person_id' => $employee_id, 'permission_id' => 'expenses', 'menu_group' => 'home'])
+                ->countAllResults());
         } finally {
             $this->database->transRollback();
         }

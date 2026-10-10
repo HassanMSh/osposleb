@@ -18,8 +18,6 @@ class ShopLockdown
         'suppliers',
         'giftcards',
         'messages',
-        'expenses',
-        'expenses_categories',
         'cashups',
     ];
 
@@ -29,16 +27,18 @@ class ShopLockdown
      * @var array<string, string>
      */
     public const MENU_GROUPS = [
-        'office'     => 'home',
-        'items'      => 'home',
-        'reports'    => 'home',
-        'sales'      => 'home',
-        'receivings' => 'home',
-        'home'       => 'office',
-        'config'     => 'office',
-        'employees'  => 'office',
-        'taxes'      => 'office',
-        'attributes' => 'office',
+        'office'              => 'home',
+        'items'               => 'home',
+        'reports'             => 'home',
+        'sales'               => 'home',
+        'receivings'          => 'home',
+        'expenses'            => 'home',
+        'home'                => 'office',
+        'config'              => 'office',
+        'employees'           => 'office',
+        'taxes'               => 'office',
+        'attributes'          => 'office',
+        'expenses_categories' => 'office',
     ];
 
     /**

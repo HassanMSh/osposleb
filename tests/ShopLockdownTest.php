@@ -45,11 +45,11 @@ final class ShopLockdownTest extends CIUnitTestCase
             'suppliers',
             'giftcards',
             'messages',
-            'expenses',
-            'expenses_categories',
             'cashups',
         ], ShopLockdown::REMOVED_MODULES);
         $this->assertNotContains('office', ShopLockdown::REMOVED_MODULES);
+        $this->assertSame('home', ShopLockdown::MENU_GROUPS['expenses']);
+        $this->assertSame('office', ShopLockdown::MENU_GROUPS['expenses_categories']);
     }
 
     /**
@@ -65,8 +65,6 @@ final class ShopLockdownTest extends CIUnitTestCase
             'suppliers',
             'giftcards',
             'messages',
-            'expenses',
-            'expenses_categories',
             'cashups',
         ], ['Customers', '%2563ustomers', 'customers%252Fsearch']) as $module) {
             $request  = new IncomingRequest(new App(), new URI('/' . $module . '/index'), null, new UserAgent());
@@ -92,13 +90,11 @@ final class ShopLockdownTest extends CIUnitTestCase
      */
     public function testNonRemovedRoutesPassThrough(): void
     {
-        $request = new IncomingRequest(new App(), new URI('/sales/index'), null, new UserAgent());
+        foreach (['sales', 'receivings', 'expenses', 'expenses_categories'] as $module) {
+            $request = new IncomingRequest(new App(), new URI('/' . $module . '/index'), null, new UserAgent());
 
-        $this->assertNull((new ShopLockdownFilter())->before($request));
-
-        $receivings_request = new IncomingRequest(new App(), new URI('/receivings/index'), null, new UserAgent());
-
-        $this->assertNull((new ShopLockdownFilter())->before($receivings_request));
+            $this->assertNull((new ShopLockdownFilter())->before($request), $module);
+        }
     }
 
     /**

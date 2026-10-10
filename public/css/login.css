@@ -133,3 +133,8 @@ footer a:not(:hover) {
         min-height: 86px;
     }
 }
+
+.footer .footer-support {
+    font-size: 0.875em;
+    margin-top: 0.25rem;
+}

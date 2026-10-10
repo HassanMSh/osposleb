@@ -192,6 +192,7 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | EXP-01 | Admin | Add an expense category, then record an expense paid by Cash. | The expense appears in Expenses and Reports > Summary Reports > Expenses by categories with the same amount. |
 | EXP-02 | Cashier without Expenses permission | Open the menu and visit `/expenses`. | Expenses is not in the menu and the page shows the normal no permission result. |
 | EXP-03 | Admin using Arabic | Open Expenses and Expense categories. | Both pages show Arabic text and read from right to left. |
+| EXP-04 | Admin using Arabic | On a new expense, open the date picker, pick a day, an hour and a minute. | The picker opens under the field at calendar size, shows Arabic month and day names, and fills in the chosen date and time. Same check in English. |
 
 ## Reports overview (manual)
 

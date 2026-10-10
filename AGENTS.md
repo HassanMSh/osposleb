@@ -161,7 +161,7 @@ The top bar has a theme switch with four colour themes: the default light theme,
 - Text, icons, borders, focus outlines, and disabled controls must stay easy for a person to read in every theme. Look for text with too little contrast against its background, white-on-white or dark-on-dark text, and colours hard-coded in a view that ignore the theme.
 - When new UI uses colours, follow the theme rules in `public/css/ospos_themes.css` or add rules there for each theme. Do not hard-code a colour that only fits the light theme.
 - Each issue that changes the UI says that the change must be checked in all four themes. Each implementer and reviewer brief for a UI change says the same.
-- Browser QA for a UI change takes a screenshot of the changed screen in each theme, in Arabic (right to left) and in English, before the pull request is opened.
+- For a UI change, the full screenshot set in the final round (see "Agent roles") includes the changed screen in each of the four themes, in Arabic (right to left) and in English. Small fix rounds keep their two-screenshot limit.
 - Receipts, invoices, and kitchen tickets (`#receipt_wrapper`, `#page-wrap`, `.kitchen-ticket`) stay dark text on white in every theme, so they print the same. A change to them must keep that in all four themes.
 
 ## Scope boundaries

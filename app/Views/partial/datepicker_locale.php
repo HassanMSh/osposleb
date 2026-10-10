@@ -8,24 +8,25 @@ var pickerconfig = function(config) {
         format: "<?= dateformat_bootstrap($config['dateformat']) . ' ' . dateformat_bootstrap($config['timeformat'])?>",
         <?php
         $t = $config['timeformat'];
-        $m = $t[strlen($t) - 1];
-        if (str_contains($config['timeformat'], 'a') || str_contains($config['timeformat'], 'A')) {
-        ?>
+$m         = $t[strlen($t) - 1];
+if (str_contains($config['timeformat'], 'a') || str_contains($config['timeformat'], 'A')) {
+    ?>
             showMeridian: true,
         <?php } else {  ?>
             showMeridian: false,
         <?php } ?>
-        minView: 2,
+        minView: 0,
         minuteStep: 1,
         autoclose: true,
         todayBtn: true,
         todayHighlight: true,
         bootcssVer: 3,
         language: "<?= current_language_code() ?>"
-    }, <?php echo isset($config) ?>);
+    }, <?= isset($config) ?>);
 };
 
-$.fn.datetimepicker.dates['<?= $config['language'] ?>'] = {
+$.fn.datetimepicker.dates['<?= current_language_code() ?>'] = {
+    rtl: <?= is_right_to_left() ? 'true' : 'false' ?>,
     days: [
         "<?= lang('Calendar.sunday') ?>",
         "<?= lang('Calendar.monday') ?>",

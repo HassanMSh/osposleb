@@ -185,6 +185,15 @@ Run each scenario once as the Arabic cashier and once as the English admin.
 | RECV-04 | Admin | Enters a zero quantity or a quantity below 0.0005, then tries to complete the receiving. | The edit and completion are refused; valid negative return quantities remain allowed. |
 | RECV-05 | Admin | With average cost on and the rate at 90,000, complete case 1, case 10, and case 12 through Receivings in both till layouts, then sell one item in each layout. | Case 1 saves $1.02 after rounding its exact 91,500 LL average up to 92,000 LL, case 10 uses its $1.20 paid price, case 12 completes and keeps its $1.67 cost, and both tills still charge the item's retail price. |
 
+## Expenses
+
+| ID | Who | What to do | Expected result |
+| --- | --- | --- | --- |
+| EXP-01 | Admin | Add an expense category, then record an expense paid by Cash. | The expense appears in Expenses and Reports > Summary Reports > Expenses by categories with the same amount. |
+| EXP-02 | Cashier without Expenses permission | Open the menu and visit `/expenses`. | Expenses is not in the menu and the page shows the normal no permission result. |
+| EXP-03 | Admin using Arabic | Open Expenses and Expense categories. | Both pages show Arabic text and read from right to left. |
+| EXP-04 | Admin using Arabic | On a new expense, open the date picker, pick a day, an hour and a minute. | The picker opens under the field at calendar size, shows Arabic month and day names, and fills in the chosen date and time. Same check in English. |
+
 ## Reports overview (manual)
 
 These checks cover the Reports overview in both till layouts and in English and Arabic.

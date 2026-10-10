@@ -92,6 +92,11 @@
     left: 0;
 }
 
+/* The date picker sets its own left position, so a fixed right edge would stretch it across the page. */
+[dir="rtl"] .datetimepicker.dropdown-menu {
+    right: auto;
+}
+
 [dir="rtl"] .caret {
     margin-right: 2px;
     margin-left: 0;

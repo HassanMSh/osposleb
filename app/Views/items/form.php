@@ -35,6 +35,7 @@ $tax_mode_inherit_label = $default_tax_1_rate !== ''
         (string) $default_tax_1_rate,
     ])
     : lang('Items.tax_mode_inherit_none');
+$is_new_item    = $item_info->item_id === NEW_ENTRY;
 $lbp_rate       = (float) ($config['lbp_exchange_rate'] ?? 0);
 $cost_price_lbp = round_lbp_to_thousand((float) $item_info->cost_price * $lbp_rate);
 $unit_price_lbp = round_lbp_to_thousand((float) $item_info->unit_price * $lbp_rate);
@@ -203,7 +204,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                         'class'   => 'form-control input-sm',
                         'dir'     => 'ltr',
                         'onClick' => 'this.select();',
-                        'value'   => format_lbp_input($cost_price_lbp),
+                        'value'   => $is_new_item ? '' : format_lbp_input($cost_price_lbp),
                     ]) ?>
                     <?php if (is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b dir="ltr">LL</b></span>
@@ -225,7 +226,7 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
                         'class'   => 'form-control input-sm',
                         'dir'     => 'ltr',
                         'onClick' => 'this.select();',
-                        'value'   => format_lbp_input($unit_price_lbp),
+                        'value'   => $is_new_item ? '' : format_lbp_input($unit_price_lbp),
                     ]) ?>
                     <?php if (is_right_side_currency_symbol()): ?>
                         <span class="input-group-addon input-sm"><b dir="ltr">LL</b></span>
@@ -622,6 +623,14 @@ echo form_radio($radio_button) ?> <?= lang('Items.kit') ?>
         }, "<?= esc(lang('Items.unit_price_non_negative'), 'js') ?>");
 
         var item_number_duplicate_message = "<?= esc(lang('Items.item_number_duplicate'), 'js') ?>";
+
+        // Scanner Enter should move to the name instead of submitting the incomplete form.
+        $('#item_number').on('keydown', function(event) {
+            if (event.which === 13) {
+                event.preventDefault();
+                $('#name').trigger('focus');
+            }
+        });
 
         var init_validation = function() {
             $('#item_form').validate($.extend({

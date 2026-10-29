@@ -1833,7 +1833,7 @@ class Sales extends Secure_Controller
     }
 
     /**
-     * Checks and updates the register barcode, returning localized JSON and preserving posted bytes.
+     * Checks that the register item exists, updates its barcode, and returns localized JSON.
      *
      * @noinspection PhpUnused
      */
@@ -1842,6 +1842,12 @@ class Sales extends Secure_Controller
         $item_id     = (int) $this->request->getPost('item_id', FILTER_SANITIZE_NUMBER_INT);
         $item_number = $this->request->getPost('item_number');
         $item_data   = ['item_number' => $item_number];
+
+        if (! $this->item->exists_by_item_id($item_id)) {
+            echo json_encode(['success' => false, 'message' => lang('Items.cannot_find_item')]);
+
+            return;
+        }
 
         if (! $this->item->save_value($item_data, $item_id)) {
             $duplicate_number = $item_number;
@@ -1856,7 +1862,7 @@ class Sales extends Secure_Controller
                 : $this->item->get_item_number_owner((string) $duplicate_number, (string) $item_id);
             $message = $existing_item === null
                 ? lang('Items.error_adding_updating')
-                : lang('Items.item_number_duplicate', [$existing_item->name]);
+                : lang('Items.item_number_duplicate', [$existing_item->name, $existing_item->item_id]);
 
             echo json_encode(['success' => false, 'message' => $message]);
 

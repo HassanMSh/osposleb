@@ -458,7 +458,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     *  AJAX called function that generates barcodes for selected items.
+     * Generates barcodes for selected existing items without creating partial item rows.
      *
      * @param string $item_ids Colon separated list of item_id values to generate barcodes for.
      *
@@ -586,7 +586,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Validates LBP form prices and exchange rate, converts prices to stored dollars, and saves item data and TVA mode.
+     * Validates item names and prices, converts LBP prices to stored dollars, and saves item data and TVA mode.
      *
      * @throws ReflectionException
      */
@@ -751,7 +751,7 @@ class Items extends Secure_Controller
             $existing_item = $this->item->get_item_number_owner((string) $item_data['item_number'], (string) $item_id);
 
             if ($existing_item !== null) {
-                $message = lang('Items.item_number_duplicate', [$existing_item->name]);
+                $message = lang('Items.item_number_duplicate', [$existing_item->name, $existing_item->item_id]);
                 echo json_encode(['success' => false, 'message' => $message, 'id' => $item_id]);
 
                 return;
@@ -834,20 +834,26 @@ class Items extends Secure_Controller
 
             $message = $existing_item === null
                 ? lang('Items.error_adding_updating') . ' ' . $item_data['name']
-                : lang('Items.item_number_duplicate', [$existing_item->name]);
+                : lang('Items.item_number_duplicate', [$existing_item->name, $existing_item->item_id]);
 
             echo json_encode(['success' => false, 'message' => $message, 'id' => NEW_ENTRY]);
         }
     }
 
     /**
-     * Returns a localized error when an item name or parsed price is outside the allowed entry limits.
+     * Returns a localized error when an item name or parsed price is missing or outside the allowed entry limits.
      *
      * @param false|float|int|string|null $cost_price Parsed wholesale price or raw CSV value.
      * @param false|float|int|string|null $unit_price Parsed retail price or raw CSV value.
      */
     public static function getItemEntryValidationError(string $name, mixed $cost_price, mixed $unit_price): ?string
     {
+        $name_error = self::getItemNameValidationError($name);
+
+        if ($name_error !== null) {
+            return $name_error;
+        }
+
         if ($cost_price === '') {
             return lang('Items.cost_price_required');
         }
@@ -872,7 +878,7 @@ class Items extends Secure_Controller
             return lang('Items.unit_price_non_negative');
         }
 
-        return self::getItemNameValidationError($name);
+        return null;
     }
 
     /**
@@ -1004,10 +1010,14 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Returns a localized error when a stored item name is longer than 255 Unicode characters.
+     * Returns a localized error when an item name is blank or longer than 255 Unicode characters.
      */
     public static function getItemNameValidationError(string $name): ?string
     {
+        if (trim($name) === '') {
+            return lang('Items.name_required');
+        }
+
         if (mb_strlen($name, 'UTF-8') > 255) {
             return lang('Items.name_max_length');
         }
@@ -1059,7 +1069,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Returns a JSON validation result or a localized duplicate-barcode message naming the existing item.
+     * Returns a JSON validation result or a localized duplicate-barcode message with the existing item's ID and name.
      *
      * @noinspection PhpUnused
      */
@@ -1075,7 +1085,7 @@ class Items extends Secure_Controller
 
         $existing_item = $this->item->get_item_number_owner($item_number, $this->request->getPost('item_id'));
 
-        echo json_encode($existing_item === null ? true : lang('Items.item_number_duplicate', [$existing_item->name]));
+        echo json_encode($existing_item === null ? true : lang('Items.item_number_duplicate', [$existing_item->name, $existing_item->item_id]));
     }
 
     /**
@@ -1092,9 +1102,11 @@ class Items extends Secure_Controller
     }
 
     /**
-     * @noinspection PhpUnused
+     * Clears an existing item's image filename and returns whether the update succeeded.
      *
      * @param mixed $item_id
+     *
+     * @noinspection PhpUnused
      */
     public function getRemoveLogo($item_id): void
     {
@@ -1248,7 +1260,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Imports CSV items after validating item, stock, and tax data, and reports failed rows with localized details.
+     * Imports complete CSV item rows after validation and includes the barcode owner's ID and name in duplicate errors.
      *
      * @throws ReflectionException
      * @noinspection PhpUnused
@@ -1376,6 +1388,7 @@ class Items extends Secure_Controller
                                     $failed_row,
                                     $duplicate_number,
                                     $duplicate_item->name,
+                                    $duplicate_item->item_id,
                                 ]));
                         log_message('error', "CSV Item import failed on line {$failed_row}. This item was not imported.");
                     }
@@ -1614,7 +1627,7 @@ class Items extends Secure_Controller
     }
 
     /**
-     * Guess whether file extension is not in the table field, if it isn't, then it's an old-format (formerly pic_id) field, so we guess the right filename and update the table
+     * Updates the filename of an existing item's image when the old extension-less format is found.
      *
      * @param $item object item to update
      */

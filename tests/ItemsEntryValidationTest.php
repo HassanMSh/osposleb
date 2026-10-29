@@ -134,6 +134,17 @@ final class ItemsEntryValidationTest extends CIUnitTestCase
     }
 
     /**
+     * Rejects blank and whitespace-only item names.
+     */
+    public function testBlankItemNamesAreRejected(): void
+    {
+        foreach (['', '   ', "\t\n"] as $name) {
+            $this->assertSame(lang('Items.name_required'), Items::getItemNameValidationError($name));
+            $this->assertSame(lang('Items.name_required'), Items::getItemEntryValidationError($name, 1.0, 2.0));
+        }
+    }
+
+    /**
      * Rejects a sanitized register name when its stored form exceeds the limit.
      */
     public function testSanitizedRegisterNameLengthIsChecked(): void

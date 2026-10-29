@@ -63,6 +63,14 @@ class Item extends Model
     }
 
     /**
+     * Checks whether exactly one item has the given primary item ID.
+     */
+    public function exists_by_item_id(int $item_id): bool
+    {
+        return $this->db->table('items')->where('item_id', $item_id)->countAllResults() === 1;
+    }
+
+    /**
      * Determines if a given item_number exists on another item.
      */
     public function item_number_exists(string $item_number, string $item_id = ''): bool
@@ -456,7 +464,9 @@ class Item extends Model
     }
 
     /**
-     * Inserts or updates an item with checked barcode uniqueness and atomic empty-barcode generation.
+     * Inserts named items or updates items by ID, with checked barcode uniqueness and atomic empty-barcode generation.
+     *
+     * A partial save cannot insert a new row without a non-empty name.
      */
     public function save_value(array &$item_data, int $item_id = NEW_ENTRY): bool    // TODO: need to bring this in line with parent or change the name
     {
@@ -464,7 +474,11 @@ class Item extends Model
         $config            = config(OSPOS::class)->settings;
         $generate_if_empty = ($config['barcode_generate_if_empty'] ?? '0') == '1';
 
-        if ($item_id < 1 || ! $this->exists($item_id, true)) {
+        if ($item_id < 1 || ! $this->exists_by_item_id($item_id)) {
+            if (! isset($item_data['name']) || ! is_string($item_data['name']) || trim($item_data['name']) === '') {
+                return false;
+            }
+
             if (array_key_exists('item_number', $item_data)
                 && $item_data['item_number'] !== null
                 && $item_data['item_number'] !== ''

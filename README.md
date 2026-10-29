@@ -41,6 +41,7 @@ The features include:
 - Cash up function
 - Printing and emailing of receipts, invoices and quotations
 - Barcode generation and printing, including automatic internal EAN-13 barcodes for blank item numbers; manually entered barcodes are preserved byte for byte and duplicates are rejected
+- New items require a name and both prices; price fields start blank, and a typed zero remains valid. Enter in the Barcode field moves focus to Item Name.
 - Database of customers and suppliers
 - Multiuser with permission control
 - Reporting on sales, orders, expenses, inventory status and more

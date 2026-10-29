@@ -8,7 +8,10 @@ use App\Database\Migrations\Migration_barcode_generation;
 use App\Libraries\Sale_lib;
 use App\Models\Attribute;
 use App\Models\Employee;
+use App\Models\Inventory;
 use App\Models\Item;
+use App\Models\Item_quantity;
+use App\Models\Item_taxes;
 use App\Models\Stock_location;
 use App\Models\Supplier;
 use CodeIgniter\Config\Factories;
@@ -145,6 +148,74 @@ final class BarcodeGenerationTest extends CIUnitTestCase
     }
 
     /**
+     * Refuses partial saves for missing item IDs without inserting rows.
+     */
+    public function testPartialSaveForMissingItemDoesNotInsertNamelessRow(): void
+    {
+        $this->requireDatabase();
+        $item         = $this->makeItem();
+        $missing_id   = $this->nextItemId() + 100;
+        $row_count    = $this->database->table('items')->countAllResults();
+        $partial_data = [
+            ['item_number' => '123'],
+            ['pic_filename' => 'x.jpg'],
+        ];
+
+        foreach ($partial_data as $item_data) {
+            $this->assertFalse($item->save_value($item_data, $missing_id));
+            $this->assertSame($row_count, $this->database->table('items')->countAllResults());
+        }
+    }
+
+    /**
+     * Updates an existing item by its primary ID when another item's barcode equals that ID.
+     */
+    public function testExistingItemUpdatesWhenAnotherBarcodeEqualsItsId(): void
+    {
+        $this->requireDatabase();
+        $item        = $this->makeItem();
+        $target_data = $this->itemData('target-before-' . bin2hex(random_bytes(4)), 'Target item');
+        $this->assertTrue($item->save_value($target_data));
+        $owner_data = $this->itemData((string) $target_data['item_id'], 'Numeric barcode owner');
+        $this->assertTrue($item->save_value($owner_data));
+        $row_count   = $this->database->table('items')->countAllResults();
+        $update_data = ['name' => 'Updated target item'];
+
+        $this->assertTrue($item->save_value($update_data, (int) $target_data['item_id']));
+        $this->assertSame($row_count, $this->database->table('items')->countAllResults());
+        $this->assertSame('Updated target item', $this->database->table('items')->where('item_id', $target_data['item_id'])->get()->getRow('name'));
+        $this->assertSame('Numeric barcode owner', $this->database->table('items')->where('item_id', $owner_data['item_id'])->get()->getRow('name'));
+    }
+
+    /**
+     * Inserts a new named item through the ordinary new-item model path.
+     */
+    public function testNewNamedItemIsInserted(): void
+    {
+        $this->requireDatabase();
+        $item      = $this->makeItem();
+        $item_data = $this->itemData('named-new-item-' . bin2hex(random_bytes(4)), 'Named new item');
+
+        $this->assertTrue($item->save_value($item_data, NEW_ENTRY));
+        $this->assertSame('Named new item', $this->database->table('items')->where('item_id', $item_data['item_id'])->get()->getRow('name'));
+    }
+
+    /**
+     * Inserts a complete CSV-style row with an unknown positive item ID, preserving the importer path.
+     */
+    public function testNamedSaveWithUnknownPositiveIdStillInserts(): void
+    {
+        $this->requireDatabase();
+        $item                 = $this->makeItem();
+        $item_id              = $this->nextItemId() + 100;
+        $item_data            = $this->itemData('csv-unknown-id-' . bin2hex(random_bytes(4)), 'CSV unknown ID item');
+        $item_data['item_id'] = $item_id;
+
+        $this->assertTrue($item->save_value($item_data, $item_id));
+        $this->assertSame('CSV unknown ID item', $this->database->table('items')->where('item_id', $item_id)->get()->getRow('name'));
+    }
+
+    /**
      * Rejects a duplicate manual barcode before the second item is saved.
      */
     public function testDuplicateBarcodeIsRejectedByTheSharedSavePath(): void
@@ -210,18 +281,23 @@ final class BarcodeGenerationTest extends CIUnitTestCase
     }
 
     /**
-     * Returns localized duplicate messages for the supported operator locales.
+     * Returns duplicate messages with the owner name and ID in the shop languages.
      */
-    public function testDuplicateMessagesNameTheExistingItemInAllSupportedLanguages(): void
+    public function testDuplicateMessagesNameTheExistingItemInShopLanguages(): void
     {
         foreach (['en', 'ar-EG', 'ar-LB'] as $locale) {
-            $message = lang('Items.item_number_duplicate', ['Coffee'], $locale);
+            $message = lang('Items.item_number_duplicate', ['Coffee', '1424'], $locale);
 
             $this->assertStringContainsString('Coffee', $message, $locale);
+            $this->assertStringContainsString('1424', $message, $locale);
             $this->assertNotSame('', $message, $locale);
-            $csv_message = lang('Items.csv_import_barcode_duplicate', [2, '000 123', 'Coffee'], $locale);
+        }
+
+        foreach (['en', 'ar-EG', 'ar-LB'] as $locale) {
+            $csv_message = lang('Items.csv_import_barcode_duplicate', [2, '000 123', 'Coffee', '1424'], $locale);
             $this->assertStringContainsString('000 123', $csv_message, $locale);
             $this->assertStringContainsString('Coffee', $csv_message, $locale);
+            $this->assertStringContainsString('1424', $csv_message, $locale);
         }
     }
 
@@ -274,6 +350,7 @@ final class BarcodeGenerationTest extends CIUnitTestCase
         $this->assertStringContainsString('2', $response['message']);
         $this->assertStringContainsString('000 123 & "quote"', $response['message']);
         $this->assertStringContainsString('Spreadsheet owner', $response['message']);
+        $this->assertStringContainsString((string) $owner_data['item_id'], $response['message']);
     }
 
     /**
@@ -411,7 +488,7 @@ final class BarcodeGenerationTest extends CIUnitTestCase
             },
         );
         $item->method('generate_item_number')->with(123)->willReturn('2000000000123');
-        $item->method('get_item_number_owner')->with('2000000000123', '-1')->willReturn((object) ['name' => 'Generated form owner']);
+        $item->method('get_item_number_owner')->with('2000000000123', '-1')->willReturn((object) ['item_id' => 1424, 'name' => 'Generated form owner']);
 
         $request = new IncomingRequest(new App(), new URI('/items/save'), null, new UserAgent());
         $request->setGlobal('post', [
@@ -465,6 +542,7 @@ final class BarcodeGenerationTest extends CIUnitTestCase
 
         $this->assertFalse($response['success']);
         $this->assertStringContainsString('Generated form owner', $response['message']);
+        $this->assertStringContainsString('1424', $response['message']);
     }
 
     /**
@@ -549,7 +627,81 @@ final class BarcodeGenerationTest extends CIUnitTestCase
 
         $this->assertFalse($response['success']);
         $this->assertStringContainsString('Sales duplicate owner', $response['message']);
+        $this->assertStringContainsString((string) $owner_data['item_id'], $response['message']);
         $this->assertSame('sales-target', $this->database->table('items')->where('item_id', $target_data['item_id'])->get()->getRow('item_number'));
+    }
+
+    /**
+     * Returns a clear error and inserts nothing when the register barcode endpoint receives a missing item ID.
+     */
+    public function testSalesRegisterRejectsBarcodeUpdateForMissingItem(): void
+    {
+        $this->requireDatabase();
+        $item         = $this->makeItem();
+        $missing_id   = $this->nextItemId() + 100;
+        $row_count    = $this->database->table('items')->countAllResults();
+        $sale_library = $this->makeSaleLibrary([]);
+        $controller   = $this->makeSalesController($item, $sale_library, [
+            'item_id'     => (string) $missing_id,
+            'item_number' => 'missing-register-item-' . bin2hex(random_bytes(4)),
+        ]);
+
+        ob_start();
+        $controller->postChangeItemNumber();
+        $response = json_decode((string) ob_get_clean(), true);
+
+        $this->assertFalse($response['success']);
+        $this->assertSame(lang('Items.cannot_find_item'), $response['message']);
+        $this->assertSame($row_count, $this->database->table('items')->countAllResults());
+    }
+
+    /**
+     * Rejects missing new-item names and prices before an item row can be saved.
+     */
+    public function testPostSaveRejectsBlankNameAndEmptyNewItemPrices(): void
+    {
+        $this->requireDatabase();
+        $row_count = $this->database->table('items')->countAllResults();
+        $cases     = [
+            ['name' => ''],
+            ['name' => '   '],
+            ['name' => 'Missing cost', 'cost_price' => ''],
+            ['name' => 'Missing retail', 'unit_price' => ''],
+        ];
+
+        foreach ($cases as $case) {
+            $post       = $this->itemSavePost($case);
+            $controller = $this->makeItemSaveController($post);
+            ob_start();
+            $controller->postSave(NEW_ENTRY);
+            $response = json_decode((string) ob_get_clean(), true);
+
+            $this->assertFalse($response['success']);
+            $this->assertSame(
+                in_array($case['name'], ['', '   '], true)
+                    ? lang('Items.name_required')
+                    : (array_key_exists('cost_price', $case) ? lang('Items.cost_price_required') : lang('Items.unit_price_required')),
+                $response['message'],
+            );
+            $this->assertSame($row_count, $this->database->table('items')->countAllResults());
+        }
+    }
+
+    /**
+     * Accepts deliberately typed zero prices through the full new-item save endpoint.
+     */
+    public function testPostSaveAcceptsTypedZeroPrices(): void
+    {
+        $this->requireDatabase();
+        $post       = $this->itemSavePost(['name' => 'Zero price item', 'cost_price' => '0', 'unit_price' => '0']);
+        $controller = $this->makeItemSaveController($post);
+        ob_start();
+        $controller->postSave(NEW_ENTRY);
+        $response = json_decode((string) ob_get_clean(), true);
+
+        $this->assertTrue($response['success']);
+        $this->assertSame('0.00', $this->database->table('items')->where('item_id', $response['id'])->get()->getRow('cost_price'));
+        $this->assertSame('0.00', $this->database->table('items')->where('item_id', $response['id'])->get()->getRow('unit_price'));
     }
 
     /**
@@ -896,6 +1048,70 @@ final class BarcodeGenerationTest extends CIUnitTestCase
         $this->assignProperty($controller, 'config', ['barcode_generate_if_empty' => '1']);
 
         return $controller;
+    }
+
+    /**
+     * Creates an item save controller with database-backed dependencies and a valid exchange rate.
+     */
+    private function makeItemSaveController(array $post): ItemsController
+    {
+        $request = new IncomingRequest(new App(), new URI('/items/save'), null, new UserAgent());
+        $request->setGlobal('post', $post);
+        $request->setGlobal('request', $post);
+
+        $employee = $this->createMock(Employee::class);
+        $employee->method('get_logged_in_employee_info')->willReturn((object) ['person_id' => 1]);
+
+        $controller = (new ReflectionClass(ItemsController::class))->newInstanceWithoutConstructor();
+        $this->assignProperty($controller, 'request', $request);
+        $this->assignProperty($controller, 'employee', $employee);
+        $this->assignProperty($controller, 'attribute', new Attribute());
+        $this->assignProperty($controller, 'inventory', new Inventory());
+        $this->assignProperty($controller, 'item', $this->makeItem());
+        $this->assignProperty($controller, 'item_quantity', new Item_quantity());
+        $this->assignProperty($controller, 'item_taxes', new Item_taxes());
+        $this->assignProperty($controller, 'stock_location', new Stock_location());
+        $this->assignProperty($controller, 'config', [
+            'barcode_generate_if_empty' => '0',
+            'currency_decimals'         => '2',
+            'currency_symbol'           => '$',
+            'lbp_exchange_rate'         => '90000',
+            'number_locale'             => 'en_US',
+            'quantity_decimals'         => '0',
+            'tax_decimals'              => '2',
+            'tax_included'              => '1',
+            'thousands_separator'       => '1',
+            'use_destination_based_tax' => false,
+        ]);
+
+        return $controller;
+    }
+
+    /**
+     * Supplies a complete New Item request, with overrides for the test case.
+     */
+    private function itemSavePost(array $overrides = []): array
+    {
+        return array_merge([
+            'name'                 => 'Item save fixture',
+            'description'          => '',
+            'category'             => 'Test',
+            'item_type'            => (string) ITEM,
+            'stock_type'           => (string) HAS_NO_STOCK,
+            'supplier_id'          => '',
+            'item_number'          => '',
+            'cost_price'           => '1000',
+            'unit_price'           => '2000',
+            'reorder_level'        => '0',
+            'receiving_quantity'   => '1',
+            'qty_per_pack'         => '1',
+            'pack_name'            => 'Each',
+            'low_sell_item_id'     => (string) NEW_ENTRY,
+            'hsn_code'             => '',
+            'tax_mode'             => 'inherit',
+            'tax_exemption_reason' => 'exempt',
+            'tax_category_id'      => '',
+        ], $overrides);
     }
 
     /**
